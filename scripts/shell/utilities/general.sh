@@ -176,7 +176,6 @@ help() {
     echo ""
     
     echo "🌐 NETWORK & API"
-    echo "  add_req <collection> <name> \"<curl>\" - Add curl to ATAC collection"
     echo "  curlj         - curl with auto JSON detection & jqp viewer"
     echo ""
     

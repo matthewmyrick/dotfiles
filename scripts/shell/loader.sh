@@ -47,7 +47,7 @@ shell_modules() {
     echo "  git           - Git utilities and helpers (ghc, ffgn, fpr)"
     echo "  navigation    - File/directory navigation tools (ff, ffn, fch, y)"
     echo "  utilities     - General utility functions (k_port, brewf, togglenetskope, etc.)"
-    echo "  network       - Network and API tools (add_req, curl_with_jqp)"
+    echo "  network       - Network and API tools (curl_with_jqp)"
     echo "  observability - Datadog and monitoring tools (ddsl, ddsl-config)"
     echo "  prompt        - Prompt configuration (always loaded)"
     echo "  azure         - Azure tools (azv - Key Vault fuzzy finder)"
@@ -74,7 +74,6 @@ shell_loaded() {
     command -v ff >/dev/null && echo "  ✓ navigation/finders (ff, ffn, fft, fftg, fch, y)"
     command -v togglenetskope >/dev/null && echo "  ✓ utilities/general (togglenetskope, r_xml, k_port, brewf, help)"
     command -v ttn >/dev/null && echo "  ✓ utilities/terminal-tabs (ttn, tatn)"
-    command -v add_req >/dev/null && echo "  ✓ network/api (add_req, curl_with_jqp)"
     command -v ddsl >/dev/null && echo "  ✓ observability/datadog (ddsl, ddc, ddsl-config)"
     command -v azv >/dev/null && echo "  ✓ azure/keyvault (azv - Azure Key Vault fuzzy finder)"
     
