@@ -24,6 +24,7 @@ function installDotfiles() {
   echo "  .vimrc"
   cp .vimrc ~
   echo "  nvim"
+  rm -rf ~/.config/nvim
   cp -R nvim ~/.config/
   echo "  yazi"
   cp -R yazi ~/.config/
@@ -151,6 +152,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     blueutil xmlstarlet golangci-lint
     jq ripgrep gh lazygit lazydocker
     btop lnav ripgrep nvim libpq
+    go node pipx
   )
 
   # Install or upgrade each package
@@ -211,7 +213,6 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     brew install pipx
     pipx ensurepath
   fi
-
   # Install rich using pipx or pip with break-system-packages
   echo "  📦 Checking rich (Python formatter)..."
 
