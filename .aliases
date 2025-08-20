@@ -38,4 +38,9 @@ alias tfs="terraform show"
 alias tfv="terraform validate"
 alias tfc="terraform console"
 
-
+# task warrior
+alias tka="task add"
+alias tk="task"
+alias tkl="task list"
+alias tkc="task completed"
+alias tkd="task deleted"
