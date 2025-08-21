@@ -37,7 +37,7 @@ function installDotfiles() {
   if [ -d "task/hooks" ]; then
     echo "    - Setting up task hooks..."
     mkdir -p ~/.task/hooks
-    
+
     # Copy all hook scripts from task/hooks to ~/.task/hooks
     for hook in task/hooks/*.sh; do
       if [ -f "$hook" ]; then
@@ -47,10 +47,10 @@ function installDotfiles() {
         chmod +x ~/.task/hooks/"$hook_name"
       fi
     done
-    
+
     echo "    ✓ Task hooks installed successfully"
   fi
-  
+
   echo "  ghostty"
   cp -R ghostty ~/.config/ghostty
 
@@ -172,7 +172,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     bat kubectx k9s neovim
     blueutil xmlstarlet golangci-lint
     jq ripgrep gh lazygit lazydocker
-    btop lnav ripgrep nvim libpq
+    btop lnav ripgrep nvm libpq
     go node pipx task
   )
 

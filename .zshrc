@@ -96,6 +96,11 @@ if command -v go &>/dev/null; then
     _add_to_path_if_exists "$(go env GOPATH)/bin"
 fi
 
+# NVM (Node Version Manager)
+export NVM_DIR="$HOME/.nvm"
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && source "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && source "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
+
 # Homebrew binaries
 _add_to_path_if_exists "$(brew --prefix 2>/dev/null)/bin"
 
