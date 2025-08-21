@@ -1,30 +1,21 @@
 return {
-  {
-    "zbirenbaum/copilot.lua",
-    cmd = "Copilot",
-    event = "InsertEnter",
-    opts = {
-      suggestion = { 
-        enabled = false,
-        auto_trigger = false,
-      },
-      panel = { 
-        enabled = false,
-      },
-      filetypes = {
-        ["*"] = false, -- Disable for all file types
-      },
-    },
-    config = function(_, opts)
-      require("copilot").setup(opts)
-      -- Suppress Copilot warnings
-      local notify = vim.notify
-      vim.notify = function(msg, ...)
-        if msg:match("Copilot") and msg:match("disabled") then
-          return
-        end
-        return notify(msg, ...)
-      end
-    end,
-  },
+  -- Copilot is completely disabled
+  -- To re-enable, uncomment the configuration below
+  -- {
+  --   "zbirenbaum/copilot.lua",
+  --   cmd = "Copilot",
+  --   event = "InsertEnter",
+  --   opts = {
+  --     suggestion = { 
+  --       enabled = true,
+  --       auto_trigger = true,
+  --     },
+  --     panel = { 
+  --       enabled = true,
+  --     },
+  --     filetypes = {
+  --       ["*"] = true, -- Enable for all file types
+  --     },
+  --   },
+  -- },
 }
