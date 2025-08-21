@@ -165,6 +165,8 @@ return {
       lspconfig.gopls.setup({
         capabilities = capabilities,
         settings = opts.servers.gopls.settings,
+        root_dir = lspconfig.util.root_pattern("go.work", "go.mod", ".git"),
+        single_file_support = false, -- Don't activate for single Go files outside modules
         on_attach = function(client, bufnr)
           -- Enable inlay hints
           if client.server_capabilities.inlayHintProvider then
