@@ -10,7 +10,7 @@
 
 # --- PERFORMANCE PROFILING (Optional) ---
 # Uncomment the following line to profile shell startup time
-# zmodload zsh/zprof
+zmodload zsh/zprof
 
 # --- ASCII LOGO ---
 # Display ASCII art on terminal startup
@@ -96,12 +96,20 @@ if command -v go &>/dev/null; then
     _add_to_path_if_exists "$(go env GOPATH)/bin"
 fi
 
-# NVM (Node Version Manager)
+# --- Lazy nvm loader ---
 export NVM_DIR="$HOME/.nvm"
-[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && source "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
-[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && source "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 
-# Homebrew binaries
+# Load nvm only when actually needed
+nvm()  { unset -f nvm;  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; nvm "$@"; }
+
+# Auto-use .nvmrc only when you run node/npm/npx (not on shell start)
+__nvm_auto_use() {
+  typeset -f nvm >/dev/null || { unset -f nvm node npm npx; . "$NVM_DIR/nvm.sh"; }
+  if [ -f .nvmrc ]; then nvm use --silent >/dev/null 2>&1 || true; fi
+}
+node() { __nvm_auto_use; command node "$@"; }
+npm()  { __nvm_auto_use; command npm  "$@"; }
+npx()  { __nvm_auto_use; command npx  "$@"; }# Homebrew binaries
 _add_to_path_if_exists "$(brew --prefix 2>/dev/null)/bin"
 
 # Rancher Desktop (if installed)
@@ -148,10 +156,6 @@ source "$HOME/GitHub/matthewmyrick/dotfiles/scripts/shell/loader.sh"
 #    - To enable curl JSON detection globally, uncomment the alias in loader.sh
 #    - To disable telemetry for Python, don't use the python_telemetry alias
 
-# --- END OF CONFIGURATION ---
-# Profile results (if enabled)
-# zprof
-
 # --- SAFETY: Ensure shell modules are loaded ---
 # This ensures functions are available even if there was an error above
 if ! type shell_loaded &>/dev/null; then
@@ -159,3 +163,9 @@ if ! type shell_loaded &>/dev/null; then
 fi
 
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+
+# --- END OF CONFIGURATION ---
+# Profile results (if enabled) - uses enhanced zprof from telemetry/shell.sh
+if [[ -n "${modules[zsh/zprof]}" ]]; then
+  zprof
+fi
