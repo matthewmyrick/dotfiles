@@ -109,7 +109,7 @@ __nvm_auto_use() {
 }
 node() { __nvm_auto_use; command node "$@"; }
 npm()  { __nvm_auto_use; command npm  "$@"; }
-npx()  { __nvm_auto_use; command npx  "$@"; }# Homebrew binaries
+npx()  { __nvm_auto_use; command npx  "$@"; }
 _add_to_path_if_exists "$(brew --prefix 2>/dev/null)/bin"
 
 # Rancher Desktop (if installed)
@@ -165,7 +165,5 @@ fi
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 
 # --- END OF CONFIGURATION ---
-# Profile results (if enabled) - uses enhanced zprof from telemetry/shell.sh
-if [[ -n "${modules[zsh/zprof]}" ]]; then
-  zprof
-fi
+# Profile results (if enabled)
+zprof

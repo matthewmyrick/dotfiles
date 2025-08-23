@@ -27,11 +27,16 @@ prompt_header() {
     echo -e "${header}";
 }
 
-# prompt
-precmd() {
+# prompt function to add to precmd_functions
+prompt_precmd() {
     echo # add newline before prompt header
     print -rP "$(prompt_header)"
 }
+
+# Add to precmd_functions array instead of defining precmd directly
+if [[ ! " ${precmd_functions[@]} " =~ " prompt_precmd " ]]; then
+    precmd_functions+=(prompt_precmd)
+fi
 
 PROMPT="%B%F{15}$%f%b ";
 PS2="%B%F{136}→%f%b ";

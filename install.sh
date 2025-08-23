@@ -173,7 +173,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     blueutil xmlstarlet golangci-lint
     jq ripgrep gh lazygit lazydocker
     btop lnav ripgrep nvm libpq
-    go node pipx task
+    go node pipx task bandwhich htop watch
+    grc nmap iproute2mac hyperfine
   )
 
   # Install or upgrade each package

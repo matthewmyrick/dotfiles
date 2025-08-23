@@ -9,9 +9,8 @@ zprof() {
   # Run the real/builtin zprof and capture output
   local _tmp
   _tmp=$(mktemp)
-  builtin zprof >|"$(_tmp =${_tmp})" # store to file
-  command cat "$_tmp"                # show full table as usual
-  print                              # spacer
+  builtin zprof >|"$_tmp" # store to file
+  # Skip showing the full table - we only want the top 3 summary
 
   # Parse the first table's top 3 entries: rank, name, total, self
   local _top

@@ -1,5 +1,8 @@
 return {
-  -- Override LazyVim's bufferline configuration
+  -- Disable LazyVim's default bufferline config
+  { "akinsho/bufferline.nvim", enabled = false },
+  
+  -- Custom bufferline configuration
   {
     "akinsho/bufferline.nvim",
     event = "VeryLazy",
@@ -8,28 +11,24 @@ return {
       { "<leader>bp", "<Cmd>BufferLineTogglePin<CR>", desc = "Toggle pin" },
       { "<leader>bP", "<Cmd>BufferLineGroupClose ungrouped<CR>", desc = "Delete non-pinned buffers" },
     },
-    opts = function(_, opts)
-      -- Merge with LazyVim's default options if they exist
-      opts = vim.tbl_deep_extend("force", opts or {}, {
-        options = {
-          mode = "buffers",
-          separator_style = "slant",
-          always_show_bufferline = true,
-          show_buffer_close_icons = false,
-          show_close_icon = false,
-          color_icons = true,
-          diagnostics = "nvim_lsp",
-          offsets = {
-            {
-              filetype = "snacks_explorer",
-              text = "File Explorer",
-              highlight = "Directory",
-              text_align = "left",
-            },
+    opts = {
+      options = {
+        mode = "buffers",
+        separator_style = "slant",
+        always_show_bufferline = true,
+        show_buffer_close_icons = false,
+        show_close_icon = false,
+        color_icons = true,
+        diagnostics = "nvim_lsp",
+        offsets = {
+          {
+            filetype = "snacks_explorer",
+            text = "File Explorer",
+            highlight = "Directory",
+            text_align = "left",
           },
         },
-      })
-      return opts
-    end,
+      },
+    },
   },
 }
