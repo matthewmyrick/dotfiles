@@ -271,6 +271,16 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
   cargo install --git https://github.com/MatthewMyrick/quill
   go install github.com/MatthewMyrick/bluetooth-tui@latest
   go install github.com/matthewmyrick/azure-searcher@latest
+  
+  # Install rust-analyzer for Rust LSP support in Neovim
+  echo "Installing rust-analyzer for Rust development..."
+  if command -v rustup &>/dev/null; then
+    rustup component add rust-analyzer
+    echo "  ✓ rust-analyzer installed successfully"
+  else
+    echo "  ⚠️  rustup not found. Please install Rust toolchain first."
+  fi
+  
   echo "Additional tools installed."
 
   echo "Setting up Python virtual environment for Neovim..."
