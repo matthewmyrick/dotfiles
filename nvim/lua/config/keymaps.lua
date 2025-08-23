@@ -180,6 +180,56 @@ vim.keymap.set("n", "<leader>bd", function()
     vim.notify("Buffer deleted", vim.log.levels.INFO)
 end, { desc = "Delete current buffer" })
 
+-- Move to beginning of text objects (like vi but just moves cursor)
+-- This uses a custom function to properly handle text object movements
+
+-- Function to move cursor to beginning of text object
+local function move_to_text_object_start(inside, text_obj)
+    return function()
+        -- Save current position
+        local cur_pos = vim.api.nvim_win_get_cursor(0)
+        
+        -- Use visual mode to select the text object, then jump to start
+        if inside then
+            vim.cmd("normal! vi" .. text_obj .. "\x1b`<")
+        else
+            vim.cmd("normal! va" .. text_obj .. "\x1b`<")
+        end
+        
+        -- If cursor didn't move (text object not found), restore position
+        local new_pos = vim.api.nvim_win_get_cursor(0)
+        if new_pos[1] == cur_pos[1] and new_pos[2] == cur_pos[2] then
+            vim.api.nvim_win_set_cursor(0, cur_pos)
+        end
+    end
+end
+
+-- Define text objects to map
+local text_objects = {
+    ["b"] = "b", -- brackets/parentheses ()
+    ["B"] = "B", -- curly braces {}
+    ["]"] = "]", -- square brackets []
+    [">"] = ">", -- angle brackets <>
+    ["'"] = "'", -- single quotes
+    ['"'] = '"', -- double quotes
+    ["`"] = "`", -- backticks
+    ["t"] = "t", -- tags (HTML/XML)
+    ["w"] = "w", -- word
+    ["W"] = "W", -- WORD
+    ["s"] = "s", -- sentence
+    ["p"] = "p", -- paragraph
+    ["q"] = '"', -- quotes shortcut
+    ["i"] = "i", -- general inside (for things like gii)
+}
+
+-- Create keymaps for all text objects using 'gt' prefix (go to beginning)
+for key, obj in pairs(text_objects) do
+    vim.keymap.set("n", "gti" .. key, move_to_text_object_start(true, obj), 
+        { desc = "Move to beginning inside " .. key, silent = true })
+    vim.keymap.set("n", "gta" .. key, move_to_text_object_start(false, obj), 
+        { desc = "Move to beginning around " .. key, silent = true })
+end
+
 -- Go specific keymaps
 vim.api.nvim_create_autocmd("FileType", {
     pattern = "go",
