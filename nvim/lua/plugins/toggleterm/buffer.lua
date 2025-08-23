@@ -48,7 +48,19 @@ function M.setup()
     
     -- Claude Buffer Terminal
     vim.api.nvim_create_user_command("ClaudeBufferTerm", function()
-        vim.cmd("terminal claude")
+        -- Get the current Node version from NVM
+        local nvm_dir = vim.fn.expand("$HOME/.nvm")
+        local node_version = vim.fn.system("source " .. nvm_dir .. "/nvm.sh && nvm current"):gsub("%s+", "")
+        local claude_path = nvm_dir .. "/versions/node/" .. node_version .. "/bin/claude"
+        
+        -- Check if claude exists at this path
+        if vim.fn.filereadable(claude_path) == 1 then
+            vim.cmd("terminal " .. claude_path)
+        else
+            -- Fallback to trying claude directly
+            vim.cmd("terminal claude")
+        end
+        
         vim.schedule(function()
             set_terminal_name("claude")
         end)

@@ -80,8 +80,19 @@ function M.setup()
 
     -- Claude Terminal
     vim.api.nvim_create_user_command("ClaudeTerm", function()
+        -- Get the current Node version from NVM
+        local nvm_dir = vim.fn.expand("$HOME/.nvm")
+        local node_version = vim.fn.system("source " .. nvm_dir .. "/nvm.sh && nvm current"):gsub("%s+", "")
+        local claude_path = nvm_dir .. "/versions/node/" .. node_version .. "/bin/claude"
+        
+        -- Use claude path if it exists, otherwise fallback
+        local cmd = "claude"
+        if vim.fn.filereadable(claude_path) == 1 then
+            cmd = claude_path
+        end
+        
         local term = require("toggleterm.terminal").Terminal:new({
-            cmd = "claude",
+            cmd = cmd,
             direction = "float",
             float_opts = {
                 border = "curved",
