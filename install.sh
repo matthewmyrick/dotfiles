@@ -1,130 +1,64 @@
 #!/bin/bash
 
+# Modular dotfiles installer
 # adapted from https://github.com/mathiasbynens/dotfiles/blob/main/bootstrap.sh
 
+# Get the directory where this script is located
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 function installDotfiles() {
-  echo "Installing:"
-
-  # Get the directory where this script is located
-  DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-  # copy files to home
-  echo "  .aliases"
-  cp .aliases ~
-  echo "  .bash_profile"
-  cp .bash_profile ~
-  echo "  .bash_prompt"
-  cp .bash_prompt ~
-  echo "  .bashrc"
-  cp .bashrc ~
-  echo "  .zshrc"
-  cp .zshrc ~
-  echo "  .wezterm.lua"
-  cp .wezterm.lua ~
-  echo "  .vimrc"
-  cp .vimrc ~
-  echo "  nvim"
-  rm -rf ~/.config/nvim
-  cp -R nvim ~/.config/
-  echo "  yazi"
-  cp -R yazi ~/.config/
-  # echo "   kitty"
-  # cp -R kitty ~/.config/
-  rm -rf ~/.task/hooks
-
-  echo "  task"
-  # Setup task hooks
-  if [ -d "task/hooks" ]; then
-    echo "    - Setting up task hooks..."
-    mkdir -p ~/.task/hooks
-
-    # Copy all hook scripts from task/hooks to ~/.task/hooks
-    for hook in task/hooks/*.sh; do
-      if [ -f "$hook" ]; then
-        hook_name=$(basename "$hook" .sh)
-        echo "      Installing hook: $hook_name"
-        cp "$hook" ~/.task/hooks/"$hook_name"
-        chmod +x ~/.task/hooks/"$hook_name"
-      fi
-    done
-
-    echo "    ✓ Task hooks installed successfully"
-  fi
-
-  echo "  ghostty"
-  cp -R ghostty ~/.config/ghostty
-
-  # Install custom Ghostty icon if Ghostty is installed
-  # if [ -d "/Applications/Ghostty.app" ] && [ -f "ghostyy/icon/sublime.icns" ]; then
-  #   echo "  Installing custom Ghostty icon..."
-  #   # Backup original icon
-  #   if [ ! -f "/Applications/Ghostty.app/Contents/Resources/AppIcon-backup.icns" ]; then
-  #     sudo cp /Applications/Ghostty.app/Contents/Resources/AppIcon.icns /Applications/Ghostty.app/Contents/Resources/AppIcon-backup.icns
-  #   fi
-  #   # Install custom icon
-  #   sudo cp ghostyy/icon/sublime.icns /Applications/Ghostty.app/Contents/Resources/AppIcon.icns
-  #   # Clear icon cache
-  #   sudo rm -rf /Library/Caches/com.apple.iconservices.store 2>/dev/null
-  #   killall Dock 2>/dev/null
-  #   echo "    ✓ Custom Ghostty icon installed"
-  # fi
-
-  echo "  karabiner"
-  # Close Karabiner if it's running before copying config
-  osascript -e 'tell application "Karabiner-Elements" to quit' 2>/dev/null || true
-  osascript -e 'tell application "Karabiner-EventViewer" to quit' 2>/dev/null || true
-
-  # Copy the configuration
-  cp -R keyboard/mac/karabiner ~/.config/
-
-  # Reload Karabiner configuration without opening the GUI
-  # This uses the CLI tool to reload config silently
-  if command -v '/Library/Application Support/org.pqrs/Karabiner-Elements/bin/karabiner_cli' &>/dev/null; then
-    '/Library/Application Support/org.pqrs/Karabiner-Elements/bin/karabiner_cli' --reload-karabiner-config 2>/dev/null || true
-  fi
-
-  # Create necessary directories
-  echo "Creating script directories..."
-  mkdir -p ~/.local/bin
-  mkdir -p ~/GitHub/matthewmyrick/dotfiles/scripts
-
-  # Handle scripts directory with new structure
-  echo "  scripts"
-
-  # Copy Python scripts to ~/.local/bin (if they're executables)
-  if [ -d "scripts/python" ] && [ "$(ls -A scripts/python/*.py 2>/dev/null)" ]; then
-    echo "    - Python scripts to ~/.local/bin"
-    for script in scripts/python/*.py; do
-      if [ -f "$script" ] && [ -x "$script" ]; then
-        cp "$script" ~/.local/bin/
-      fi
-    done
-  fi
-
-  # Copy the entire scripts directory structure for shell modules
-  # This preserves the modular organization
-  echo "    - Shell modules to ~/GitHub/matthewmyrick/dotfiles/scripts"
-  if [ -d "scripts" ]; then
-    # Ensure the destination exists
-    mkdir -p ~/GitHub/matthewmyrick/dotfiles
-    # Copy the entire scripts directory structure
-    cp -R scripts ~/GitHub/matthewmyrick/dotfiles/
-    echo "      ✓ Copied modular shell functions"
-    echo "      ✓ Copied shell module loader"
-    echo "      ✓ Preserved directory structure for lazy loading"
-  fi
-
-  # Handle telemetry formatter separately if needed
-  if [ -f "scripts/python/telemetry.py" ]; then
-    echo "    - Telemetry formatter"
-    mkdir -p ~/.config/zsh/scripts
-    cp scripts/python/telemetry.py ~/.config/zsh/scripts/telemetry_formatter.py
-  fi
-
-  echo "  .gitconfig - Automatic installation not supported at this time."
-
+  echo "🚀 Starting modular dotfiles installation..."
   echo ""
-  echo "dotfiles have been updated successfully!"
+
+  # Define the order of installation
+  local INSTALL_ORDER=(
+    "dependencies"
+    "dotfiles"
+    "sdks"
+    "clis"
+    "development"
+    "macos"
+  )
+
+  # Function to run all scripts in a directory
+  run_scripts_in_dir() {
+    local dir="$1"
+    local full_path="$INSTALL_DIR/install/$dir"
+    
+    if [ -d "$full_path" ]; then
+      echo "═══════════════════════════════════════════════════════════════"
+      echo "🔄 Running $dir scripts..."
+      echo "═══════════════════════════════════════════════════════════════"
+      
+      # Find all .sh files in the directory and run them
+      find "$full_path" -name "*.sh" -type f | sort | while read -r script; do
+        if [ -x "$script" ] || chmod +x "$script" 2>/dev/null; then
+          echo ""
+          echo "▶️  Running $(basename "$script")..."
+          bash "$script" || {
+            echo "❌ Error running $script"
+            return 1
+          }
+        else
+          echo "⚠️  Skipping $script (not executable)"
+        fi
+      done
+      echo ""
+      echo "✅ $dir scripts completed"
+      echo ""
+    else
+      echo "⚠️  Directory $full_path not found, skipping..."
+    fi
+  }
+
+  # Run scripts in the defined order
+  for category in "${INSTALL_ORDER[@]}"; do
+    run_scripts_in_dir "$category"
+  done
+
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Dotfiles installation completed successfully!"
+  echo "═══════════════════════════════════════════════════════════════"
   echo ""
   echo "ℹ️  Shell Module System:"
   echo "  - Modular functions installed to ~/GitHub/matthewmyrick/dotfiles/scripts/shell/"
@@ -132,196 +66,31 @@ function installDotfiles() {
   echo "  - Run 'shell_modules' to see available modules"
   echo "  - Run 'shell_loaded' to see what's currently loaded"
   echo ""
-  echo "Please restart your shell or source the appropriate file:"
-  echo "- ~/.bash_profile"
-  echo "- ~/.zshrc"
+  echo "📋 Next Steps:"
+  echo "  - Restart your shell or source the appropriate file:"
+  echo "    • ~/.bash_profile"
+  echo "    • ~/.zshrc"
+  echo "  - .gitconfig - Manual setup required"
+  echo ""
 }
 
-# Function to install Homebrew if it's not already installed
-function install_homebrew() {
-  if ! command -v brew &>/dev/null; then
-    echo "Homebrew not found. Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    # Add Homebrew to PATH for the current session if it wasn't already
-    if [ -f "/opt/homebrew/bin/brew" ]; then # For Apple Silicon
-      eval "$(/opt/homebrew/bin/brew shellenv)"
-    elif [ -f "/usr/local/bin/brew" ]; then # For Intel Macs
-      eval "$(/usr/local/bin/brew shellenv)"
-    fi
-    echo "Homebrew installed successfully!"
-  else
-    echo "Homebrew is already installed."
-  fi
-}
+# Main execution
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║                     DOTFILES INSTALLER                       ║"
+echo "║                                                               ║"
+echo "║  This will install/update all dotfiles and dependencies      ║"
+echo "║  This is a one-way, destructive process for some configs     ║"
+echo "╚═══════════════════════════════════════════════════════════════╝"
+echo ""
 
-read -p "This is a one-way, destructive process. Are you sure? (y/n) " -n 1
+read -p "Are you sure you want to proceed? (y/n) " -n 1
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
   installDotfiles
-
-  # Check and install Homebrew
-  install_homebrew
-
-  # Install or upgrade the necessary packages using Homebrew
-  echo "Checking and installing/upgrading required packages with Homebrew..."
-
-  # List of required packages
-  BREW_PACKAGES=(
-    git eza fd fzf yazi
-    zsh-autosuggestions zsh-syntax-highlighting
-    bat kubectx k9s neovim
-    blueutil xmlstarlet golangci-lint
-    jq ripgrep gh lazygit lazydocker
-    btop lnav ripgrep nvm libpq
-    go node pipx task bandwhich htop watch
-    grc nmap iproute2mac hyperfine
-  )
-
-  # Install or upgrade each package
-  for package in "${BREW_PACKAGES[@]}"; do
-    if brew list --formula | grep -q "^${package}$"; then
-      echo "  📦 ${package} already installed, checking for updates..."
-      brew upgrade "$package" 2>/dev/null || echo "    ✓ ${package} is up to date"
-    else
-      echo "  📦 Installing ${package}..."
-      brew install "$package"
-    fi
-  done
-
-  brew link --force libpq
-  # brew isntall cask packages
-  echo "Checking and installing/upgrading cask packages..."
-
-  CASK_PACKAGES=(
-    # kitty
-    ghostty
-    karabiner-elements
-    nikitabobko/tap/aerospace
-  )
-
-  # Install or upgrade each cask package
-  for package in "${CASK_PACKAGES[@]}"; do
-    if brew list --cask | grep -q "^${package}$"; then
-      echo "  📦 ${package} already installed, checking for updates..."
-      brew upgrade --cask "$package" 2>/dev/null || echo "    ✓
-  ${package} is up to date"
-    else
-      echo "  📦 Installing ${package}..."
-      brew install --cask "$package"
-    fi
-  done
-
-  # taproom is a special case, it needs to be installed from the tap
-  brew tap gromgit/brewtils
-  brew install gromgit/brewtils/taproom
-
-  # Handle tap packages separately
-  echo "  📦 Checking jqp..."
-  if ! brew list --formula | grep -q "^jqp$"; then
-    echo "    Installing jqp from tap..."
-    brew install noahgorstein/tap/jqp
-  else
-    echo "    ✓ jqp already installed"
-  fi
-
-  echo "Homebrew packages ready."
-
-  # Install Python packages for shell tools
-  echo "Checking Python packages for shell tools..."
-
-  # Check if pipx is available (preferred for macOS)
-  if ! command -v pipx &>/dev/null; then
-    echo "  📦 Installing pipx for Python package management..."
-    brew install pipx
-    pipx ensurepath
-  fi
-  # Install rich using pipx or pip with break-system-packages
-  echo "  📦 Checking rich (Python formatter)..."
-
-  # Try to check if rich is available in PATH
-  if python3 -c "import rich" 2>/dev/null; then
-    echo "    ✓ rich is available"
-  else
-    echo "    Installing rich..."
-    # Try pipx first (preferred)
-    if command -v pipx &>/dev/null; then
-      pipx install rich-cli 2>/dev/null || true
-    fi
-
-    # If rich still not available, use pip with break-system-packages flag
-    if ! python3 -c "import rich" 2>/dev/null; then
-      python3 -m pip install --user --break-system-packages rich 2>/dev/null || {
-        echo "    ⚠️  Could not install rich automatically"
-        echo "    Try: python3 -m pip install --user --break-system-packages rich"
-      }
-    fi
-  fi
-
-  echo "Python packages ready."
-
-  # Fix Go linking if needed
-  if ! brew list go &>/dev/null; then
-    echo "Go not installed via Homebrew, skipping link fix."
-  else
-    echo "Ensuring Go is properly linked..."
-    brew link --overwrite go 2>/dev/null || true
-  fi
-
-  echo "Installing additional tools..."
-  cargo install --git https://github.com/MatthewMyrick/quill
-  go install github.com/MatthewMyrick/bluetooth-tui@latest
-  go install github.com/matthewmyrick/azure-searcher@latest
-  
-  # Install rust-analyzer for Rust LSP support in Neovim
-  echo "Installing rust-analyzer for Rust development..."
-  if command -v rustup &>/dev/null; then
-    rustup component add rust-analyzer
-    echo "  ✓ rust-analyzer installed successfully"
-  else
-    echo "  ⚠️  rustup not found. Please install Rust toolchain first."
-  fi
-  
-  echo "Additional tools installed."
-
-  echo "Setting up Python virtual environment for Neovim..."
-  if [ ! -d ~/.local/share/nvim/venv ]; then
-    echo "Creating new virtual environment..."
-    python3 -m venv ~/.local/share/nvim/venv
-  else
-    echo "Virtual environment already exists."
-  fi
-
-  source ~/.local/share/nvim/venv/bin/activate
-
-  # Check if packages are installed and update/install them
-  if pip show xlrd pylightxl &>/dev/null; then
-    echo "Packages already installed. Updating to latest versions..."
-    pip install --upgrade xlrd pylightxl
-  else
-    echo "Installing Python packages for Excel support..."
-    pip install xlrd pylightxl
-  fi
-
-  echo "Python virtual environment for Neovim configured."
-
-  # install claude if not installed and look for any updates needed
-  if ! command -v claude &>/dev/null; then
-    echo "Installing claude-cli..."
-    npm install -g @anthropic-ai/claude-code
-  else
-    echo "claude-cli is already installed, checking for updates..."
-    npm update -g @anthropic-ai/claude-code || echo "    ✓ claude-cli is up to date"
-  fi
-
-  # install gemini if not installed and look for any updates needed
-  if ! command -v gemini &>/dev/null; then
-    echo "Installing gemini-cli..."
-    npm install -g @google/gemini-cli
-  else
-    echo "gemini-cli is already installed, checking for updates..."
-    npm update -g @google/gemini-cli || echo "    ✓ gemini-cli is up to date"
-  fi
+else
+  echo "Installation cancelled."
+  exit 0
 fi
 
+# Cleanup
 unset installDotfiles
-unset install_homebrew

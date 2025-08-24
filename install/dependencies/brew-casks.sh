@@ -1,0 +1,37 @@
+#!/bin/bash
+
+echo "📦 Installing Homebrew cask packages..."
+
+CASK_PACKAGES=(
+  ghostty
+  karabiner-elements
+  nikitabobko/tap/aerospace
+)
+
+# Install or upgrade each cask package
+for package in "${CASK_PACKAGES[@]}"; do
+  if brew list --cask | grep -q "^${package}$"; then
+    echo "  📦 ${package} already installed, checking for updates..."
+    brew upgrade --cask "$package" 2>/dev/null || echo "    ✓ ${package} is up to date"
+  else
+    echo "  📦 Installing ${package}..."
+    brew install --cask "$package"
+  fi
+done
+
+# Handle tap packages
+echo "  📦 Installing tap packages..."
+
+# taproom
+brew tap gromgit/brewtils
+brew install gromgit/brewtils/taproom
+
+# jqp
+if ! brew list --formula | grep -q "^jqp$"; then
+  echo "    Installing jqp from tap..."
+  brew install noahgorstein/tap/jqp
+else
+  echo "    ✓ jqp already installed"
+fi
+
+echo "✓ Homebrew cask packages ready."
