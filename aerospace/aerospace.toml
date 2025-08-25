@@ -1,0 +1,157 @@
+# AeroSpace Configuration
+# https://github.com/nikitabobko/AeroSpace
+# Modern tiling window manager for macOS
+
+# Global settings
+accordion-padding = 30
+default-root-container-layout = 'tiles'
+default-root-container-orientation = 'auto'
+
+# Normalizations - fix common app behaviors
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+
+# Visual appearance
+[gaps]
+inner.horizontal = 8
+inner.vertical =   8
+outer.left =       8
+outer.bottom =     8
+outer.top =        8
+outer.right =      8
+
+# Workspace assignments (adjust monitor names as needed)
+[workspace-to-monitor-force-assignment]
+1 = 'main'      # Development workspace
+2 = 'main'      # Web browsing
+3 = 'main'      # Communication
+4 = 'main'      # General tasks
+5 = 'secondary' # Secondary monitor workspaces
+6 = 'secondary'
+7 = 'secondary' 
+8 = 'secondary'
+9 = 'secondary'
+
+# Main mode keybindings
+[mode.main.binding]
+
+# Focus navigation (Vim-style)
+alt-h = 'focus left'
+alt-j = 'focus down'
+alt-k = 'focus up'
+alt-l = 'focus right'
+
+# Window movement
+alt-shift-h = 'move left'
+alt-shift-j = 'move down'
+alt-shift-k = 'move up'
+alt-shift-l = 'move right'
+
+# Layout management
+alt-slash = 'layout tiles horizontal vertical'
+alt-comma = 'layout accordion horizontal vertical'
+
+# Workspace navigation
+alt-1 = 'workspace 1'
+alt-2 = 'workspace 2'
+alt-3 = 'workspace 3'
+alt-4 = 'workspace 4'
+alt-5 = 'workspace 5'
+alt-6 = 'workspace 6'
+alt-7 = 'workspace 7'
+alt-8 = 'workspace 8'
+alt-9 = 'workspace 9'
+alt-0 = 'workspace 10'
+
+# Move windows to workspaces
+alt-shift-1 = 'move-node-to-workspace 1'
+alt-shift-2 = 'move-node-to-workspace 2'
+alt-shift-3 = 'move-node-to-workspace 3'
+alt-shift-4 = 'move-node-to-workspace 4'
+alt-shift-5 = 'move-node-to-workspace 5'
+alt-shift-6 = 'move-node-to-workspace 6'
+alt-shift-7 = 'move-node-to-workspace 7'
+alt-shift-8 = 'move-node-to-workspace 8'
+alt-shift-9 = 'move-node-to-workspace 9'
+alt-shift-0 = 'move-node-to-workspace 10'
+
+# Window state management
+alt-shift-space = 'layout floating tiling'  # Toggle floating
+alt-f = 'fullscreen'                         # Toggle fullscreen
+
+# Window resizing
+alt-shift-minus = 'resize smart -50'
+alt-shift-equal = 'resize smart +50'
+
+# Service mode for advanced operations
+alt-semicolon = 'mode service'
+
+# Additional useful shortcuts
+alt-shift-c = 'reload-config'               # Reload config
+alt-shift-r = 'flatten-workspace-tree'      # Reset layout
+
+# Service mode keybindings
+[mode.service.binding]
+esc = ['reload-config', 'mode main']
+r = ['flatten-workspace-tree', 'mode main']
+f = ['layout floating tiling', 'mode main']
+backspace = ['close-all-windows-but-current', 'mode main']
+alt-shift-h = ['join-with left', 'mode main']
+alt-shift-j = ['join-with down', 'mode main']
+alt-shift-k = ['join-with up', 'mode main']
+alt-shift-l = ['join-with right', 'mode main']
+
+# Application-specific window rules
+[[on-window-detected]]
+if.app-id = 'com.apple.finder'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.systempreferences'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.SystemPreferences'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.calculator'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.ActivityMonitor'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.DigitalColorMeter'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.archiveutility'
+run = 'layout floating'
+
+# Development apps - tile by default (explicitly stated for clarity)
+[[on-window-detected]]
+if.app-id = 'com.microsoft.VSCode'
+run = 'layout tiling'
+
+[[on-window-detected]]
+if.app-id = 'com.github.wez.wezterm'
+run = 'layout tiling'
+
+[[on-window-detected]]
+if.app-id = 'com.mitchellh.ghostty'
+run = 'layout tiling'
+
+# Web browsers - tile by default
+[[on-window-detected]]
+if.app-id = 'com.google.Chrome'
+run = 'layout tiling'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.Safari'
+run = 'layout tiling'
+
+[[on-window-detected]]
+if.app-id = 'org.mozilla.firefox'
+run = 'layout tiling'

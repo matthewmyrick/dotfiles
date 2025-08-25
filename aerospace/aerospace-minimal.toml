@@ -1,0 +1,39 @@
+# Minimal AeroSpace Configuration for Testing
+# This should definitely work for basic tiling
+
+# Simple settings
+default-root-container-layout = 'tiles'
+default-root-container-orientation = 'horizontal'
+
+# No gaps for now (simpler)
+[gaps]
+inner.horizontal = 0
+inner.vertical = 0
+outer.left = 0
+outer.bottom = 0
+outer.top = 0
+outer.right = 0
+
+# Basic key bindings - using cmd instead of alt to avoid conflicts
+[mode.main.binding]
+# Use Cmd+Alt for movements to avoid conflicts
+cmd-alt-h = 'focus left'
+cmd-alt-l = 'focus right'
+cmd-alt-j = 'focus down'
+cmd-alt-k = 'focus up'
+
+# Workspace switching with Cmd+Ctrl (less likely to conflict)
+cmd-ctrl-1 = 'workspace 1'
+cmd-ctrl-2 = 'workspace 2' 
+cmd-ctrl-3 = 'workspace 3'
+
+# Move windows to workspaces
+cmd-ctrl-shift-1 = 'move-node-to-workspace 1'
+cmd-ctrl-shift-2 = 'move-node-to-workspace 2'
+cmd-ctrl-shift-3 = 'move-node-to-workspace 3'
+
+# Essential commands
+cmd-alt-f = 'fullscreen'
+cmd-alt-space = 'layout floating tiling'
+
+# No application-specific rules for now - let everything tile

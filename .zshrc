@@ -121,6 +121,11 @@ _add_to_path_if_exists "$(brew --prefix 2>/dev/null)/bin"
 # Rancher Desktop (if installed)
 _add_to_path_if_exists "$HOME/.rd/bin"
 
+# --- TOOL CONFIGURATIONS ---
+# tldr - disable auto-updates for faster execution
+export TLDR_AUTO_UPDATE_DISABLED=1
+export TLDR_CACHE_DIR="$HOME/.cache/tldr"
+
 # --- ALIASES ---
 # Load aliases from separate file
 [[ -f "$HOME/.aliases" ]] && source "$HOME/.aliases"

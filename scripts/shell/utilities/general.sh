@@ -115,6 +115,44 @@ brewf() {
     fi
 }
 
+# tldr configuration and wrapper
+tldr_setup() {
+    # Set tldr environment variables
+    export TLDR_AUTO_UPDATE_DISABLED=1  # Disable auto-updates
+    export TLDR_CACHE_DIR="$HOME/.cache/tldr"
+    
+    # Create cache directory if it doesn't exist
+    mkdir -p "$TLDR_CACHE_DIR"
+    
+    echo "✅ tldr configured:"
+    echo "  Auto-update disabled"
+    echo "  Cache directory: $TLDR_CACHE_DIR"
+    echo "  Use 'tldr --update' to manually update database"
+}
+
+# Enhanced tldr wrapper that handles updates gracefully
+tldr() {
+    # Set environment variables
+    export TLDR_AUTO_UPDATE_DISABLED=1
+    export TLDR_CACHE_DIR="$HOME/.cache/tldr"
+    
+    # If no arguments, show help
+    if [ $# -eq 0 ]; then
+        command tldr --help
+        return
+    fi
+    
+    # Handle update command
+    if [ "$1" = "--update" ] || [ "$1" = "-u" ]; then
+        echo "🔄 Updating tldr database..."
+        command tldr --update
+        return
+    fi
+    
+    # For all other commands, run tldr with auto-update disabled
+    command tldr "$@"
+}
+
 # Help command - Show all available aliases and custom commands with descriptions
 help() {
     echo "╔══════════════════════════════════════════════════════════════════════════════╗"
@@ -173,6 +211,9 @@ help() {
     echo "  brewf [action] - Interactive Homebrew TUI (install/uninstall/info)"
     echo "  ttn [name]    - Set terminal tab name with colored emoji"
     echo "  tatn          - Auto-update terminal tab name (runs on each prompt)"
+    echo "  tldr <cmd>    - Quick command examples (auto-update disabled)"
+    echo "  tldr --update - Manually update tldr database"
+    echo "  slp           - Put computer to sleep"
     echo ""
     
     echo "🌐 NETWORK & API"

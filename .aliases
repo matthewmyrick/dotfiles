@@ -1,10 +1,16 @@
-# directories
+# directories (enhanced with zoxide smart jumping)
 alias home='cd ~'
 alias ..='cd ..'
 alias ...='cd ../..'
 alias back='cd -'
 alias root='cd /'
 alias repos='cd ~/source/repos'
+
+# zoxide shortcuts
+alias zi='zi'  # Interactive directory picker
+alias za='zoxide add'  # Manually add directory to database
+alias zq='zoxide query'  # Query directory database
+alias zr='zoxide remove'  # Remove directory from database
 
 # ls
 alias ls='eza --icons --git --color=always --group-directories-first --tree --level=2 --no-permissions --no-user --no-time --all'
@@ -44,3 +50,6 @@ alias tk="task"
 alias tkl="task list"
 alias tkc="task completed"
 alias tkd="task deleted"
+
+# system control
+alias slp="pmset sleepnow"

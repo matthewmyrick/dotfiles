@@ -20,9 +20,7 @@ echo "  Installing Neovim config..."
 rm -rf ~/.config/nvim
 cp -R "$DOTFILES_DIR/nvim" ~/.config/
 
-# Install other configs
-echo "  Installing yazi config..."
-cp -R "$DOTFILES_DIR/yazi" ~/.config/
+# yazi removed - no longer needed
 
 echo "  Installing ghostty config..."
 cp -R "$DOTFILES_DIR/ghostty" ~/.config/ghostty

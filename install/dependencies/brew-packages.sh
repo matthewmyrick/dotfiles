@@ -4,7 +4,7 @@ echo "📦 Installing Homebrew packages..."
 
 # List of required packages
 BREW_PACKAGES=(
-  git eza fd fzf yazi
+  git eza fd fzf zoxide
   zsh-autosuggestions zsh-syntax-highlighting
   bat kubectx k9s neovim
   blueutil xmlstarlet golangci-lint
