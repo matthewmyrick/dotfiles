@@ -96,26 +96,13 @@ if command -v go &>/dev/null; then
     _add_to_path_if_exists "$(go env GOPATH)/bin"
 fi
 
-# --- Lazy nvm loader ---
+# --- Node.js Configuration ---
+# Use Homebrew Node.js by default (it's already in PATH via brew)
+# NVM is available if needed with explicit nvm commands
+
 export NVM_DIR="$HOME/.nvm"
-
-# Load nvm only when actually needed
-nvm()  { unset -f nvm;  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; nvm "$@"; }
-
-# Auto-use .nvmrc only when you run node/npm/npx (not on shell start)
-__nvm_auto_use() {
-  typeset -f nvm >/dev/null || { unset -f nvm node npm npx claude; . "$NVM_DIR/nvm.sh"; }
-  if [ -f .nvmrc ]; then nvm use --silent >/dev/null 2>&1 || true; fi
-}
-node() { __nvm_auto_use; command node "$@"; }
-npm()  { __nvm_auto_use; command npm  "$@"; }
-npx()  { __nvm_auto_use; command npx  "$@"; }
-claude() { 
-  typeset -f nvm >/dev/null || { [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; }
-  if [ -f .nvmrc ]; then nvm use --silent >/dev/null 2>&1 || true; fi
-  local node_version=$(nvm current)
-  "$NVM_DIR/versions/node/$node_version/bin/claude" "$@"
-}
+# Load nvm only when explicitly called
+nvm() { unset -f nvm; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; nvm "$@"; }
 _add_to_path_if_exists "$(brew --prefix 2>/dev/null)/bin"
 
 # Rancher Desktop (if installed)
