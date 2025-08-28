@@ -11,7 +11,7 @@ BREW_PACKAGES=(
   jq ripgrep gh lazygit lazydocker
   btop lnav ripgrep nvm libpq
   go node pipx task bandwhich htop watch
-  grc nmap iproute2mac hyperfine
+  grc nmap iproute2mac hyperfine gdu
 )
 
 # Install or upgrade each package
@@ -28,3 +28,4 @@ done
 brew link --force libpq
 
 echo "✓ Homebrew packages ready."
+

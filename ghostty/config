@@ -4,7 +4,7 @@ font-size = 16
 font-feature = -calt
 
 # THEME
-theme = catppuccin-mocha
+theme = ciapre
 
 # TABS
 # Tab location at the top
