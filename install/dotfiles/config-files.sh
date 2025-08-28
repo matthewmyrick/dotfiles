@@ -23,6 +23,6 @@ cp -R "$DOTFILES_DIR/nvim" ~/.config/
 # yazi removed - no longer needed
 
 echo "  Installing ghostty config..."
-cp -R "$DOTFILES_DIR/ghostty" ~/.config/ghostty
+cp -R "$DOTFILES_DIR/ghostty" ~/.config
 
 echo "✓ Dotfiles installed successfully!"

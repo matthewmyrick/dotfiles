@@ -29,4 +29,9 @@ return {
       },
     },
   },
+  -- Add schemastore.nvim for better JSON/YAML schemas
+  {
+    "b0o/schemastore.nvim",
+    lazy = false,
+  },
 }

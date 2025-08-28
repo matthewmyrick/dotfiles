@@ -87,6 +87,14 @@ return {
         -- Terminal mode mappings
         ["<Esc><Esc>"] = { "<C-\\><C-n>", desc = "Exit terminal mode" },
       },
+      -- Operator pending mode for text objects
+      o = {
+        ["ag"] = { "<Cmd>normal! ggVG<CR>", desc = "Select entire file" },
+      },
+      -- Visual mode for text objects
+      x = {
+        ["ag"] = { "gg0oG$", desc = "Select entire file" },
+      },
     },
   },
 }
