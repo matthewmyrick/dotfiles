@@ -147,35 +147,21 @@ return {
       jsonls = {
         settings = {
           json = {
-            schemas = require("schemastore").json.schemas(),
             validate = { enable = true },
+            format = { enable = true },
           },
         },
-        on_new_config = function(new_config, new_root_dir)
-          new_config.settings.json.schemas = new_config.settings.json.schemas or {}
-          vim.list_extend(new_config.settings.json.schemas, require("schemastore").json.schemas())
-        end,
       },
-      -- YAML configuration (includes GitHub Actions support)
+      -- YAML configuration  
       yamlls = {
         settings = {
           yaml = {
+            validate = { enable = true },
+            hover = true,
+            completion = true,
+            format = { enable = true },
             schemaStore = {
-              enable = false,
-              url = "",
-            },
-            schemas = require("schemastore").yaml.schemas({
-              extra = {
-                {
-                  description = "GitHub Actions Workflow",
-                  fileMatch = { ".github/workflows/*.yml", ".github/workflows/*.yaml" },
-                  name = "GitHub Actions",
-                  url = "https://json.schemastore.org/github-workflow.json",
-                },
-              },
-            }),
-            customTags = {
-              "!reference sequence",
+              enable = true,
             },
           },
         },
@@ -210,12 +196,8 @@ return {
     },
     -- customize how language servers are attached
     handlers = {
-      -- a function without a key is simply the default handler, functions take two parameters, the server name and the configured options table for that server
+      -- a function without a key is simply the default handler
       -- function(server, opts) require("lspconfig")[server].setup(opts) end
-
-      -- the key is the server that is being setup with `lspconfig`
-      -- rust_analyzer = false, -- setting a handler to false will disable the set up of that language server
-      -- pyright = function(_, opts) require("lspconfig").pyright.setup(opts) end -- or a custom handler function can be passed
     },
     -- Configure buffer local auto commands to add when attaching a language server
     autocmds = {
@@ -260,8 +242,30 @@ return {
     -- A custom `on_attach` function to be run after the default `on_attach` function
     -- takes two parameters `client` and `bufnr`  (`:h lspconfig-setup`)
     on_attach = function(client, bufnr)
-      -- this would disable semanticTokensProvider for all clients
-      -- client.server_capabilities.semanticTokensProvider = nil
+      -- Setup schemastore for JSON and YAML LSPs
+      if client.name == "jsonls" then
+        local ok, schemastore = pcall(require, "schemastore")
+        if ok then
+          client.config.settings = vim.tbl_deep_extend("force", client.config.settings or {}, {
+            json = {
+              schemas = schemastore.json.schemas(),
+              validate = { enable = true },
+            },
+          })
+          client.notify("workspace/didChangeConfiguration", { settings = client.config.settings })
+        end
+      elseif client.name == "yamlls" then
+        local ok, schemastore = pcall(require, "schemastore")
+        if ok then
+          client.config.settings = vim.tbl_deep_extend("force", client.config.settings or {}, {
+            yaml = {
+              schemas = schemastore.yaml.schemas(),
+              validate = { enable = true },
+            },
+          })
+          client.notify("workspace/didChangeConfiguration", { settings = client.config.settings })
+        end
+      end
     end,
   },
 }

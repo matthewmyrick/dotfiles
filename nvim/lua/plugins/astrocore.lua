@@ -45,6 +45,8 @@ return {
         spell = false, -- sets vim.opt.spell
         signcolumn = "yes", -- sets vim.opt.signcolumn to yes
         wrap = false, -- sets vim.opt.wrap
+        title = false, -- prevent Neovim from overriding terminal title
+        titlestring = "", -- empty title string
       },
       g = { -- vim.g.<key>
         -- configure global vim variables (vim.g)
@@ -76,12 +78,25 @@ return {
         -- tables with just a `desc` key will be registered with which-key if it's installed
         -- this is useful for naming menus
         -- ["<Leader>b"] = { desc = "Buffers" },
+        ["<Leader>g"] = { desc = "Git" },
+        ["<Leader>ga"] = { desc = "GitHub Actions" },
 
         -- setting a mapping to false will disable it
         -- ["<C-S>"] = false,
         
-        -- Claude CLI in vertical terminal
+        -- Terminal keybindings
         ["<Leader>tc"] = { "<Cmd>vsplit | terminal claude<CR>", desc = "Open Claude CLI in vertical terminal" },
+        ["<Leader>tb"] = { "<Cmd>terminal<CR>", desc = "Open terminal as buffer" },
+        
+        -- Neo-tree source navigation
+        ["<Leader>e"] = { "<Cmd>Neotree focus filesystem left<CR>", desc = "Focus Neo-tree filesystem" },
+        ["<Leader>be"] = { "<Cmd>Neotree focus buffers left<CR>", desc = "Focus Neo-tree buffers" },
+        ["<Leader>ge"] = { "<Cmd>Neotree focus git_status left<CR>", desc = "Focus Neo-tree git status" },
+        
+        -- Quick source switching (when Neo-tree is already open)
+        ["<Leader>1"] = { "<Cmd>Neotree source=filesystem<CR>", desc = "Neo-tree Files" },
+        ["<Leader>2"] = { "<Cmd>Neotree source=buffers<CR>", desc = "Neo-tree Buffers" },
+        ["<Leader>3"] = { "<Cmd>Neotree source=git_status<CR>", desc = "Neo-tree Git" },
       },
       t = {
         -- Terminal mode mappings

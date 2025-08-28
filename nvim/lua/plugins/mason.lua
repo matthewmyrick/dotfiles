@@ -18,7 +18,6 @@ return {
         "json-lsp",                 -- JSON LSP
         "yaml-language-server",     -- YAML LSP
         "typescript-language-server", -- JavaScript/TypeScript LSP
-        "actionlint",               -- GitHub Actions linter
 
         -- Formatters
         "stylua",

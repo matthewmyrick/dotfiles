@@ -227,9 +227,20 @@ ffgn() {
         local full_path="$search_path/$selected_relative_path"
         # Open the selected directory in Neovim.
         cd "$full_path"
+        
+        # Extract just the repo name (last part of the path)
+        local repo_name=$(basename "$selected_relative_path")
+        
         # Set the terminal tab name to the repository name
-        command -v ttn &>/dev/null && ttn
-        nvim .
+        if command -v ttn &>/dev/null; then
+            ttn "$repo_name"
+        fi
+        
+        # Configure Neovim to not override the terminal title
+        export NVIM_TUI_ENABLE_TITLE=0
+        
+        # Open Neovim with title override disabled
+        nvim --cmd "set notitle" .
     fi
 }
 
