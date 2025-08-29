@@ -80,6 +80,7 @@ return {
         -- ["<Leader>b"] = { desc = "Buffers" },
         ["<Leader>g"] = { desc = "Git" },
         ["<Leader>ga"] = { desc = "GitHub Actions" },
+        ["<Leader>d"] = { desc = "Docker" },
 
         -- setting a mapping to false will disable it
         -- ["<C-S>"] = false,
@@ -97,6 +98,11 @@ return {
         ["<Leader>1"] = { "<Cmd>Neotree source=filesystem<CR>", desc = "Neo-tree Files" },
         ["<Leader>2"] = { "<Cmd>Neotree source=buffers<CR>", desc = "Neo-tree Buffers" },
         ["<Leader>3"] = { "<Cmd>Neotree source=git_status<CR>", desc = "Neo-tree Git" },
+        
+        -- LazyDocker keybindings
+        ["<Leader>dd"] = { "<Cmd>LazyDocker<CR>", desc = "Open LazyDocker" },
+        ["<Leader>dl"] = { "<Cmd>LazyDockerLogs<CR>", desc = "LazyDocker Logs" },
+        ["<Leader>dc"] = { "<Cmd>LazyDockerConfig<CR>", desc = "LazyDocker Config" },
       },
       t = {
         -- Terminal mode mappings

@@ -202,8 +202,7 @@ return {
   {
     "nvim-neo-tree/neo-tree.nvim",
     opts = {
-      -- Enable multi-select feature
-      enable_normal_mode_for_inputs = false,
+      -- Close neo-tree if it's the last window
       close_if_last_window = false,
       popup_border_style = "rounded",
       enable_git_status = true,
@@ -356,7 +355,52 @@ return {
             vim.opt_local.relativenumber = true
           end,
         },
+        {
+          event = "neo_tree_popup_input_ready",
+          handler = function(args)
+            -- Map escape to cancel the input popup
+            vim.keymap.set("i", "<esc>", vim.cmd.stopinsert, { noremap = true, buffer = args.bufnr })
+          end,
+        },
       },
     },
+  },
+  -- LazyDocker integration with floating terminal
+  {
+    "crnvl96/lazydocker.nvim",
+    event = "VeryLazy",
+    dependencies = {
+      "MunifTanjim/nui.nvim",
+    },
+    opts = {
+      popup_window = {
+        enter = true,
+        focusable = true,
+        zindex = 40,
+        position = "50%",
+        size = {
+          width = "90%",
+          height = "90%",
+        },
+        buf_options = {
+          modifiable = false,
+          readonly = false,
+        },
+        win_options = {
+          winblend = 0,
+          winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
+        },
+        border = {
+          style = "rounded",
+          text = {
+            top = " LazyDocker ",
+            top_align = "center",
+          },
+        },
+      },
+    },
+    config = function(_, opts)
+      require("lazydocker").setup(opts)
+    end,
   },
 }

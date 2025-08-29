@@ -39,7 +39,7 @@ return {
       },
       disabled = { -- disable formatting capabilities for the listed language servers
         -- We'll use prettier for JS/TS/JSON/YAML instead of the LSP formatters
-        "tsserver",
+        "ts_ls",
         "jsonls",
         "yamlls",
       },
@@ -57,7 +57,7 @@ return {
       "terraformls",  -- Terraform
       "jsonls",       -- JSON
       "yamlls",       -- YAML
-      "tsserver",     -- JavaScript/TypeScript
+      "ts_ls",       -- JavaScript/TypeScript
     },
     -- customize language server configuration options passed to `lspconfig`
     ---@diagnostic disable: missing-fields
@@ -167,7 +167,7 @@ return {
         },
       },
       -- TypeScript/JavaScript configuration
-      tsserver = {
+      ts_ls = {
         settings = {
           typescript = {
             inlayHints = {
