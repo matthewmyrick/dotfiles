@@ -130,6 +130,74 @@ return {
       "MunifTanjim/nui.nvim",
     },
   },
+  -- Flash.nvim for better navigation with 's' key
+  {
+    "folke/flash.nvim",
+    event = "VeryLazy",
+    opts = {
+      modes = {
+        search = {
+          enabled = false, -- Don't override default search
+        },
+        char = {
+          enabled = true,
+          jump_labels = true,
+          keys = { "f", "F", "t", "T", ";", "," },
+        },
+      },
+      jump = {
+        autojump = false, -- Don't auto-jump when there's only one match
+      },
+      label = {
+        uppercase = false, -- Use lowercase labels
+        rainbow = {
+          enabled = true, -- Enable rainbow colors for labels
+        },
+      },
+    },
+    keys = {
+      {
+        "s",
+        mode = { "n", "x", "o" },
+        function()
+          require("flash").jump()
+        end,
+        desc = "Flash",
+      },
+      {
+        "S",
+        mode = { "n", "x", "o" },
+        function()
+          require("flash").treesitter()
+        end,
+        desc = "Flash Treesitter",
+      },
+      {
+        "r",
+        mode = "o",
+        function()
+          require("flash").remote()
+        end,
+        desc = "Remote Flash",
+      },
+      {
+        "R",
+        mode = { "o", "x" },
+        function()
+          require("flash").treesitter_search()
+        end,
+        desc = "Treesitter Search",
+      },
+      {
+        "<c-s>",
+        mode = { "c" },
+        function()
+          require("flash").toggle()
+        end,
+        desc = "Toggle Flash Search",
+      },
+    },
+  },
   -- Configure neo-tree to show hidden files
   {
     "nvim-neo-tree/neo-tree.nvim",
