@@ -10,6 +10,109 @@ return {
   "AstroNvim/astrocore",
   ---@type AstroCoreOpts
   opts = {
+    -- Configure autocommands for terminal buffers and startup
+    autocmds = {
+      terminal_settings = {
+        {
+          event = "TermOpen",
+          desc = "Configure terminal buffer settings",
+          callback = function()
+            -- Make terminal buffers unlisted to avoid showing in buffer pickers
+            vim.bo.buflisted = false
+            -- Set local options for terminal buffers
+            vim.opt_local.number = false
+            vim.opt_local.relativenumber = false
+            vim.opt_local.signcolumn = "no"
+            -- Start in insert mode
+            vim.cmd("startinsert")
+          end,
+        },
+        {
+          event = "TermClose",
+          desc = "Close terminal buffer window on exit",
+          callback = function()
+            -- Close the window when terminal process exits with success
+            if vim.v.event.status == 0 then
+              vim.api.nvim_input("<CR>")
+            end
+          end,
+        },
+      },
+      readme_opener = {
+        {
+          event = "VimEnter",
+          desc = "Handle startup with README or dashboard",
+          callback = function()
+            -- Delay to let AstroNvim's initial setup complete
+            vim.defer_fn(function()
+              -- Check if Neovim was opened with a directory argument
+              local args = vim.fn.argv()
+              local is_directory = #args == 1 and vim.fn.isdirectory(args[1]) == 1
+              
+              if is_directory then
+                -- Get the directory path
+                local dir = vim.fn.expand(args[1])
+                
+                -- List of possible README filenames
+                local readme_files = {
+                  "README.md",
+                  "readme.md",
+                  "README.MD",
+                  "README",
+                  "readme",
+                  "README.txt",
+                  "readme.txt",
+                  "README.rst",
+                  "readme.rst",
+                }
+                
+                -- Find the first README that exists
+                local readme_path = nil
+                for _, readme_name in ipairs(readme_files) do
+                  local full_path = dir .. "/" .. readme_name
+                  if vim.fn.filereadable(full_path) == 1 then
+                    readme_path = full_path
+                    break
+                  end
+                end
+                
+                if readme_path then
+                  -- README exists - first open README in main window
+                  vim.cmd("edit " .. vim.fn.fnameescape(readme_path))
+                  
+                  -- Then open Neo-tree on the left without changing layout
+                  vim.defer_fn(function()
+                    vim.cmd("Neotree filesystem show left")
+                    -- Make sure focus returns to README
+                    vim.cmd("wincmd l")
+                  end, 50)
+                else
+                  -- No README - show dashboard with Neo-tree
+                  -- Close any existing Neo-tree first
+                  vim.cmd("Neotree close")
+                  
+                  -- Open dashboard
+                  if vim.fn.exists(":Snacks") == 2 then
+                    vim.cmd("Snacks dashboard")
+                  elseif vim.fn.exists(":Dashboard") == 2 then
+                    vim.cmd("Dashboard")
+                  else
+                    vim.cmd("enew") -- Create empty buffer if no dashboard
+                  end
+                  
+                  -- Open Neo-tree on the left
+                  vim.defer_fn(function()
+                    vim.cmd("Neotree filesystem reveal left")
+                    -- Focus back on the dashboard/main window
+                    vim.cmd("wincmd l")
+                  end, 50)
+                end
+              end
+            end, 150)
+          end,
+        },
+      },
+    },
     -- Configure core features of AstroNvim
     features = {
       large_buf = { size = 1024 * 256, lines = 10000 }, -- set global limits for large files for disabling features like treesitter
@@ -85,9 +188,97 @@ return {
         -- setting a mapping to false will disable it
         -- ["<C-S>"] = false,
         
-        -- Terminal keybindings
-        ["<Leader>tc"] = { "<Cmd>vsplit | terminal claude<CR>", desc = "Open Claude CLI in vertical terminal" },
-        ["<Leader>tb"] = { "<Cmd>terminal<CR>", desc = "Open terminal as buffer" },
+        -- Center search results
+        ["n"] = { "nzzzv", desc = "Next search result centered" },
+        ["N"] = { "Nzzzv", desc = "Previous search result centered" },
+        
+        -- Terminal keybindings with proper buffer handling
+        ["<Leader>tc"] = { 
+          function()
+            -- Create a persistent Claude CLI session
+            local claude_buf_name = "claude-cli"
+            local existing_buf = nil
+            
+            -- Check if Claude buffer already exists
+            for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+              if vim.api.nvim_buf_is_valid(buf) then
+                local name = vim.api.nvim_buf_get_name(buf)
+                if name:match(claude_buf_name) then
+                  existing_buf = buf
+                  break
+                end
+              end
+            end
+            
+            -- Check if Claude is already visible in a window
+            for _, win in ipairs(vim.api.nvim_list_wins()) do
+              local buf = vim.api.nvim_win_get_buf(win)
+              if buf == existing_buf then
+                -- Claude is already visible, just focus it
+                vim.api.nvim_set_current_win(win)
+                vim.cmd("startinsert")
+                return
+              end
+            end
+            
+            -- Open Claude in a vertical split
+            vim.cmd("vsplit")
+            
+            if existing_buf then
+              -- Reuse existing Claude buffer
+              vim.api.nvim_set_current_buf(existing_buf)
+              vim.cmd("startinsert")
+            else
+              -- Create new Claude terminal
+              vim.cmd("terminal claude")
+              vim.api.nvim_buf_set_name(0, claude_buf_name)
+              -- Set buffer as unlisted to avoid showing in buffer pickers
+              vim.bo.buflisted = false
+              -- Make buffer persist when hidden
+              vim.bo.bufhidden = "hide"
+              vim.cmd("startinsert")
+            end
+          end,
+          desc = "Toggle Claude CLI (persistent session)" 
+        },
+        ["<Leader>tC"] = {
+          function()
+            -- Kill Claude CLI session completely
+            local claude_buf_name = "claude-cli"
+            
+            -- Find and delete Claude buffer
+            for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+              if vim.api.nvim_buf_is_valid(buf) then
+                local name = vim.api.nvim_buf_get_name(buf)
+                if name:match(claude_buf_name) then
+                  -- Close any windows showing this buffer first
+                  for _, win in ipairs(vim.api.nvim_list_wins()) do
+                    if vim.api.nvim_win_get_buf(win) == buf then
+                      vim.api.nvim_win_close(win, true)
+                    end
+                  end
+                  -- Force delete the buffer
+                  vim.api.nvim_buf_delete(buf, { force = true })
+                  vim.notify("Claude CLI session terminated", vim.log.levels.INFO)
+                  return
+                end
+              end
+            end
+            vim.notify("No Claude CLI session found", vim.log.levels.WARN)
+          end,
+          desc = "Kill Claude CLI session"
+        },
+        ["<Leader>tt"] = { 
+          function()
+            -- Open terminal in new tab
+            vim.cmd("tabnew")
+            vim.cmd("terminal")
+            vim.cmd("startinsert")
+            -- Set buffer as unlisted to avoid showing in buffer pickers
+            vim.bo.buflisted = false
+          end,
+          desc = "Open terminal in new tab" 
+        },
         
         -- Neo-tree source navigation
         ["<Leader>e"] = { "<Cmd>Neotree focus filesystem left<CR>", desc = "Focus Neo-tree filesystem" },
