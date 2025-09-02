@@ -53,3 +53,8 @@ alias tkd="task deleted"
 
 # system control
 alias slp="pmset sleepnow"
+
+# azure
+alias a="az"
+alias azs="azure-searcher"
+alias azi="az interactive"
