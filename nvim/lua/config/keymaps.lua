@@ -2,34 +2,130 @@
 -- Default keymaps that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/keymaps.lua
 -- Add any additional keymaps here
 
+-- Simple circular window navigation using wincmd (skip explorer)
+local function cycle_windows()
+    local current_win = vim.api.nvim_get_current_win()
+    local wins = vim.api.nvim_list_wins()
+    local normal_wins = {}
+    
+    -- Get all non-floating, non-explorer windows
+    for _, win in ipairs(wins) do
+        local config = vim.api.nvim_win_get_config(win)
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_buf_get_option(buf, "filetype")
+        
+        -- Skip floating windows and explorer
+        if config.relative == "" and ft ~= "snacks_explorer" then
+            table.insert(normal_wins, win)
+        end
+    end
+    
+    -- If we have multiple windows, cycle through them
+    if #normal_wins > 1 then
+        -- Find current window index
+        local current_idx = 1
+        for i, win in ipairs(normal_wins) do
+            if win == current_win then
+                current_idx = i
+                break
+            end
+        end
+        
+        -- Move to next window (with wrapping)
+        local next_idx = (current_idx % #normal_wins) + 1
+        vim.api.nvim_set_current_win(normal_wins[next_idx])
+    end
+end
+
+-- Override Ctrl+H to cycle through ALL windows in order
+vim.keymap.set("n", "<C-h>", cycle_windows, { desc = "Cycle through all windows" })
+
+-- Alternative: Use standard vim directional navigation but with fallback
+vim.keymap.set("n", "<C-l>", function()
+    local current_win = vim.api.nvim_get_current_win()
+    vim.cmd("wincmd l")
+    -- If we didn't move, wrap around
+    if vim.api.nvim_get_current_win() == current_win then
+        vim.cmd("wincmd t")  -- Go to top-left window
+    end
+end, { desc = "Go right or wrap to first window" })
+
+-- Keep vertical navigation as standard
+vim.keymap.set("n", "<C-j>", "<C-w>j", { desc = "Go to Lower Window" })
+vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "Go to Upper Window" })
+
 -- Escape Terminal mode with <Esc><Esc>
 vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", {})
+
+-- File Explorer keybindings
+vim.keymap.set("n", "<leader>e", function()
+    -- Check if explorer is already open and close it
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_buf_get_option(buf, "filetype")
+        if ft == "snacks_explorer" then
+            -- Explorer is open, close it
+            vim.api.nvim_win_close(win, true)
+            return
+        end
+    end
+    
+    -- Explorer not open, open it
+    if Snacks and Snacks.explorer then
+        Snacks.explorer()
+    else
+        vim.notify("Snacks explorer not available", vim.log.levels.WARN)
+    end
+end, { desc = "Toggle File Explorer" })
+
+-- Save file with <leader>ww
+vim.keymap.set("n", "<leader>ww", "<cmd>w<CR>", { desc = "Save file" })
+
+-- Focus/jump to file explorer if it's open
+vim.keymap.set("n", "<leader>fe", function()
+    -- Look for explorer window
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_buf_get_option(buf, "filetype")
+        if ft == "snacks_explorer" then
+            -- Explorer found, focus it
+            vim.api.nvim_set_current_win(win)
+            return
+        end
+    end
+    -- Explorer not open, notify user
+    vim.notify("Explorer is not open. Use <leader>e to open it.", vim.log.levels.INFO)
+end, { desc = "Focus File Explorer" })
 
 -- Swap 0 and ^ keybindings
 vim.keymap.set({ "n", "v" }, "0", "^", { desc = "Go to first non-blank character" })
 vim.keymap.set({ "n", "v" }, "^", "0", { desc = "Go to beginning of line" })
 
--- Override <leader><leader> to use current window for file picker
+-- Override <leader><leader> to focus/open file explorer
 vim.keymap.set("n", "<leader><leader>", function()
-    -- Check if Snacks is available by trying to access it
-    local ok, snacks = pcall(function()
-        return Snacks
-    end)
-    if ok and snacks and snacks.picker then
-        -- Use Snacks picker with edit action to open in current window
-        snacks.picker.files({
-            action = function(item, ctx)
-                -- Edit in current window instead of split
-                vim.cmd("edit " .. item.file)
-            end,
-        })
-    elseif package.loaded["telescope"] then
-        -- Fallback to Telescope if Snacks is not available
-        require("telescope.builtin").find_files()
+    if Snacks and Snacks.explorer then
+        -- Check if explorer is already open
+        local explorer_win = nil
+        for _, win in ipairs(vim.api.nvim_list_wins()) do
+            local buf = vim.api.nvim_win_get_buf(win)
+            local ft = vim.api.nvim_buf_get_option(buf, "filetype")
+            if ft == "snacks_explorer" then
+                explorer_win = win
+                break
+            end
+        end
+        
+        if explorer_win then
+            -- Explorer is open, just focus it
+            vim.api.nvim_set_current_win(explorer_win)
+        else
+            -- Explorer not open, open it
+            Snacks.explorer()
+        end
     else
-        vim.notify("No file picker available", vim.log.levels.WARN)
+        vim.notify("Snacks explorer not available", vim.log.levels.WARN)
     end
-end, { desc = "Find files (current window)" })
+end, { desc = "Focus/Open File Explorer" })
 
 -- Override <leader>sg to use current window for live grep
 vim.keymap.set("n", "<leader>sg", function()
@@ -85,17 +181,63 @@ vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, { desc = "Go to previous dia
 vim.keymap.set("n", "]d", vim.diagnostic.goto_next, { desc = "Go to next diagnostic" })
 vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagnostics list" })
 
+-- Helper function to check if buffer is a Claude terminal
+local function is_claude_terminal(bufnr)
+    if vim.api.nvim_buf_get_option(bufnr, "buftype") ~= "terminal" then
+        return false
+    end
+    local buf_name = vim.api.nvim_buf_get_name(bufnr)
+    return string.find(string.lower(buf_name), "claude") ~= nil
+end
+
+-- Helper function to check if currently in file explorer
+local function is_in_explorer()
+    local current_ft = vim.bo.filetype
+    return current_ft == "snacks_explorer"
+end
+
+-- Helper function to open buffer with smart split logic
+local function open_buffer_smart(bufnr)
+    if is_claude_terminal(bufnr) then
+        -- Open Claude terminal in vertical split on the right
+        vim.cmd("vertical rightbelow split")
+        vim.api.nvim_set_current_buf(bufnr)
+    else
+        -- Open normally in current window
+        vim.api.nvim_set_current_buf(bufnr)
+    end
+end
+
 -- Buffer search keymaps
 vim.keymap.set("n", "<leader>bf", function()
+    -- Don't work in file explorer
+    if is_in_explorer() then
+        vim.notify("Buffer search disabled in file explorer", vim.log.levels.INFO)
+        return
+    end
+    
     if package.loaded["telescope"] then
+        local actions = require("telescope.actions")
+        local action_state = require("telescope.actions.state")
+        
         require("telescope.builtin").buffers({
             sort_mru = true,
             sort_lastused = true,
             show_all_buffers = true,
             previewer = require("telescope.config").values.file_previewer({}),
-            attach_mappings = function(_, map)
-                map("n", "dd", require("telescope.actions").delete_buffer)
-                map("i", "<C-d>", require("telescope.actions").delete_buffer)
+            attach_mappings = function(prompt_bufnr, map)
+                -- Override default select action
+                actions.select_default:replace(function()
+                    local selection = action_state.get_selected_entry()
+                    actions.close(prompt_bufnr)
+                    if selection then
+                        open_buffer_smart(selection.bufnr)
+                    end
+                end)
+                
+                -- Keep delete mappings
+                map("n", "dd", actions.delete_buffer)
+                map("i", "<C-d>", actions.delete_buffer)
                 return true
             end,
         })
@@ -109,10 +251,33 @@ vim.keymap.set("n", "<leader>bf", function()
             vim.notify("No buffer picker available", vim.log.levels.WARN)
         end
     end
-end, { desc = "Search open buffers" })
+end, { desc = "Search open buffers (smart split)" })
 
--- Alternative buffer search with Telescope
-vim.keymap.set("n", "<leader>fb", "<cmd>Telescope buffers<cr>", { desc = "Find buffers" })
+-- Alternative buffer search with Telescope (with smart split)
+vim.keymap.set("n", "<leader>fb", function()
+    -- Don't work in file explorer
+    if is_in_explorer() then
+        vim.notify("Buffer search disabled in file explorer", vim.log.levels.INFO)
+        return
+    end
+    
+    local actions = require("telescope.actions")
+    local action_state = require("telescope.actions.state")
+    
+    require("telescope.builtin").buffers({
+        attach_mappings = function(prompt_bufnr, map)
+            -- Override default select action
+            actions.select_default:replace(function()
+                local selection = action_state.get_selected_entry()
+                actions.close(prompt_bufnr)
+                if selection then
+                    open_buffer_smart(selection.bufnr)
+                end
+            end)
+            return true
+        end,
+    })
+end, { desc = "Find buffers (smart split)" })
 
 -- Mass buffer deletion with multi-select using Telescope
 vim.keymap.set("n", "<leader>fBd", function()

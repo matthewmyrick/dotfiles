@@ -112,6 +112,18 @@ return {
           end,
         },
       },
+      yaml_settings = {
+        {
+          event = { "FileType" },
+          pattern = { "yaml", "yml" },
+          desc = "YAML file settings to preserve final newline",
+          callback = function()
+            -- Ensure final newline is preserved for YAML files
+            vim.opt_local.endofline = true
+            vim.opt_local.fixendofline = true
+          end,
+        },
+      },
     },
     -- Configure core features of AstroNvim
     features = {
@@ -150,6 +162,8 @@ return {
         wrap = false, -- sets vim.opt.wrap
         title = false, -- prevent Neovim from overriding terminal title
         titlestring = "", -- empty title string
+        endofline = true, -- ensure files end with newline
+        fixendofline = true, -- automatically add newline at end of file
       },
       g = { -- vim.g.<key>
         -- configure global vim variables (vim.g)

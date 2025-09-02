@@ -3,13 +3,13 @@
 echo "✈️ Setting up AeroSpace window manager..."
 
 # Check if AeroSpace is installed
-if ! command -v aerospace &>/dev/null; then
-  echo "  ⚠️  AeroSpace not found - should be installed by brew-casks.sh"
-  echo "  You can install manually with: brew install --cask nikitabobko/tap/aerospace"
-  exit 1
-else
-  echo "  ✓ AeroSpace is installed"
-fi
+# if ! command -v aerospace &>/dev/null; then
+#   echo "  ⚠️  AeroSpace not found - should be installed by brew-casks.sh"
+#   echo "  You can install manually with: brew install --cask nikitabobko/tap/aerospace"
+#   exit 1
+# else
+#   echo "  ✓ AeroSpace is installed"
+# fi
 
 # Get the directory where the main install script is located
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -136,20 +136,20 @@ EOF
 fi
 
 # Check if AeroSpace is running
-if pgrep -f "AeroSpace" > /dev/null; then
-  echo "  ✓ AeroSpace is already running"
-else
-  echo "  Starting AeroSpace..."
-  open -a AeroSpace
-  echo "  ✓ AeroSpace started"
-fi
+# if pgrep -f "AeroSpace" > /dev/null; then
+#   echo "  ✓ AeroSpace is already running"
+# else
+#   echo "  Starting AeroSpace..."
+#   open -a AeroSpace
+#   echo "  ✓ AeroSpace started"
+# fi
 
 # Reload configuration if AeroSpace is running
-sleep 2
-if pgrep -f "AeroSpace" > /dev/null; then
-  echo "  Reloading AeroSpace configuration..."
-  aerospace reload-config 2>/dev/null || echo "  Note: Config will be loaded when AeroSpace fully starts"
-fi
+# sleep 2
+# if pgrep -f "AeroSpace" > /dev/null; then
+#   echo "  Reloading AeroSpace configuration..."
+#   aerospace reload-config 2>/dev/null || echo "  Note: Config will be loaded when AeroSpace fully starts"
+# fi
 
 echo "✓ AeroSpace window manager configured successfully!"
 echo ""
