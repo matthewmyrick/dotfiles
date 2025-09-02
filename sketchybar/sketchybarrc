@@ -1,0 +1,82 @@
+#!/bin/bash
+
+source "$CONFIG_DIR/colors.sh" # Loads all defined colors
+source "$CONFIG_DIR/icons.sh" # Loads all defined icons
+
+ITEM_DIR="$CONFIG_DIR/items" # Directory where the items are configured
+PLUGIN_DIR="$CONFIG_DIR/plugins" # Directory where all the plugin scripts are stored
+
+FONT="SF Pro" # Needs to have Regular, Bold, Semibold, Heavy and Black variants
+PADDINGS=3 # All paddings use this value (icon, label, background)
+
+# Setting up and starting the helper process
+HELPER=git.felix.helper
+killall helper
+cd $CONFIG_DIR/helper && make
+$CONFIG_DIR/helper/helper $HELPER > /dev/null 2>&1 &
+
+# Unload the macOS on screen indicator overlay for volume and brightness
+launchctl unload -w /System/Library/LaunchAgents/com.apple.OSDUIHelper.plist > /dev/null 2>&1 &
+
+# Setting up the general bar appearance of the bar
+bar=(
+  height=45
+  color=0x40000000
+  border_width=2
+  border_color=0x80c4a7c7
+  corner_radius=9
+  margin=16
+  shadow=off
+  sticky=off
+  position=top
+  blur_radius=30
+  y_offset=-5
+  notch_width=200
+)
+
+sketchybar --bar "${bar[@]}"
+
+# Setting up default values
+defaults=(
+  updates=when_shown
+  icon.font="$FONT:Bold:17.0"
+  icon.color=0xffffffff
+  icon.padding_left=$PADDINGS
+  icon.padding_right=$PADDINGS
+  label.font="$FONT:Semibold:15.0"
+  label.color=0xffffffff
+  label.padding_left=$PADDINGS
+  label.padding_right=$PADDINGS
+  padding_right=$PADDINGS
+  padding_left=$PADDINGS
+  background.height=26
+  background.corner_radius=6
+  background.border_width=2
+  popup.background.border_width=2
+  popup.background.corner_radius=6
+  popup.background.border_color=0xff7f8490
+  popup.background.color=0x85000000
+  popup.blur_radius=64
+  popup.background.shadow.drawing=on
+)
+
+sketchybar --default "${defaults[@]}"
+
+# Left side items
+source $ITEM_DIR/apple.sh
+source $ITEM_DIR/spaces.sh
+source $ITEM_DIR/yabai.sh
+source $ITEM_DIR/front_app.sh
+
+# Right side items  
+source $ITEM_DIR/calendar.sh
+source $ITEM_DIR/wifi.sh
+source $ITEM_DIR/battery.sh
+source $ITEM_DIR/volume.sh
+source $ITEM_DIR/cpu.sh
+
+# Forcing all scripts to run the event on startup
+sketchybar --hotload on
+sketchybar --update
+
+echo "sketchybar configuation loaded.."

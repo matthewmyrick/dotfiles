@@ -14,6 +14,15 @@ BREW_PACKAGES=(
   grc nmap iproute2mac hyperfine gdu
 )
 
+# Tap required for sketchybar
+if ! brew tap | grep -q "FelixKratz/formulae"; then
+  echo "  🍺 Adding FelixKratz/formulae tap for sketchybar..."
+  brew tap FelixKratz/formulae
+fi
+
+# Add sketchybar to packages
+BREW_PACKAGES+=(sketchybar)
+
 # Install or upgrade each package
 for package in "${BREW_PACKAGES[@]}"; do
   if brew list --formula | grep -q "^${package}$"; then
