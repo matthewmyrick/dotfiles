@@ -177,7 +177,8 @@ help() {
     echo ""
     
     echo "📝 FILE OPERATIONS"
-    echo "  ls            - Enhanced ls with icons, tree view (via eza)"
+    echo "  lst           - Enhanced ls with icons, tree view (via eza)"
+    echo "  apps          - Fuzzy search and launch applications"
     echo "  cat           - Enhanced cat with syntax highlighting (via bat)"
     echo "  r_xml <file>  - Read & format XML files with syntax highlighting"
     echo ""

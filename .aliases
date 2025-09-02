@@ -12,7 +12,7 @@ alias zq='zoxide query'  # Query directory database
 alias zr='zoxide remove'  # Remove directory from database
 
 # ls
-alias ls='eza --icons --git --color=always --group-directories-first --tree --level=2 --no-permissions --no-user --no-time --all'
+alias lst='eza --icons --git --color=always --group-directories-first --tree --level=2 --no-permissions --no-user --no-time --all'
 
 # read files
 alias cat='bat --paging=never'
