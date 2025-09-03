@@ -162,6 +162,9 @@ fi
 
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 
+# Initialize zoxide (smart cd replacement)
+eval "$(zoxide init zsh)"
+
 # --- END OF CONFIGURATION ---
 # Profile results (if enabled)
 zprof

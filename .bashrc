@@ -10,3 +10,5 @@ export HISTCONTROL=ignoredups
 if [ -f ~/.bash_prompt ]; then
     source ~/.bash_prompt;
 fi;
+# Initialize zoxide (smart cd replacement)
+eval "$(zoxide init bash)"
