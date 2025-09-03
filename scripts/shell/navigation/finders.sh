@@ -47,7 +47,7 @@ ff() {
         # ...reconstruct the full path by prepending the search_path.
         local full_path="$search_path/$selected_relative_path"
         # Change the current directory of your terminal to that full path.
-        z "$full_path" || return
+        cd "$full_path" || return
         # Optional: clear the screen and show a tree of the new location.
         clear
         eza --tree --icons=always --level=2 # Corrected eza flag
@@ -77,7 +77,7 @@ ffn() {
     if [[ -n "$selected_relative_path" ]]; then
         # ...reconstruct the full path by prepending the search_path.
         local full_path="$search_path/$selected_relative_path"
-        z "$full_path"
+        cd "$full_path"
         # Get the name of the current directory to use as the session name.
         # We replace periods with underscores as they can be problematic in session names.
         local session_name=$(basename "$PWD" | tr '.' '_')
@@ -164,7 +164,7 @@ fft() {
         --preview-window 'right:50%' \
         --height '80%' \
         --border 'rounded' \
-        --header 'Terraform Finder | Press Enter to navigate and run terraform plan')
+        --header 'Terraform Finder | Press Enter to cd and run terraform plan')
 
     # If a directory was selected (i.e., you pressed Enter)...
     if [[ -n "$selected_relative_path" ]]; then
@@ -173,7 +173,7 @@ fft() {
         
         # Change to the selected directory
         echo "Changing to: $full_path"
-        z "$full_path" || return 1
+        cd "$full_path" || return 1
         
         # Clear screen and show current location
         clear
@@ -226,7 +226,7 @@ fftg() {
         --preview-window 'right:50%' \
         --height '80%' \
         --border 'rounded' \
-        --header 'Terragrunt Finder | Press Enter to navigate and run terragrunt plan')
+        --header 'Terragrunt Finder | Press Enter to cd and run terragrunt plan')
 
     # If a directory was selected (i.e., you pressed Enter)...
     if [[ -n "$selected_relative_path" ]]; then
@@ -235,7 +235,7 @@ fftg() {
         
         # Change to the selected directory
         echo "Changing to: $full_path"
-        z "$full_path" || return 1
+        cd "$full_path" || return 1
         
         # Clear screen and show current location
         clear

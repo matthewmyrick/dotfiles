@@ -226,7 +226,7 @@ ffgn() {
         # ...reconstruct the full path by prepending the search_path.
         local full_path="$search_path/$selected_relative_path"
         # Open the selected directory in Neovim.
-        z "$full_path"
+        cd "$full_path"
         
         # Extract just the repo name (last part of the path)
         local repo_name=$(basename "$selected_relative_path")
