@@ -144,9 +144,14 @@ fft() {
         search_path="$HOME"
     fi
 
-    # Find directories that contain .tf files
+    # Find directories that contain .tf files (optimized with depth limit and exclusions)
     local tf_dirs
-    tf_dirs=$(find "$search_path" -name "*.tf" -type f -exec dirname {} \; 2>/dev/null | sort -u)
+    # Use fd if available (much faster), otherwise fall back to find
+    if command -v fd &>/dev/null; then
+        tf_dirs=$(fd -t f -e tf --max-depth 6 --exclude node_modules --exclude .git --exclude .terraform . "$search_path" 2>/dev/null | xargs -n1 dirname | sort -u)
+    else
+        tf_dirs=$(find "$search_path" -maxdepth 6 -name "node_modules" -prune -o -name ".git" -prune -o -name ".terraform" -prune -o -name "*.tf" -type f -exec dirname {} \; 2>/dev/null | sort -u)
+    fi
     
     # Check if any Terraform directories were found
     if [[ -z "$tf_dirs" ]]; then
@@ -206,9 +211,14 @@ fftg() {
         search_path="$HOME"
     fi
 
-    # Find directories that contain .hcl files
+    # Find directories that contain .hcl files (optimized with depth limit and exclusions)
     local hcl_dirs
-    hcl_dirs=$(find "$search_path" -name "*.hcl" -type f -exec dirname {} \; 2>/dev/null | sort -u)
+    # Use fd if available (much faster), otherwise fall back to find
+    if command -v fd &>/dev/null; then
+        hcl_dirs=$(fd -t f -e hcl --max-depth 6 --exclude node_modules --exclude .git --exclude .terraform . "$search_path" 2>/dev/null | xargs -n1 dirname | sort -u)
+    else
+        hcl_dirs=$(find "$search_path" -maxdepth 6 -name "node_modules" -prune -o -name ".git" -prune -o -name ".terraform" -prune -o -name ".hcl" -type f -exec dirname {} \; 2>/dev/null | sort -u)
+    fi
     
     # Check if any Terragrunt directories were found
     if [[ -z "$hcl_dirs" ]]; then

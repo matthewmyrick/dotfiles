@@ -44,6 +44,16 @@ alias tfs="terraform show"
 alias tfv="terraform validate"
 alias tfc="terraform console"
 
+# terragrunt 
+alias tg="terragrunt"
+alias tga="terragrunt apply"
+alias tgi="terragrunt init"
+alias tgd="terragrunt destroy"
+alias tgp="terragrunt plan"
+alias tgs="terragrunt show"
+alias tgv="terragrunt validate"
+alias tgc="terragrunt console"
+
 # task warrior
 alias tka="task add"
 alias tk="task"
