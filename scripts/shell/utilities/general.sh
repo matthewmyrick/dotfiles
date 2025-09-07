@@ -229,6 +229,10 @@ help() {
     echo "  ddc setup     - Configure Datadog API credentials"
     echo ""
     
+    echo "☁️  AWS"
+    echo "  apr           - AWS Private Resource finder (interactive discovery tool)"
+    echo ""
+    
     echo "☸️  KUBERNETES"
     echo "  k             - kubectl"
     echo "  ka            - kubectl apply -f . -R"
