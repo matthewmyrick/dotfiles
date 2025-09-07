@@ -214,6 +214,8 @@ help() {
     echo "  tatn          - Auto-update terminal tab name (runs on each prompt)"
     echo "  tldr <cmd>    - Quick command examples (auto-update disabled)"
     echo "  tldr --update - Manually update tldr database"
+    echo "  cmd           - Fuzzy find & execute cached commands"
+    echo "  cmd add \"<cmd>\" - Save command to cache"
     echo "  slp           - Put computer to sleep"
     echo ""
     

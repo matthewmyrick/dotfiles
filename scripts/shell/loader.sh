@@ -73,6 +73,7 @@ shell_loaded() {
     command -v ghc >/dev/null && echo "  ✓ git/functions (ghc, ffgn, fpr, git_branch, git_status)"
     command -v ff >/dev/null && echo "  ✓ navigation/finders (ff, ffn, fft, fftg, fch, y)"
     command -v togglenetskope >/dev/null && echo "  ✓ utilities/general (togglenetskope, r_xml, k_port, brewf, help)"
+    command -v cmd >/dev/null && echo "  ✓ utilities/cmd (cmd - command caching system)"
     command -v ttn >/dev/null && echo "  ✓ utilities/terminal-tabs (ttn, tatn)"
     command -v ddsl >/dev/null && echo "  ✓ observability/datadog (ddsl, ddc, ddsl-config)"
     command -v azv >/dev/null && echo "  ✓ azure/keyvault (azv - Azure Key Vault fuzzy finder)"
