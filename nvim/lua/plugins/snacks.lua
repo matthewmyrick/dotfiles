@@ -53,7 +53,7 @@ return {
       },
       style = "compact", -- "compact" or "fancy"
       top_down = false, -- place notifications from top to bottom
-      date_format = "%R", -- time format
+      date_format = "%I:%M %p EST", -- time format
     },
   },
 }

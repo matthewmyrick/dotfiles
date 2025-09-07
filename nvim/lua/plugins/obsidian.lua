@@ -101,7 +101,7 @@ return {
     templates = {
       folder = "Templates",
       date_format = "%Y-%m-%d",
-      time_format = "%H:%M",
+      time_format = "%I:%M %p EST",
       substitutions = {},
     },
 
