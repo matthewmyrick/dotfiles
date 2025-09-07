@@ -82,7 +82,7 @@ return {
         priority = 1000,
         opts = {
             integrations = {
-                bufferline = true,
+                bufferline = false,
                 cmp = true,
                 gitsigns = true,
                 illuminate = true,

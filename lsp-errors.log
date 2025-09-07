@@ -1,0 +1,61 @@
+Failed to run `config` for goimpl.nvim
+
+/Users/z954179/.config/nvim/lua/plugins/go.lua:117: module 'goimpl' not found:
+	no field package.preload['goimpl']
+	cache_loader: module 'goimpl' not found
+	cache_loader_lib: module 'goimpl' not found
+	no file './goimpl.lua'
+	no file '/opt/homebrew/share/luajit-2.1/goimpl.lua'
+	no file '/usr/local/share/lua/5.1/goimpl.lua'
+	no file '/usr/local/share/lua/5.1/goimpl/init.lua'
+	no file '/opt/homebrew/share/lua/5.1/goimpl.lua'
+	no file '/opt/homebrew/share/lua/5.1/goimpl/init.lua'
+	no file '/Users/z954179/.local/share/nvim/lazy-rocks/telescope.nvim/share/lua/5.1/goimpl.lua'
+	no file '/Users/z954179/.local/share/nvim/lazy-rocks/telescope.nvim/share/lua/5.1/goimpl/init.lua'
+	no file './goimpl.so'
+	no file '/usr/local/lib/lua/5.1/goimpl.so'
+	no file '/opt/homebrew/lib/lua/5.1/goimpl.so'
+	no file '/usr/local/lib/lua/5.1/loadall.so'
+	no file '/Users/z954179/.local/share/nvim/lazy-rocks/telescope.nvim/lib/lua/5.1/goimpl.so'
+	no file '/Users/z954179/.local/share/nvim/lazy-rocks/telescope.nvim/lib64/lua/5.1/goimpl.so'
+
+# stacktrace:
+  - ~/.config/nvim/lua/plugins/go.lua:117 _in_ **config**
+  - vim/_editor.lua:0 _in_ **cmd**
+  - /snacks.nvim/lua/snacks/picker/actions.lua:115 _in_ **jump**
+  - /snacks.nvim/lua/snacks/explorer/actions.lua:285 _in_ **fn**
+  - /snacks.nvim/lua/snacks/win.lua:339
+
+
+---
+
+Error in decoration provider "win" (ns=nvim.lsp.inlayhint):
+Error executing lua: ...vim/0.11.4/share/nvim/runtime/lua/vim/lsp/inlay_hint.lua:349: Invalid 'col': out of range
+stack traceback:
+	[C]: in function 'nvim_buf_set_extmark'
+	...vim/0.11.4/share/nvim/runtime/lua/vim/lsp/inlay_hint.lua:349: in function <...vim/0.11.4/share/nvim/runtime/lua/vim/lsp/inlay_hint.lua:303>
+
+
+---
+
+Error in decoration provider "win" (ns=nvim.lsp.inlayhint):
+Error executing lua: ...vim/0.11.4/share/nvim/runtime/lua/vim/lsp/inlay_hint.lua:349: Invalid 'col': out of range
+stack traceback:
+	[C]: in function 'nvim_buf_set_extmark'
+	...vim/0.11.4/share/nvim/runtime/lua/vim/lsp/inlay_hint.lua:349: in function <...vim/0.11.4/share/nvim/runtime/lua/vim/lsp/inlay_hint.lua:303>
+	[builtin#36]: at 0x0102d6d8a8
+	....11.4/share/nvim/runtime/lua/vim/lsp/semantic_tokens.lua:307: in function 'handler'
+	.../neovim/0.11.4/share/nvim/runtime/lua/vim/lsp/client.lua:682: in function ''
+	vim/_editor.lua: in function <vim/_editor.lua:0>
+
+---
+
+Error in decoration provider "win" (ns=nvim.lsp.inlayhint):
+Error executing lua: ...vim/0.11.4/share/nvim/runtime/lua/vim/lsp/inlay_hint.lua:349: Invalid 'col': out of range
+stack traceback:
+	[C]: in function 'nvim_buf_set_extmark'
+	...vim/0.11.4/share/nvim/runtime/lua/vim/lsp/inlay_hint.lua:349: in function <...vim/0.11.4/share/nvim/runtime/lua/vim/lsp/inlay_hint.lua:303>
+
+---
+
+INFO: plugin LuaSnip module luasnip  not loaded 
