@@ -25,6 +25,7 @@ alias gs='git status'
 alias push='git push'
 alias pull='git pull'
 alias grv='gh run view'
+alias gtl="git tag --sort=-v:refname | head -n 1"
 
 # programs
 alias lg='lazygit'
@@ -53,6 +54,7 @@ alias tgp="terragrunt plan"
 alias tgs="terragrunt show"
 alias tgv="terragrunt validate"
 alias tgc="terragrunt console"
+alias tgf="terragrunt hcl format"
 
 # task warrior
 alias tka="task add"
