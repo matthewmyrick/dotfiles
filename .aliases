@@ -22,8 +22,9 @@ alias ga='git add'
 alias gc='git commit -m'
 alias gf='git fetch'
 alias gs='git status'
-alias push='git push'
-alias pull='git pull'
+alias gpsh='git push'
+alias gpll='git pull'
+alias grt='cd $(git rev-parse --show-toplevel 2>/dev/null || echo ".")'
 alias grv='gh run view'
 alias grw="gh run watch"
 alias gtl="git tag --sort=-v:refname | head -n 1"
@@ -66,6 +67,7 @@ alias tkd="task deleted"
 
 # system control
 alias slp="pmset sleepnow"
+alias bt="bluetooth-tui"
 
 # azure
 alias a="az"
