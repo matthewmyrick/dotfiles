@@ -9,12 +9,14 @@ return {
       opts.sections.lualine_z = {}
     end
     
-    -- Add custom time format to the right side of the status line
-    table.insert(opts.sections.lualine_z, {
-      function()
-        return os.date("%I:%M %p EST")
-      end,
-    })
+    -- Replace the entire lualine_z section with only EST time
+    opts.sections.lualine_z = {
+      {
+        function()
+          return os.date("%I:%M %p EST")
+        end,
+      }
+    }
     
     return opts
   end,
