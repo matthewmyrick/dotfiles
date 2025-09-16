@@ -211,18 +211,18 @@ fftg() {
         search_path="$HOME"
     fi
 
-    # Find directories that contain .hcl files (optimized with depth limit and exclusions)
+    # Find directories that contain terragrunt.hcl files (optimized with depth limit and exclusions)
     local hcl_dirs
     # Use fd if available (much faster), otherwise fall back to find
     if command -v fd &>/dev/null; then
-        hcl_dirs=$(fd -t f -e hcl --max-depth 6 --exclude node_modules --exclude .git --exclude .terraform . "$search_path" 2>/dev/null | xargs -n1 dirname | sort -u)
+        hcl_dirs=$(fd -t f -H "terragrunt.hcl" --max-depth 6 --exclude node_modules --exclude .git --exclude .terraform . "$search_path" 2>/dev/null | xargs -n1 dirname | sort -u)
     else
-        hcl_dirs=$(find "$search_path" -maxdepth 6 -name "node_modules" -prune -o -name ".git" -prune -o -name ".terraform" -prune -o -name ".hcl" -type f -exec dirname {} \; 2>/dev/null | sort -u)
+        hcl_dirs=$(find "$search_path" -maxdepth 6 -name "node_modules" -prune -o -name ".git" -prune -o -name ".terraform" -prune -o -name "terragrunt.hcl" -type f -exec dirname {} \; 2>/dev/null | sort -u)
     fi
     
     # Check if any Terragrunt directories were found
     if [[ -z "$hcl_dirs" ]]; then
-        echo "No directories with .hcl files found in $search_path"
+        echo "No directories with terragrunt.hcl files found in $search_path"
         return 1
     fi
     
@@ -232,7 +232,7 @@ fftg() {
     # Strip the base path for a clean display and pipe to fzf
     local selected_relative_path
     selected_relative_path=$(echo "$hcl_dirs" | sed "s|^$search_path/||" | fzf \
-        --preview "echo 'Terragrunt files in this directory:' && find \"$FZF_FFTG_SEARCH_PATH\"/{} -name '*.hcl' -type f -exec basename {} \\; 2>/dev/null | sort" \
+        --preview "echo 'Terragrunt files in this directory:' && find \"$FZF_FFTG_SEARCH_PATH\"/{} -name 'terragrunt.hcl' -type f -exec basename {} \\; 2>/dev/null | sort" \
         --preview-window 'right:50%' \
         --height '80%' \
         --border 'rounded' \
@@ -251,7 +251,7 @@ fftg() {
         clear
         echo "📁 Current directory: $(pwd)"
         echo "🔍 Terragrunt files found:"
-        find . -name "*.hcl" -type f -exec basename {} \; | sort
+        find . -name "terragrunt.hcl" -type f -exec basename {} \; | sort
         echo ""
         
         # Run terragrunt plan
