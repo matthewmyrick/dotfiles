@@ -101,6 +101,10 @@ end, { desc = "Focus File Explorer" })
 vim.keymap.set({ "n", "v" }, "0", "^", { desc = "Go to first non-blank character" })
 vim.keymap.set({ "n", "v" }, "^", "0", { desc = "Go to beginning of line" })
 
+-- Make dd delete without copying to clipboard (use black hole register)
+vim.keymap.set("n", "dd", '"_dd', { desc = "Delete line without copying" })
+vim.keymap.set("v", "d", '"_d', { desc = "Delete selection without copying" })
+
 -- Override <leader><leader> to focus/open file explorer
 vim.keymap.set("n", "<leader><leader>", function()
     if Snacks and Snacks.explorer then
@@ -235,9 +239,30 @@ vim.keymap.set("n", "<leader>bf", function()
                     end
                 end)
                 
-                -- Keep delete mappings
-                map("n", "dd", actions.delete_buffer)
-                map("i", "<C-d>", actions.delete_buffer)
+                -- Custom delete mappings with Claude terminal check
+                local function smart_delete_buffer()
+                    local selection = action_state.get_selected_entry()
+                    if selection then
+                        local buf = selection.bufnr
+                        if is_claude_terminal(buf) then
+                            vim.ui.input({
+                                prompt = "Delete Claude terminal? (y/N): ",
+                                default = "N",
+                            }, function(input)
+                                if input and string.lower(input) == "y" then
+                                    vim.api.nvim_buf_delete(buf, { force = true })
+                                    vim.notify("Claude terminal deleted", vim.log.levels.INFO)
+                                end
+                            end)
+                        else
+                            local is_terminal = vim.api.nvim_buf_get_option(buf, "buftype") == "terminal"
+                            vim.api.nvim_buf_delete(buf, { force = is_terminal })
+                        end
+                    end
+                end
+                
+                map("n", "dd", smart_delete_buffer)
+                map("i", "<C-d>", smart_delete_buffer)
                 return true
             end,
         })
@@ -296,15 +321,60 @@ vim.keymap.set("n", "<leader>fBd", function()
                 local multi_selections = picker:get_multi_selection()
 
                 if #multi_selections > 0 then
+                    -- Check if any are Claude terminals
+                    local claude_terminals = {}
+                    local other_buffers = {}
+                    
                     for _, entry in ipairs(multi_selections) do
-                        vim.api.nvim_buf_delete(entry.bufnr, { force = false })
+                        if is_claude_terminal(entry.bufnr) then
+                            table.insert(claude_terminals, entry)
+                        else
+                            table.insert(other_buffers, entry)
+                        end
                     end
-                    vim.notify(string.format("Deleted %d buffer(s)", #multi_selections), vim.log.levels.INFO)
+                    
+                    -- Delete non-Claude buffers first
+                    for _, entry in ipairs(other_buffers) do
+                        local is_terminal = vim.api.nvim_buf_get_option(entry.bufnr, "buftype") == "terminal"
+                        vim.api.nvim_buf_delete(entry.bufnr, { force = is_terminal })
+                    end
+                    
+                    -- Ask about Claude terminals if any
+                    if #claude_terminals > 0 then
+                        vim.ui.input({
+                            prompt = string.format("Delete %d Claude terminal(s)? (y/N): ", #claude_terminals),
+                            default = "N",
+                        }, function(input)
+                            if input and string.lower(input) == "y" then
+                                for _, entry in ipairs(claude_terminals) do
+                                    vim.api.nvim_buf_delete(entry.bufnr, { force = true })
+                                end
+                                vim.notify(string.format("Deleted %d buffer(s)", #multi_selections), vim.log.levels.INFO)
+                            else
+                                vim.notify(string.format("Deleted %d buffer(s), %d Claude terminal(s) kept", #other_buffers, #claude_terminals), vim.log.levels.INFO)
+                            end
+                        end)
+                    else
+                        vim.notify(string.format("Deleted %d buffer(s)", #multi_selections), vim.log.levels.INFO)
+                    end
                 else
                     local selection = action_state.get_selected_entry()
                     if selection then
-                        vim.api.nvim_buf_delete(selection.bufnr, { force = false })
-                        vim.notify("Deleted 1 buffer", vim.log.levels.INFO)
+                        if is_claude_terminal(selection.bufnr) then
+                            vim.ui.input({
+                                prompt = "Delete Claude terminal? (y/N): ",
+                                default = "N",
+                            }, function(input)
+                                if input and string.lower(input) == "y" then
+                                    vim.api.nvim_buf_delete(selection.bufnr, { force = true })
+                                    vim.notify("Deleted 1 buffer", vim.log.levels.INFO)
+                                end
+                            end)
+                        else
+                            local is_terminal = vim.api.nvim_buf_get_option(selection.bufnr, "buftype") == "terminal"
+                            vim.api.nvim_buf_delete(selection.bufnr, { force = is_terminal })
+                            vim.notify("Deleted 1 buffer", vim.log.levels.INFO)
+                        end
                     end
                 end
                 actions.close(prompt_bufnr)
@@ -332,6 +402,33 @@ vim.keymap.set("n", "<leader>bd", function()
         return
     end
 
+    -- Check if this is a Claude terminal and ask for confirmation
+    if is_claude_terminal(buf) then
+        vim.ui.input({
+            prompt = "Delete Claude terminal? (y/N): ",
+            default = "N",
+        }, function(input)
+            if input and string.lower(input) == "y" then
+                -- Try to switch to alternate buffer or previous buffer before deleting
+                if #wins > 0 then
+                    for _, win in ipairs(wins) do
+                        vim.api.nvim_set_current_win(win)
+                        vim.cmd("bprevious")
+                    end
+                end
+                -- Force delete for terminals
+                vim.api.nvim_buf_delete(buf, { force = true })
+                vim.notify("Claude terminal deleted", vim.log.levels.INFO)
+            else
+                vim.notify("Delete cancelled", vim.log.levels.INFO)
+            end
+        end)
+        return
+    end
+
+    -- For non-Claude terminals and regular buffers, delete without confirmation
+    local is_terminal = vim.api.nvim_buf_get_option(buf, "buftype") == "terminal"
+    
     -- Try to switch to alternate buffer or previous buffer before deleting
     if #wins > 0 then
         for _, win in ipairs(wins) do
@@ -340,8 +437,8 @@ vim.keymap.set("n", "<leader>bd", function()
         end
     end
 
-    -- Delete the buffer
-    vim.api.nvim_buf_delete(buf, { force = false })
+    -- Use force for terminals, normal delete for regular buffers
+    vim.api.nvim_buf_delete(buf, { force = is_terminal })
     vim.notify("Buffer deleted", vim.log.levels.INFO)
 end, { desc = "Delete current buffer" })
 

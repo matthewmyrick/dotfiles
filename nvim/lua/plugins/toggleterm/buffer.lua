@@ -146,88 +146,39 @@ function M.setup()
         end)
     end, { nargs = 0, desc = "Open Azure Searcher in Current Buffer" })
 
-    -- Enhanced Buffer Terminal with Python venv detection (replaces BufferTerm for <leader>tt)
+    -- Enhanced Buffer Terminal (replaces BufferTerm for <leader>tt)
     vim.api.nvim_create_user_command("EnhancedBufferTerm", function()
-        -- Prompt for terminal name first
-        vim.ui.input({
-            prompt = "Terminal name (empty for default): ",
-            default = "",
-        }, function(name)
-            if name == nil then return end -- User cancelled with Escape
-            
-            -- If name is empty, default to "terminal"
-            if name == "" then
-                name = "terminal"
-            end
-            
-            -- Check if this is a Python or Go related terminal
-            local python_utils = require("plugins.toggleterm.python-utils")
-            local is_python = python_utils.is_python_name(name)
-            local is_go = python_utils.is_go_name(name)
-            
-            -- Check if this should open in vertical split (like Claude)
-            local use_vertical = should_open_in_vertical(name)
-            
-            if is_python then
-                -- Look for virtual environments using enhanced detection
-                local venv_list = python_utils.find_all_venvs()
-                
-                python_utils.select_venv_with_telescope(venv_list, function(selected_venv)
-                    local terminal_cmd
-                    if selected_venv then
-                        terminal_cmd = python_utils.create_python_terminal_cmd(selected_venv)
-                    else
-                        terminal_cmd = vim.o.shell
-                    end
-                    
-                    -- Open with appropriate split
-                    open_terminal_with_split(terminal_cmd, name)
-                    
-                    -- CD to venv directory if selected
-                    if selected_venv then
-                        vim.schedule(function()
-                            local venv_dir = vim.fn.fnamemodify(selected_venv.path, ":h")
-                            vim.api.nvim_chan_send(vim.b.terminal_job_id, "cd " .. vim.fn.shellescape(venv_dir) .. "\r")
-                        end)
-                    end
-                end)
-            elseif is_go then
-                -- Look for go.mod files using enhanced detection
-                local go_mod_list = python_utils.find_all_go_mods()
-                
-                python_utils.select_go_mod_with_telescope(go_mod_list, function(selected_go_mod)
-                    -- Open with appropriate split
-                    open_terminal_with_split(vim.o.shell, name)
-                    
-                    if selected_go_mod then
-                        vim.schedule(function()
-                            -- CD to go.mod directory and run go mod tidy
-                            vim.api.nvim_chan_send(vim.b.terminal_job_id, "cd " .. vim.fn.shellescape(selected_go_mod.directory) .. "\r")
-                            vim.api.nvim_chan_send(vim.b.terminal_job_id, "go mod tidy\r")
-                        end)
-                    end
-                end)
-            else
-                -- Check if it's Claude or another special terminal
-                if string.lower(name) == "claude" then
-                    -- Get the Claude path
-                    local nvm_dir = vim.fn.expand("$HOME/.nvm")
-                    local node_version = vim.fn.system("source " .. nvm_dir .. "/nvm.sh && nvm current"):gsub("%s+", "")
-                    local claude_path = nvm_dir .. "/versions/node/" .. node_version .. "/bin/claude"
-                    
-                    -- Use claude path if available, otherwise fallback
-                    local cmd = vim.fn.filereadable(claude_path) == 1 and claude_path or "claude"
-                    open_terminal_with_split(cmd, name)
-                elseif string.lower(name) == "gemini" then
-                    open_terminal_with_split("gemini", name)
-                else
-                    -- Regular terminal
-                    open_terminal_with_split(vim.o.shell, name)
-                end
+        -- Simple terminal buffer
+        vim.cmd("terminal")
+        vim.schedule(function()
+            set_terminal_name("terminal")
+        end)
+    end, { nargs = 0, desc = "Open simple terminal buffer" })
+
+    -- Terminal in current file's directory
+    vim.api.nvim_create_user_command("TerminalInFileDir", function()
+        -- Use default name "terminal" without prompting
+        local name = "terminal"
+        
+        -- Get the directory of the current file
+        local current_file = vim.fn.expand("%:p")
+        local file_dir = vim.fn.fnamemodify(current_file, ":h")
+        
+        -- If the current buffer is not a file (e.g., empty buffer), use current working directory
+        if current_file == "" or vim.bo.buftype ~= "" then
+            file_dir = vim.fn.getcwd()
+        end
+        
+        -- Open terminal and change to the file's directory
+        open_terminal_with_split(vim.o.shell, name)
+        
+        -- Change directory after the terminal opens
+        vim.schedule(function()
+            if vim.b.terminal_job_id then
+                vim.api.nvim_chan_send(vim.b.terminal_job_id, "cd " .. vim.fn.shellescape(file_dir) .. "\r")
             end
         end)
-    end, { nargs = 0, desc = "Open Enhanced Terminal with Python venv support" })
-
+    end, { nargs = 0, desc = "Open Terminal in current file's directory" })
 
     -- General Buffer Terminal with Python venv detection
     vim.api.nvim_create_user_command("BufferTerm", function()
@@ -290,7 +241,8 @@ end
 -- Return keymaps for buffer terminals
 function M.keymaps()
     return {
-        { "<leader>tt", "<cmd>EnhancedBufferTerm<CR>", desc = "Terminal (smart split based on name)" },
+        { "<leader>tt", "<cmd>EnhancedBufferTerm<CR>", desc = "Terminal (simple buffer)" },
+        { "<leader>td", "<cmd>TerminalInFileDir<CR>", desc = "Terminal in current file's directory" },
         { "<leader>tc", "<cmd>ClaudeVerticalTerm<CR>", desc = "Claude (vertical split)" },
         { "<leader>tg", "<cmd>GeminiBufferTerm<CR>", desc = "Gemini (vertical split)" },
         { "<leader>tk", "<cmd>KubernetesBufferTerm<CR>", desc = "Open Kubernetes in Current Buffer" },
