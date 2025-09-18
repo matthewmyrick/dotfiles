@@ -6,6 +6,9 @@ font-feature = -calt
 # THEME
 # theme = Espresso
 
+# SHADER
+custom-shader = shaders/trailer.glsl
+
 # TABS
 # Tab location at the top
 gtk-tabs-location = top
