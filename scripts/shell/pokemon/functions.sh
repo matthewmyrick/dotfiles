@@ -23,6 +23,19 @@ pokemon_encounter() {
     # Display with highlighted name
     echo -e "A wild \033[1;33m$current_pokemon\033[0m appeared!"
     echo "$pokemon_output" | tail -n +2
+    
+    # Check if we already have this Pokemon
+    if command -v catch-pokemon &>/dev/null; then
+        local ownership_status
+        ownership_status=$(catch-pokemon status "$current_pokemon" --boolean 2>/dev/null)
+        
+        if [[ "$ownership_status" == "true" ]]; then
+            echo -e "\033[1;32m📖 You already have this Pokemon in your collection!\033[0m"
+        else
+            echo -e "\033[2m📝 This Pokemon is not in your collection yet.\033[0m"
+        fi
+    fi
+    
     echo -e "\033[2mUse 'catch' to attempt capture!\033[0m"
 }
 
@@ -120,16 +133,43 @@ pokemon_clear() {
     echo -e "\033[2mPokemon encounter cleared\033[0m"
 }
 
+# Check if you own a specific Pokemon
+pokemon_check() {
+    local pokemon_name="$1"
+    
+    if [[ -z "$pokemon_name" ]]; then
+        echo -e "\033[1;31m❌ Please specify a Pokemon name\033[0m"
+        echo -e "\033[2mUsage: pokemon_check <pokemon_name>\033[0m"
+        return 1
+    fi
+    
+    if command -v catch-pokemon &>/dev/null; then
+        local ownership_status
+        ownership_status=$(catch-pokemon status "$pokemon_name" --boolean 2>/dev/null)
+        
+        if [[ "$ownership_status" == "true" ]]; then
+            echo -e "\033[1;32m📖 You have \033[1;33m$pokemon_name\033[1;32m in your collection!\033[0m"
+        else
+            echo -e "\033[1;31m📝 You don't have \033[1;33m$pokemon_name\033[1;31m in your collection yet.\033[0m"
+        fi
+    else
+        echo -e "\033[1;31m❌ catch-pokemon CLI not found\033[0m"
+        return 1
+    fi
+}
+
 # --- HELP FUNCTION ---
 
 pokemon_help() {
     echo -e "\033[1;36m🎮 Pokemon Catching System Commands:\033[0m"
-    echo -e "  \033[1;33mcatch\033[0m           - Attempt to catch the current wild Pokemon"
-    echo -e "  \033[1;33mpokemon_status\033[0m  - Show current Pokemon status"
-    echo -e "  \033[1;33mpokemon_new\033[0m     - Force a new Pokemon encounter"
-    echo -e "  \033[1;33mpokemon_clear\033[0m   - Clear current Pokemon (for testing)"
-    echo -e "  \033[1;33mpokemon_help\033[0m    - Show this help message"
+    echo -e "  \033[1;33mcatch\033[0m               - Attempt to catch the current wild Pokemon"
+    echo -e "  \033[1;33mpokemon_status\033[0m      - Show current Pokemon status"
+    echo -e "  \033[1;33mpokemon_check <name>\033[0m - Check if you own a specific Pokemon"
+    echo -e "  \033[1;33mpokemon_new\033[0m         - Force a new Pokemon encounter"
+    echo -e "  \033[1;33mpokemon_clear\033[0m       - Clear current Pokemon (for testing)"
+    echo -e "  \033[1;33mpokemon_help\033[0m        - Show this help message"
     echo ""
     echo -e "\033[2mNote: Pokemon may escape based on CLI behavior!\033[0m"
     echo -e "\033[2mGame ends when Pokemon is caught or runs away.\033[0m"
+    echo -e "\033[2mOwnership status is shown when wild Pokemon appear.\033[0m"
 }
