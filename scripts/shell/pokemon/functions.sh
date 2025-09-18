@@ -56,13 +56,16 @@ catch() {
     # Attempt to catch the current pokemon
     echo -e "\033[1;36m🎯 Attempting to catch $CURRENT_WILD_POKEMON...\033[0m"
     
-    # Capture the output from the catch-pokemon CLI
-    local catch_output
-    catch_output=$(catch-pokemon catch "$CURRENT_WILD_POKEMON" --hide-pokemon 2>&1)
-    local catch_result=$?
+    # Use a temporary file to capture output while still showing it live
+    local temp_output=$(mktemp)
     
-    # Display the output
-    echo "$catch_output"
+    # Run the command with tee to show output live AND capture it
+    catch-pokemon catch "$CURRENT_WILD_POKEMON" --hide-pokemon 2>&1 | tee "$temp_output"
+    local catch_result=${PIPESTATUS[0]}
+    
+    # Read the captured output for analysis
+    local catch_output=$(cat "$temp_output")
+    rm -f "$temp_output"
     
     # Check if the Pokemon ran away based on the CLI output
     if echo "$catch_output" | grep -i "ran away\|broke free and ran away" > /dev/null; then
