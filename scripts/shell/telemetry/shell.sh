@@ -42,7 +42,7 @@ zprof() {
     _cn=$'%f'
   fi
 
-  print "Top 3 slowest (by total time):"
+  print "\nTop 3 slowest (by total time):"
   local _line _rank _name _tot _self
   local _i=0
   while IFS=$'\t' read -r _rank _name _tot _self; do

@@ -5,12 +5,14 @@ echo "📦 Installing Homebrew cask packages..."
 CASK_PACKAGES=(
   ghostty
   karabiner-elements
-  nikitabobko/tap/aerospace
 )
 
 # Install or upgrade each cask package
 for package in "${CASK_PACKAGES[@]}"; do
-  if brew list --cask | grep -q "^${package}$"; then
+  # Extract the actual package name (handle tap format like nikitabobko/tap/aerospace)
+  package_name="${package##*/}"
+  
+  if brew list --cask | grep -q "^${package_name}$"; then
     echo "  📦 ${package} already installed, checking for updates..."
     brew upgrade --cask "$package" 2>/dev/null || echo "    ✓ ${package} is up to date"
   else

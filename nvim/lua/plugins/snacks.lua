@@ -34,6 +34,16 @@ return {
             self:toggle_expand(item)
           end
         end,
+        -- Ctrl+Enter behaves like normal Enter (open files/folders)
+        ["<C-CR>"] = function(self, item)
+          if item.is_file then
+            -- Open file and focus on it
+            vim.cmd("edit " .. item.path)
+          else
+            -- For directories, toggle expand/collapse
+            self:toggle_expand(item)
+          end
+        end,
       },
     },
     notifier = {

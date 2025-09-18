@@ -12,11 +12,9 @@
 # Uncomment the following line to profile shell startup time
 zmodload zsh/zprof
 
-# Display random pokemon with custom message
-POKEMON_OUTPUT=$(pokemon-colorscripts -r)
-POKEMON_NAME=$(echo "$POKEMON_OUTPUT" | head -1)
-echo "A wild $POKEMON_NAME appeared!"
-echo "$POKEMON_OUTPUT" | tail -n +2
+# Pokemon encounter on new terminal
+# Note: Pokemon functions are loaded via the shell module system
+# The encounter will be triggered after modules are loaded
 
 # --- ZSH CORE CONFIGURATION ---
 autoload -Uz compinit
@@ -125,6 +123,12 @@ source "$HOME/GitHub/matthewmyrick/dotfiles/scripts/shell/loader.sh"
 # This ensures functions are available even if there was an error above
 if ! type shell_loaded &>/dev/null; then
     source "$HOME/GitHub/matthewmyrick/dotfiles/scripts/shell/loader.sh"
+fi
+
+# --- POKEMON ENCOUNTER ---
+# Trigger a Pokemon encounter now that modules are loaded
+if command -v pokemon_encounter &>/dev/null; then
+    pokemon_encounter
 fi
 
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
