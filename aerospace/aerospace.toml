@@ -4,7 +4,7 @@
 
 # Global settings
 accordion-padding = 0  # Remove padding for true fullscreen
-default-root-container-layout = 'tiles'
+default-root-container-layout = 'accordion'  # Stack windows instead of tiling
 default-root-container-orientation = 'auto'
 
 # Normalizations - fix common app behaviors
@@ -25,13 +25,13 @@ outer.right =      0
 
 # Workspace assignments with meaningful names
 [workspace-to-monitor-force-assignment]
-1 = 'main'      # 💻 Code - Development
-2 = 'main'      # 🌐 Web - Browsing/Research
-3 = 'main'      # 💬 Chat - Communication
-4 = 'main'      # 📝 Docs - Documentation/Notes
-5 = 'main'      # 🎵 Media - Music/Video
-6 = 'secondary' # 📊 Monitor - System monitoring
-7 = 'secondary' # 🔧 Tools - Utilities
+1 = 'main'      # 💻 Coding - VSCode + Terminals only
+2 = 'main'      # 🔧 DevTools - Docker, Lens, etc
+3 = 'main'      # 🌐 Web - Chrome, Safari, browsers
+4 = 'main'      # 💬 Chat - Communication
+5 = 'main'      # 📝 Docs - Documentation/Notes
+6 = 'main'      # 🎵 Media - Music/Video
+7 = 'secondary' # 📊 Monitor - System monitoring
 8 = 'secondary' # 📧 Mail - Email
 9 = 'secondary' # 🎯 Focus - Deep work
 
@@ -138,13 +138,7 @@ run = 'layout floating'
 if.app-id = 'com.apple.archiveutility'
 run = 'layout floating'
 
-# Default rule for ALL windows not explicitly set to floating
-# This ensures all tiled windows maximize their space
-[[on-window-detected]]
-check-further-callbacks = true
-run = ['layout tiling']
-
-# WORKSPACE 1: Development apps → Code workspace
+# WORKSPACE 1: Coding - VSCode + Terminals ONLY
 [[on-window-detected]]
 if.app-id = 'com.microsoft.VSCode'
 run = 'move-node-to-workspace 1'
@@ -161,62 +155,71 @@ run = 'move-node-to-workspace 1'
 if.app-id = 'com.jetbrains.intellij'
 run = 'move-node-to-workspace 1'
 
-# WORKSPACE 2: Web browsers → Web workspace
+[[on-window-detected]]
+if.app-id = 'com.jetbrains.goland'
+run = 'move-node-to-workspace 1'
+
+# WORKSPACE 2: DevTools - Docker, Lens, etc
+[[on-window-detected]]
+if.app-id = 'com.electron.kontena-lens'
+run = 'move-node-to-workspace 2'
+
+[[on-window-detected]]
+if.app-id = 'com.electron.dockerdesktop'
+run = 'move-node-to-workspace 2'
+
+# WORKSPACE 3: Web browsing
 [[on-window-detected]]
 if.app-id = 'com.google.Chrome'
-run = 'move-node-to-workspace 2'
+run = 'move-node-to-workspace 3'
 
 [[on-window-detected]]
 if.app-id = 'com.apple.Safari'
-run = 'move-node-to-workspace 2'
+run = 'move-node-to-workspace 3'
 
 [[on-window-detected]]
 if.app-id = 'org.mozilla.firefox'
-run = 'move-node-to-workspace 2'
+run = 'move-node-to-workspace 3'
 
 [[on-window-detected]]
 if.app-id = 'com.brave.Browser'
-run = 'move-node-to-workspace 2'
+run = 'move-node-to-workspace 3'
 
-# WORKSPACE 3: Communication apps → Chat workspace
+# WORKSPACE 4: Communication
 [[on-window-detected]]
 if.app-id = 'com.tinyspeck.slackmacgap'
-run = 'move-node-to-workspace 3'
+run = 'move-node-to-workspace 4'
 
 [[on-window-detected]]
 if.app-id = 'com.microsoft.teams2'
-run = 'move-node-to-workspace 3'
+run = 'move-node-to-workspace 4'
 
 [[on-window-detected]]
 if.app-id = 'com.hnc.Discord'
-run = 'move-node-to-workspace 3'
+run = 'move-node-to-workspace 4'
 
 [[on-window-detected]]
 if.app-id = 'us.zoom.xos'
-run = 'move-node-to-workspace 3'
+run = 'move-node-to-workspace 4'
 
-# WORKSPACE 4: Documentation apps → Docs workspace
+[[on-window-detected]]
+if.app-id = 'com.apple.MobileSMS'
+run = 'move-node-to-workspace 4'
+
+# WORKSPACE 5: Documentation
 [[on-window-detected]]
 if.app-id = 'md.obsidian'
-run = 'move-node-to-workspace 4'
+run = 'move-node-to-workspace 5'
 
 [[on-window-detected]]
 if.app-id = 'com.apple.Notes'
-run = 'move-node-to-workspace 4'
+run = 'move-node-to-workspace 5'
 
 [[on-window-detected]]
 if.app-id = 'notion.id'
-run = 'move-node-to-workspace 4'
+run = 'move-node-to-workspace 5'
 
-# WORKSPACE 5: Media apps → Media workspace
+# WORKSPACE 6: Media
 [[on-window-detected]]
 if.app-id = 'com.spotify.client'
-run = 'move-node-to-workspace 5'
-
-[[on-window-detected]]
-if.app-id = 'com.apple.Music'
-run = 'move-node-to-workspace 5'
-
-[[on-window-detected]]
-if.app-id = 'tv.plex.plexamp'
-run = 'move-node-to-workspace 5'
+run = 'move-node-to-workspace 6'

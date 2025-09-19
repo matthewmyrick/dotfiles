@@ -40,17 +40,17 @@ return {
     --                     NeoTreeDirectoryIcon = { fg = '#58a6ff' },  -- Blue folder icon
     --                     NeoTreeDirectoryName = { fg = '#58a6ff' },  -- Blue folder name
     --                     NeoTreeRootName = { fg = '#58a6ff', bold = true },  -- Blue root folder
-    --                     
+    --
     --                     -- Snacks dashboard folder colors
     --                     SnacksExplorerDirectory = { fg = '#58a6ff' },
     --                     SnacksExplorerDirectoryIcon = { fg = '#58a6ff' },
-    --                     
+    --
     --                     -- General directory highlights
     --                     Directory = { fg = '#58a6ff' },
     --                 },
     --             },
     --         })
-    --         
+    --
     --         -- Additional overrides after theme loads
     --         vim.api.nvim_create_autocmd("ColorScheme", {
     --             pattern = "github_*",
@@ -59,7 +59,7 @@ return {
     --                 vim.api.nvim_set_hl(0, "NeoTreeDirectoryIcon", { fg = "#58a6ff" })
     --                 vim.api.nvim_set_hl(0, "NeoTreeDirectoryName", { fg = "#58a6ff" })
     --                 vim.api.nvim_set_hl(0, "Directory", { fg = "#58a6ff" })
-    --                 
+    --
     --                 -- Snacks specific overrides
     --                 vim.api.nvim_set_hl(0, "SnacksExplorerDirectory", { fg = "#58a6ff" })
     --                 vim.api.nvim_set_hl(0, "SnacksExplorerDirectoryIcon", { fg = "#58a6ff" })
@@ -81,6 +81,8 @@ return {
         lazy = false,
         priority = 1000,
         opts = {
+            flavour = "mocha", -- Use Mocha variant (dark)
+            transparent_background = true, -- Enable transparency
             integrations = {
                 bufferline = false,
                 cmp = true,
@@ -107,7 +109,7 @@ return {
     {
         "LazyVim/LazyVim",
         opts = {
-            colorscheme = "catppuccin",
+            colorscheme = "catppuccin-mocha",
         },
     },
 }
