@@ -105,6 +105,34 @@ return {
                 which_key = true,
             },
         },
+        config = function(_, opts)
+            require("catppuccin").setup(opts)
+            vim.cmd.colorscheme("catppuccin-mocha")
+            
+            -- Fix snacks explorer background highlights
+            vim.api.nvim_create_autocmd("FileType", {
+                pattern = "snacks_explorer",
+                callback = function()
+                    vim.wo.winhighlight = "Normal:None,NormalFloat:None,FloatBorder:None,CursorLine:None,EndOfBuffer:None"
+                    vim.wo.cursorline = false
+                    vim.wo.winblend = 0
+                end,
+            })
+            
+            -- Also set highlights globally for explorer
+            vim.api.nvim_set_hl(0, "SnacksExplorerNormal", { bg = "NONE" })
+            vim.api.nvim_set_hl(0, "SnacksExplorerTitle", { bg = "NONE" })
+            vim.api.nvim_set_hl(0, "SnacksExplorerHeader", { bg = "NONE" })
+            
+            -- Fix markdown code block backgrounds
+            vim.api.nvim_set_hl(0, "RenderMarkdownCode", { bg = "NONE" })
+            vim.api.nvim_set_hl(0, "RenderMarkdownCodeInline", { bg = "NONE" })
+            vim.api.nvim_set_hl(0, "@markup.raw.block.markdown", { bg = "NONE" })
+            vim.api.nvim_set_hl(0, "@markup.raw.markdown_inline", { bg = "NONE" })
+            vim.api.nvim_set_hl(0, "markdownCode", { bg = "NONE" })
+            vim.api.nvim_set_hl(0, "markdownCodeBlock", { bg = "NONE" })
+            vim.api.nvim_set_hl(0, "markdownHighlight", { bg = "NONE" })
+        end,
     },
     {
         "LazyVim/LazyVim",

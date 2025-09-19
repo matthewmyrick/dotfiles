@@ -57,15 +57,15 @@ vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "Go to Upper Window" })
 -- Escape Terminal mode with <Esc><Esc>
 vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", {})
 
--- File Explorer keybindings
+-- File Explorer keybindings (never closes, only opens or focuses)
 vim.keymap.set("n", "<leader>e", function()
-    -- Check if explorer is already open and close it
+    -- Check if explorer is already open
     for _, win in ipairs(vim.api.nvim_list_wins()) do
         local buf = vim.api.nvim_win_get_buf(win)
         local ft = vim.api.nvim_buf_get_option(buf, "filetype")
         if ft == "snacks_explorer" then
-            -- Explorer is open, close it
-            vim.api.nvim_win_close(win, true)
+            -- Explorer is open, just focus it
+            vim.api.nvim_set_current_win(win)
             return
         end
     end
@@ -76,7 +76,7 @@ vim.keymap.set("n", "<leader>e", function()
     else
         vim.notify("Snacks explorer not available", vim.log.levels.WARN)
     end
-end, { desc = "Toggle File Explorer" })
+end, { desc = "Open/Focus File Explorer" })
 
 -- Save file with <leader>ww
 vim.keymap.set("n", "<leader>ww", "<cmd>w<CR>", { desc = "Save file" })

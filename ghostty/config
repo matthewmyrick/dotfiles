@@ -6,8 +6,8 @@ font-feature = -calt
 # THEME - Catppuccin Mocha to match Neovim
 theme = Catppuccin Mocha
 
-# SHADER - Remove custom shader to use theme colors
-# custom-shader = shaders/trailer.glsl
+# SHADER - Catppuccin trail shader
+custom-shader = shaders/trailer.glsl
 
 # TABS
 # Tab location at the top
@@ -26,8 +26,8 @@ selection-foreground = #1e1e2e
 cursor-style = block
 cursor-style-blink = true
 
-# OPACITY - More transparent to see wallpaper better
-background-opacity = 0.80
+# OPACITY - Less transparent for better visibility
+background-opacity = 0.95
 
 # SCROLLBACK
 scrollback-limit = 10000

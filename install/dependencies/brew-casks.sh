@@ -5,7 +5,6 @@ echo "📦 Installing Homebrew cask packages..."
 CASK_PACKAGES=(
   ghostty
   karabiner-elements
-  nikitabobko/tap/aerospace
 )
 
 # Install or upgrade each cask package
@@ -39,13 +38,3 @@ fi
 
 echo "✓ Homebrew cask packages ready."
 
-# Start AeroSpace if it was just installed
-if brew list --cask | grep -q "^aerospace$"; then
-  echo "🚀 Starting AeroSpace window manager..."
-  if ! pgrep -x "AeroSpace" > /dev/null; then
-    open -a AeroSpace
-    echo "✓ AeroSpace started"
-  else
-    echo "✓ AeroSpace is already running"
-  fi
-fi

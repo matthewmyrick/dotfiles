@@ -25,9 +25,4 @@ cp -R "$DOTFILES_DIR/nvim" ~/.config/
 echo "  Installing ghostty config..."
 cp -R "$DOTFILES_DIR/ghostty" ~/.config
 
-echo "  Installing AeroSpace config..."
-mkdir -p ~/.config/aerospace
-rm -f ~/.config/aerospace/aerospace.toml
-ln -s "$DOTFILES_DIR/aerospace/aerospace.toml" ~/.config/aerospace/aerospace.toml
-
 echo "✓ Dotfiles installed successfully!"

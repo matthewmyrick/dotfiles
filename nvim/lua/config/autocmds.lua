@@ -18,3 +18,21 @@ vim.api.nvim_create_autocmd("BufWritePost", {
   group = vim.api.nvim_create_augroup("TerragruntFormat", { clear = true }),
   desc = "Format terragrunt.hcl files on save",
 })
+
+-- Prevent Snacks explorer from closing
+vim.api.nvim_create_autocmd("WinClosed", {
+  callback = function(args)
+    local buf = vim.api.nvim_win_get_buf(args.match)
+    local ft = vim.api.nvim_buf_get_option(buf, "filetype")
+    if ft == "snacks_explorer" then
+      -- Re-open the explorer if it was closed
+      vim.defer_fn(function()
+        if Snacks and Snacks.explorer then
+          Snacks.explorer()
+        end
+      end, 10)
+    end
+  end,
+  group = vim.api.nvim_create_augroup("KeepExplorerOpen", { clear = true }),
+  desc = "Keep Snacks explorer open",
+})

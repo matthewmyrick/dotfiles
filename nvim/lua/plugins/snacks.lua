@@ -11,6 +11,18 @@ return {
       },
     },
     explorer = {
+      layout = {
+        backdrop = false, -- Don't dim the background
+      },
+      win = {
+        style = "minimal",
+        border = "none",
+        wo = {
+          cursorline = false,
+          winblend = 0, -- No transparency to avoid background colors
+          winhighlight = "Normal:None,NormalFloat:None,FloatBorder:None,EndOfBuffer:None",
+        },
+      },
       filters = {
         dotfiles = false, -- Show dotfiles
         git_ignored = false, -- Show git ignored files
