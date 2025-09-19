@@ -1,5 +1,6 @@
 #!/bin/bash
 
 # Simple wrapper for the apps function
-source "/Users/z954179/GitHub/matthewmyrick/dotfiles/scripts/shell/utilities/apps.sh"
-apps "$@"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/apps.sh"
+apps_main "$@"

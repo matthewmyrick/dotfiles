@@ -1,0 +1,222 @@
+# AeroSpace Configuration
+# https://github.com/nikitabobko/AeroSpace
+# Modern tiling window manager for macOS
+
+# Global settings
+accordion-padding = 0  # Remove padding for true fullscreen
+default-root-container-layout = 'tiles'
+default-root-container-orientation = 'auto'
+
+# Normalizations - fix common app behaviors
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+
+# Automatically resize windows to fill their container
+automatically-unhide-macos-hidden-apps = true
+
+# Visual appearance - Set to 0 for fullscreen effect
+[gaps]
+inner.horizontal = 0
+inner.vertical =   0
+outer.left =       0
+outer.bottom =     0
+outer.top =        0
+outer.right =      0
+
+# Workspace assignments with meaningful names
+[workspace-to-monitor-force-assignment]
+1 = 'main'      # 💻 Code - Development
+2 = 'main'      # 🌐 Web - Browsing/Research
+3 = 'main'      # 💬 Chat - Communication
+4 = 'main'      # 📝 Docs - Documentation/Notes
+5 = 'main'      # 🎵 Media - Music/Video
+6 = 'secondary' # 📊 Monitor - System monitoring
+7 = 'secondary' # 🔧 Tools - Utilities
+8 = 'secondary' # 📧 Mail - Email
+9 = 'secondary' # 🎯 Focus - Deep work
+
+# Main mode keybindings
+[mode.main.binding]
+
+# Focus navigation (Vim-style)
+alt-h = 'focus left'
+alt-j = 'focus down'
+alt-k = 'focus up'
+alt-l = 'focus right'
+
+# Window movement
+alt-shift-h = 'move left'
+alt-shift-j = 'move down'
+alt-shift-k = 'move up'
+alt-shift-l = 'move right'
+
+# Layout management
+alt-slash = 'layout tiles horizontal vertical'
+alt-comma = 'layout accordion horizontal vertical'
+
+# Workspace navigation
+alt-1 = 'workspace 1'
+alt-2 = 'workspace 2'
+alt-3 = 'workspace 3'
+alt-4 = 'workspace 4'
+alt-5 = 'workspace 5'
+alt-6 = 'workspace 6'
+alt-7 = 'workspace 7'
+alt-8 = 'workspace 8'
+alt-9 = 'workspace 9'
+alt-0 = 'workspace 10'
+
+# Move windows to workspaces
+alt-shift-1 = 'move-node-to-workspace 1'
+alt-shift-2 = 'move-node-to-workspace 2'
+alt-shift-3 = 'move-node-to-workspace 3'
+alt-shift-4 = 'move-node-to-workspace 4'
+alt-shift-5 = 'move-node-to-workspace 5'
+alt-shift-6 = 'move-node-to-workspace 6'
+alt-shift-7 = 'move-node-to-workspace 7'
+alt-shift-8 = 'move-node-to-workspace 8'
+alt-shift-9 = 'move-node-to-workspace 9'
+alt-shift-0 = 'move-node-to-workspace 10'
+
+# Window state management
+alt-shift-space = 'layout floating tiling'  # Toggle floating
+alt-f = 'fullscreen'                         # Toggle fullscreen
+
+# Window resizing
+alt-shift-minus = 'resize smart -50'
+alt-shift-equal = 'resize smart +50'
+
+# Service mode for advanced operations
+alt-semicolon = 'mode service'
+
+# Additional useful shortcuts
+alt-shift-c = 'reload-config'               # Reload config
+alt-shift-r = 'flatten-workspace-tree'      # Reset layout
+
+# Quick workspace navigation
+alt-tab = 'workspace-back-and-forth'        # Toggle between last two workspaces
+alt-p = 'workspace prev'                    # Previous workspace
+alt-n = 'workspace next'                    # Next workspace
+
+# Service mode keybindings
+[mode.service.binding]
+esc = ['reload-config', 'mode main']
+r = ['flatten-workspace-tree', 'mode main']
+f = ['layout floating tiling', 'mode main']
+backspace = ['close-all-windows-but-current', 'mode main']
+alt-shift-h = ['join-with left', 'mode main']
+alt-shift-j = ['join-with down', 'mode main']
+alt-shift-k = ['join-with up', 'mode main']
+alt-shift-l = ['join-with right', 'mode main']
+
+# Application-specific window rules
+[[on-window-detected]]
+if.app-id = 'com.apple.finder'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.systempreferences'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.SystemPreferences'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.calculator'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.ActivityMonitor'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.DigitalColorMeter'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.archiveutility'
+run = 'layout floating'
+
+# Default rule for ALL windows not explicitly set to floating
+# This ensures all tiled windows maximize their space
+[[on-window-detected]]
+check-further-callbacks = true
+run = ['layout tiling']
+
+# WORKSPACE 1: Development apps → Code workspace
+[[on-window-detected]]
+if.app-id = 'com.microsoft.VSCode'
+run = 'move-node-to-workspace 1'
+
+[[on-window-detected]]
+if.app-id = 'com.github.wez.wezterm'
+run = 'move-node-to-workspace 1'
+
+[[on-window-detected]]
+if.app-id = 'com.mitchellh.ghostty'
+run = 'move-node-to-workspace 1'
+
+[[on-window-detected]]
+if.app-id = 'com.jetbrains.intellij'
+run = 'move-node-to-workspace 1'
+
+# WORKSPACE 2: Web browsers → Web workspace
+[[on-window-detected]]
+if.app-id = 'com.google.Chrome'
+run = 'move-node-to-workspace 2'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.Safari'
+run = 'move-node-to-workspace 2'
+
+[[on-window-detected]]
+if.app-id = 'org.mozilla.firefox'
+run = 'move-node-to-workspace 2'
+
+[[on-window-detected]]
+if.app-id = 'com.brave.Browser'
+run = 'move-node-to-workspace 2'
+
+# WORKSPACE 3: Communication apps → Chat workspace
+[[on-window-detected]]
+if.app-id = 'com.tinyspeck.slackmacgap'
+run = 'move-node-to-workspace 3'
+
+[[on-window-detected]]
+if.app-id = 'com.microsoft.teams2'
+run = 'move-node-to-workspace 3'
+
+[[on-window-detected]]
+if.app-id = 'com.hnc.Discord'
+run = 'move-node-to-workspace 3'
+
+[[on-window-detected]]
+if.app-id = 'us.zoom.xos'
+run = 'move-node-to-workspace 3'
+
+# WORKSPACE 4: Documentation apps → Docs workspace
+[[on-window-detected]]
+if.app-id = 'md.obsidian'
+run = 'move-node-to-workspace 4'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.Notes'
+run = 'move-node-to-workspace 4'
+
+[[on-window-detected]]
+if.app-id = 'notion.id'
+run = 'move-node-to-workspace 4'
+
+# WORKSPACE 5: Media apps → Media workspace
+[[on-window-detected]]
+if.app-id = 'com.spotify.client'
+run = 'move-node-to-workspace 5'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.Music'
+run = 'move-node-to-workspace 5'
+
+[[on-window-detected]]
+if.app-id = 'tv.plex.plexamp'
+run = 'move-node-to-workspace 5'

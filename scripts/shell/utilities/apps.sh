@@ -82,7 +82,50 @@ apps() {
     fi
 }
 
+# Source the apps-close functionality if available
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/apps-close.sh" ]]; then
+    source "$SCRIPT_DIR/apps-close.sh"
+fi
+
+# Extended apps function with subcommands
+apps_main() {
+    case "$1" in
+        close)
+            if declare -f apps_close >/dev/null; then
+                apps_close
+            else
+                echo "❌ apps close command not available"
+                return 1
+            fi
+            ;;
+        help|--help|-h)
+            echo "📱 apps - Application launcher and manager"
+            echo ""
+            echo "Usage:"
+            echo "  apps              - Interactive app launcher with fuzzy search"
+            echo "  apps [name]       - Launch app by name"
+            echo "  apps close        - Select and close multiple running apps"
+            echo "  apps help         - Show this help message"
+            echo ""
+            echo "Shortcuts in 'apps close':"
+            echo "  Tab              - Select/deselect an app"
+            echo "  Ctrl+A           - Select all"
+            echo "  Ctrl+D           - Deselect all"
+            echo "  Ctrl+R           - Toggle all"
+            echo "  Enter            - Confirm selection"
+            ;;
+        *)
+            # Default behavior - launch apps
+            apps "$@"
+            ;;
+    esac
+}
+
 # If script is run directly (not sourced), execute the function
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    apps "$@"
+    apps_main "$@"
+else
+    # When sourced, make apps_main available as 'apps'
+    alias apps=apps_main
 fi
