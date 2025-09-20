@@ -24,12 +24,12 @@ function installDotfiles() {
   run_scripts_in_dir() {
     local dir="$1"
     local full_path="$INSTALL_DIR/install/$dir"
-    
+
     if [ -d "$full_path" ]; then
       echo "═══════════════════════════════════════════════════════════════"
       echo "🔄 Running $dir scripts..."
       echo "═══════════════════════════════════════════════════════════════"
-      
+
       # Find all .sh files in the directory and run them
       find "$full_path" -name "*.sh" -type f | sort | while read -r script; do
         if [ -x "$script" ] || chmod +x "$script" 2>/dev/null; then
