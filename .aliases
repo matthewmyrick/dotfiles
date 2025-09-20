@@ -73,3 +73,12 @@ alias bt="bluetooth-tui"
 alias a="az"
 alias azs="azure-searcher"
 alias azi="az interactive"
+
+# spotify
+alias spl='spotify play'
+alias spa='spotify pause'
+alias sn='spotify next'
+alias sp='spotify prev'
+alias ss='spotify status'
+alias svu='spotify vol up'
+alias svd='spotify vol down'
