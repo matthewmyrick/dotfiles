@@ -43,6 +43,7 @@ elif [[ "$APP_NAME_UPPER" == *"FINDER"* ]]; then EMOJI="📁"
 elif [[ "$APP_NAME_UPPER" == *"SPOTIFY"* ]]; then EMOJI="🎵"
 elif [[ "$APP_NAME_UPPER" == *"SLACK"* ]]; then EMOJI="💬"
 elif [[ "$APP_NAME_UPPER" == *"DISCORD"* ]]; then EMOJI="🎮"
+elif [[ "$APP_NAME_UPPER" == *"TEAMS"* ]]; then EMOJI="🤝"
 elif [[ "$APP_NAME_UPPER" == *"CODE"* ]]; then EMOJI="📝"
 elif [[ "$APP_NAME_UPPER" == *"MESSAGES"* ]]; then EMOJI="💬"
 elif [[ "$APP_NAME_UPPER" == *"MAIL"* ]]; then EMOJI="📧"
@@ -128,8 +129,36 @@ sketchybar --add item date right \
 # Battery
 sketchybar --add item battery right \
            --set battery update_freq=10 \
-                        script="sketchybar --set battery label=\"\$(pmset -g batt | grep -o '[0-9]*%')\"" \
-                        icon=󰁹
+                        script='
+BATTERY_PERCENT=$(pmset -g batt | grep -o "[0-9]*%" | sed "s/%//")
+BATTERY_STATUS=$(pmset -g batt | grep -o "charging\|discharging\|charged")
+
+# Set battery icon based on percentage and charging status
+if [[ "$BATTERY_STATUS" == "charging" ]]; then
+  BATTERY_ICON="󰂄"  # Charging icon
+elif [ $BATTERY_PERCENT -ge 90 ]; then
+  BATTERY_ICON="󰁹"  # 100%
+elif [ $BATTERY_PERCENT -ge 75 ]; then
+  BATTERY_ICON="󰂂"  # 75%
+elif [ $BATTERY_PERCENT -ge 50 ]; then
+  BATTERY_ICON="󰂀"  # 50%
+elif [ $BATTERY_PERCENT -ge 25 ]; then
+  BATTERY_ICON="󰁾"  # 25%
+elif [ $BATTERY_PERCENT -ge 10 ]; then
+  BATTERY_ICON="󰁼"  # 10%
+else
+  BATTERY_ICON="󰁺"  # Very low
+fi
+
+# Low battery notification (15% and 5%)
+if [ $BATTERY_PERCENT -eq 15 ] && [[ "$BATTERY_STATUS" == "discharging" ]]; then
+  osascript -e "display notification \"Battery at ${BATTERY_PERCENT}%\" with title \"Low Battery Warning\" sound name \"Basso\""
+elif [ $BATTERY_PERCENT -eq 5 ] && [[ "$BATTERY_STATUS" == "discharging" ]]; then
+  osascript -e "display notification \"Battery critically low at ${BATTERY_PERCENT}%! Connect charger immediately.\" with title \"Critical Battery Warning\" sound name \"Sosumi\""
+fi
+
+sketchybar --set battery icon="$BATTERY_ICON" label="${BATTERY_PERCENT}%"
+'
 
 # WiFi Network
 sketchybar --add item wifi right \
@@ -177,18 +206,30 @@ sketchybar --add item vpn right \
                       icon.font="SF Pro:Regular:15.0" \
                       label.font="SF Pro:Regular:13.0" \
                       script='
+# Check for traditional VPNs
 VPN_STATUS=$(scutil --nc list | grep "Connected" | head -1)
+VPN_NAME=""
+
 if [[ -n "$VPN_STATUS" ]]; then
   VPN_NAME=$(echo "$VPN_STATUS" | sed -E "s/.*\"(.+)\".*/\1/" | head -1)
-  if [[ -n "$VPN_NAME" ]]; then
-    # Truncate long VPN names
-    if [ ${#VPN_NAME} -gt 12 ]; then
-      VPN_NAME="${VPN_NAME:0:12}..."
-    fi
-    sketchybar --set vpn label="$VPN_NAME" drawing=on
+fi
+
+# Check for Netskope (treat as VPN)
+NETSKOPE_RUNNING=$(ps aux | grep -i "netskope" | grep -v grep | head -1)
+if [[ -n "$NETSKOPE_RUNNING" ]]; then
+  if [[ -z "$VPN_NAME" ]]; then
+    VPN_NAME="Netskope"
   else
-    sketchybar --set vpn drawing=off
+    VPN_NAME="$VPN_NAME, Netskope"
   fi
+fi
+
+if [[ -n "$VPN_NAME" ]]; then
+  # Truncate long VPN names
+  if [ ${#VPN_NAME} -gt 12 ]; then
+    VPN_NAME="${VPN_NAME:0:12}..."
+  fi
+  sketchybar --set vpn label="$VPN_NAME" drawing=on
 else
   sketchybar --set vpn drawing=off
 fi
