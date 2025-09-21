@@ -150,11 +150,24 @@ else
   BATTERY_ICON="󰁺"  # Very low
 fi
 
-# Low battery notification (15% and 5%)
+# Low battery notification (15% and 5%) - only once per session
+NOTIFICATION_FILE="/tmp/sketchybar_battery_notifications"
+
 if [ $BATTERY_PERCENT -eq 15 ] && [[ "$BATTERY_STATUS" == "discharging" ]]; then
-  osascript -e "display notification \"Battery at ${BATTERY_PERCENT}%\" with title \"Low Battery Warning\" sound name \"Basso\""
+  if ! grep -q "15_notified" "$NOTIFICATION_FILE" 2>/dev/null; then
+    osascript -e "display notification \"Battery at ${BATTERY_PERCENT}%\" with title \"Low Battery Warning\" sound name \"Basso\""
+    echo "15_notified" >> "$NOTIFICATION_FILE"
+  fi
 elif [ $BATTERY_PERCENT -eq 5 ] && [[ "$BATTERY_STATUS" == "discharging" ]]; then
-  osascript -e "display notification \"Battery critically low at ${BATTERY_PERCENT}%! Connect charger immediately.\" with title \"Critical Battery Warning\" sound name \"Sosumi\""
+  if ! grep -q "5_notified" "$NOTIFICATION_FILE" 2>/dev/null; then
+    osascript -e "display notification \"Battery critically low at ${BATTERY_PERCENT}%! Connect charger immediately.\" with title \"Critical Battery Warning\" sound name \"Sosumi\""
+    echo "5_notified" >> "$NOTIFICATION_FILE"
+  fi
+fi
+
+# Reset notification flags when charging or battery level increases
+if [[ "$BATTERY_STATUS" == "charging" ]] || [ $BATTERY_PERCENT -gt 20 ]; then
+  rm -f "$NOTIFICATION_FILE" 2>/dev/null
 fi
 
 sketchybar --set battery icon="$BATTERY_ICON" label="${BATTERY_PERCENT}%"
