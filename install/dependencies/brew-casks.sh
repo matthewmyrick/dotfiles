@@ -24,6 +24,15 @@ done
 # Handle tap packages
 echo "  📦 Installing tap packages..."
 
+# sketchybar
+brew tap FelixKratz/formulae
+if ! brew list --formula | grep -q "^sketchybar$"; then
+  echo "    Installing sketchybar..."
+  brew install sketchybar
+else
+  echo "    ✓ sketchybar already installed"
+fi
+
 # taproom
 brew tap gromgit/brewtils
 brew install gromgit/brewtils/taproom

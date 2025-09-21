@@ -1,0 +1,260 @@
+#!/bin/bash
+
+# Simple, clear sketchybar configuration
+
+# Bar appearance
+sketchybar --bar height=32 \
+                 blur_radius=30 \
+                 position=top \
+                 sticky=on \
+                 padding_left=10 \
+                 padding_right=10 \
+                 color=0x00000000
+
+# Default values for all items
+default=(
+  icon.font="SF Pro:Semibold:15.0"
+  icon.color=0xff000000
+  label.font="SF Pro:Regular:15.0"
+  label.color=0xff000000
+  padding_left=5
+  padding_right=5
+  label.padding_left=4
+  label.padding_right=4
+  icon.padding_left=4
+  icon.padding_right=4
+)
+
+sketchybar --default "${default[@]}"
+
+# -- Left Side Items --
+
+# App Icon (emoji based on active app)
+sketchybar --add item app_icon left \
+           --set app_icon update_freq=1 \
+                       script='
+APP_NAME=$(osascript -e "tell application \"System Events\" to get name of first application process whose frontmost is true")
+APP_NAME_UPPER=$(echo "$APP_NAME" | tr "[:lower:]" "[:upper:]")
+if [[ "$APP_NAME_UPPER" == *"GHOSTTY"* ]]; then EMOJI="👻"
+elif [[ "$APP_NAME_UPPER" == *"TERMINAL"* ]]; then EMOJI="💻"
+elif [[ "$APP_NAME_UPPER" == *"CHROME"* ]]; then EMOJI="🌐"
+elif [[ "$APP_NAME_UPPER" == *"SAFARI"* ]]; then EMOJI="🧭"
+elif [[ "$APP_NAME_UPPER" == *"FINDER"* ]]; then EMOJI="📁"
+elif [[ "$APP_NAME_UPPER" == *"SPOTIFY"* ]]; then EMOJI="🎵"
+elif [[ "$APP_NAME_UPPER" == *"SLACK"* ]]; then EMOJI="💬"
+elif [[ "$APP_NAME_UPPER" == *"DISCORD"* ]]; then EMOJI="🎮"
+elif [[ "$APP_NAME_UPPER" == *"CODE"* ]]; then EMOJI="📝"
+elif [[ "$APP_NAME_UPPER" == *"MESSAGES"* ]]; then EMOJI="💬"
+elif [[ "$APP_NAME_UPPER" == *"MAIL"* ]]; then EMOJI="📧"
+elif [[ "$APP_NAME_UPPER" == *"CALENDAR"* ]]; then EMOJI="📅"
+elif [[ "$APP_NAME_UPPER" == *"NOTES"* ]]; then EMOJI="📓"
+elif [[ "$APP_NAME_UPPER" == *"PREVIEW"* ]]; then EMOJI="🖼️"
+elif [[ "$APP_NAME_UPPER" == *"SYSTEM PREFERENCES"* ]]; then EMOJI="⚙️"
+elif [[ "$APP_NAME_UPPER" == *"SYSTEM SETTINGS"* ]]; then EMOJI="⚙️"
+else EMOJI="🤷"
+fi
+sketchybar --set app_icon label="$EMOJI"
+' \
+                       icon.drawing=off \
+                       label.font="SF Pro:Regular:20.0" \
+                       padding_right=5
+
+# Front App (Active Application)  
+sketchybar --add item front_app left \
+           --set front_app update_freq=1 \
+                       script='APP_NAME=$(osascript -e "tell application \"System Events\" to get name of first application process whose frontmost is true"); APP_UPPER=$(echo "$APP_NAME" | tr "[:lower:]" "[:upper:]"); sketchybar --set front_app label="$APP_UPPER"' \
+                       icon.drawing=off \
+                       padding_left=5
+
+# CPU Usage
+sketchybar --add item cpu left \
+           --set cpu update_freq=2 \
+                    icon="CPU" \
+                    icon.font="SF Pro:Regular:13.0" \
+                    script='CPU=$(top -l 1 | grep "CPU usage" | awk "{print int(\$3)}"); sketchybar --set cpu label="${CPU}%"'
+
+# Memory Usage  
+sketchybar --add item memory left \
+           --set memory update_freq=5 \
+                        icon="MEM" \
+                        icon.font="SF Pro:Regular:13.0" \
+                        script='MEM=$(memory_pressure | grep "System-wide memory free percentage" | awk "{print 100-\$5}" | cut -d "%" -f1); sketchybar --set memory label="${MEM}%"'
+
+# Network Activity (WiFi signal strength)
+sketchybar --add item network left \
+           --set network update_freq=5 \
+                        icon="NET" \
+                        icon.font="SF Pro:Regular:13.0" \
+                        script='
+WIFI_INFO=$(/System/Library/PrivateFrameworks/Apple80211.framework/Resources/airport -I 2>/dev/null)
+if [[ -n "$WIFI_INFO" ]]; then
+  RSSI=$(echo "$WIFI_INFO" | grep -E "agrCtlRSSI|RSSI" | awk "{print \$2}")
+  if [[ -n "$RSSI" ]]; then
+    # Convert RSSI to percentage (approximation)
+    # -30 dBm = 100%, -90 dBm = 0%
+    if [ $RSSI -ge -30 ]; then
+      PERCENT=100
+    elif [ $RSSI -le -90 ]; then
+      PERCENT=0
+    else
+      PERCENT=$(( 100 - (($RSSI * -1 - 30) * 100 / 60) ))
+    fi
+    sketchybar --set network label="${PERCENT}%"
+  else
+    sketchybar --set network label="--"
+  fi
+else
+  sketchybar --set network label="OFF"
+fi
+'
+
+sketchybar --add event window_focus \
+           --add event windows_on_spaces
+
+# -- Right Side Items --
+
+# Clock (12-hour format in EST)
+sketchybar --add item clock right \
+           --set clock update_freq=10 \
+                      icon.drawing=off \
+                      script="sketchybar --set clock label=\"\$(TZ='America/New_York' date '+%I:%M %p')\""
+
+# Date (MM/DD/YYYY format)
+sketchybar --add item date right \
+           --set date update_freq=60 \
+                     icon.drawing=off \
+                     script="sketchybar --set date label=\"\$(date '+%m/%d/%Y')\""
+
+# Battery
+sketchybar --add item battery right \
+           --set battery update_freq=10 \
+                        script="sketchybar --set battery label=\"\$(pmset -g batt | grep -o '[0-9]*%')\"" \
+                        icon=󰁹
+
+# WiFi Network
+sketchybar --add item wifi right \
+           --set wifi update_freq=5 \
+                        icon=󰤨 \
+                        icon.font="SF Pro:Regular:15.0" \
+                        label.font="SF Pro:Regular:13.0" \
+                        script='
+# Try multiple methods to get WiFi SSID
+SSID=$(/usr/sbin/networksetup -getairportnetwork en0 2>/dev/null | grep "Current Wi-Fi Network:" | cut -d ":" -f2 | xargs)
+
+# If that fails, try system_profiler
+if [[ -z "$SSID" ]] || [[ "$SSID" == "You are not associated with an AirPort network" ]]; then
+  SSID=$(system_profiler SPAirPortDataType 2>/dev/null | awk "/Current Network Information:/ { getline; getline; gsub(/:/, \"\"); print \$1; exit }")
+fi
+
+# As last resort, check if we have an IP to know we are connected
+if [[ -z "$SSID" ]]; then
+  IP=$(ipconfig getifaddr en0 2>/dev/null)
+  if [[ -n "$IP" ]]; then
+    SSID="Connected"  # Generic connected status if we cant get SSID
+  fi
+fi
+
+if [[ -n "$SSID" ]] && [[ "$SSID" != "You are not associated with an AirPort network" ]]; then
+  # Try to get signal strength
+  RSSI=$(/System/Library/PrivateFrameworks/Apple80211.framework/Resources/airport -I 2>/dev/null | grep -E "agrCtlRSSI|RSSI" | awk "{print \$2}")
+  if [[ -n "$RSSI" ]]; then
+    # Calculate signal bars based on RSSI
+    if [ $RSSI -ge -50 ]; then
+      ICON=󰤨  # Full signal
+    elif [ $RSSI -ge -60 ]; then
+      ICON=󰤥  # 3 bars  
+    elif [ $RSSI -ge -70 ]; then
+      ICON=󰤢  # 2 bars
+    else
+      ICON=󰤟  # 1 bar
+    fi
+  else
+    ICON=󰤨  # Default to full if cant get RSSI
+  fi
+  sketchybar --set wifi icon="$ICON" label="$SSID"
+else
+  sketchybar --set wifi icon=󰤭 label=""  # No connection
+fi
+'
+
+# VPN Status
+sketchybar --add item vpn right \
+           --set vpn update_freq=5 \
+                      icon=󰒃 \
+                      icon.font="SF Pro:Regular:15.0" \
+                      label.font="SF Pro:Regular:13.0" \
+                      script='
+VPN_STATUS=$(scutil --nc list | grep "Connected" | head -1)
+if [[ -n "$VPN_STATUS" ]]; then
+  VPN_NAME=$(echo "$VPN_STATUS" | sed -E "s/.*\"(.+)\".*/\1/" | head -1)
+  if [[ -n "$VPN_NAME" ]]; then
+    # Truncate long VPN names
+    if [ ${#VPN_NAME} -gt 12 ]; then
+      VPN_NAME="${VPN_NAME:0:12}..."
+    fi
+    sketchybar --set vpn label="$VPN_NAME" drawing=on
+  else
+    sketchybar --set vpn drawing=off
+  fi
+else
+  sketchybar --set vpn drawing=off
+fi
+'
+
+# Bluetooth Device
+sketchybar --add item bluetooth right \
+           --set bluetooth update_freq=5 \
+                        icon=󰂯 \
+                        icon.font="SF Pro:Regular:15.0" \
+                        label.font="SF Pro:Regular:13.0" \
+                        script='
+BT_DEVICES=$(blueutil --connected 2>/dev/null | grep -v "^\s*$")
+if [[ -n "$BT_DEVICES" ]]; then
+  # Get first connected device name
+  BT_DEVICE=$(echo "$BT_DEVICES" | head -1 | cut -d "," -f2 | sed "s/name: //g" | xargs)
+  if [[ -n "$BT_DEVICE" ]]; then
+    # Truncate long device names
+    if [ ${#BT_DEVICE} -gt 15 ]; then
+      BT_DEVICE="${BT_DEVICE:0:15}..."
+    fi
+    sketchybar --set bluetooth label="$BT_DEVICE" drawing=on
+  else
+    sketchybar --set bluetooth drawing=off
+  fi
+else
+  sketchybar --set bluetooth drawing=off
+fi
+'
+
+# Spotify (next to volume)
+sketchybar --add item spotify right \
+           --set spotify update_freq=2 \
+                        icon=🎵 \
+                        icon.font="SF Pro:Regular:16.0" \
+                        label.max_chars=25 \
+                        label.font="SF Pro:Regular:13.0" \
+                        script='
+TRACK=$(osascript -e "tell application \"Spotify\" to if player state is playing then return name of current track" 2>/dev/null)
+if [[ -n "$TRACK" ]]; then
+  sketchybar --set spotify label="$TRACK" drawing=on
+else
+  sketchybar --set spotify drawing=off
+fi
+'
+
+# Volume
+sketchybar --add item volume right \
+           --set volume update_freq=1 \
+                       script="sketchybar --set volume label=\"\$(osascript -e 'output volume of (get volume settings)')%\"" \
+                       icon=󰕾
+
+# Subscribe to events
+sketchybar --subscribe front_app window_focus windows_on_spaces
+
+# Force update all items on start
+sketchybar --update
+
+# Trigger initial front_app update
+sketchybar --trigger window_focus
+
+echo "sketchybar configuration loaded"

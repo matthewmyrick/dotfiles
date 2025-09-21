@@ -25,4 +25,15 @@ cp -R "$DOTFILES_DIR/nvim" ~/.config/
 echo "  Installing ghostty config..."
 cp -R "$DOTFILES_DIR/ghostty" ~/.config
 
+echo "  Installing sketchybar config..."
+mkdir -p ~/.config/sketchybar
+cp "$DOTFILES_DIR/sketchybar/sketchybarrc" ~/.config/sketchybar/
+chmod +x ~/.config/sketchybar/sketchybarrc
+
+# Restart sketchybar if it's installed
+if command -v sketchybar &> /dev/null; then
+  echo "  Restarting sketchybar..."
+  brew services restart sketchybar 2>/dev/null || echo "    Note: Could not restart sketchybar service"
+fi
+
 echo "✓ Dotfiles installed successfully!"
