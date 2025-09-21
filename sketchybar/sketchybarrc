@@ -138,42 +138,35 @@ sketchybar --add item wifi right \
                         icon.font="SF Pro:Regular:15.0" \
                         label.font="SF Pro:Regular:13.0" \
                         script='
-# Try multiple methods to get WiFi SSID
-SSID=$(/usr/sbin/networksetup -getairportnetwork en0 2>/dev/null | grep "Current Wi-Fi Network:" | cut -d ":" -f2 | xargs)
+# Use Python to get WiFi SSID reliably
+SSID=$(python3 -c "
+import subprocess
+import re
+try:
+    # Get WiFi info from system_profiler
+    result = subprocess.run([\"system_profiler\", \"SPAirPortDataType\"], capture_output=True, text=True)
+    output = result.stdout
+    
+    # Find Current Network Information section
+    current_section = output.split(\"Current Network Information:\")[1].split(\"Other Local Wi-Fi Networks:\")[0]
+    
+    # Extract network name (first line after Current Network Information that ends with colon)
+    for line in current_section.split(\"\\n\"):
+        line = line.strip()
+        if line and line.endswith(\":\") and \"PHY\" not in line:
+            ssid = line[:-1]  # Remove the colon
+            print(ssid)
+            break
+except:
+    pass
+" 2>/dev/null)
 
-# If that fails, try system_profiler
-if [[ -z "$SSID" ]] || [[ "$SSID" == "You are not associated with an AirPort network" ]]; then
-  SSID=$(system_profiler SPAirPortDataType 2>/dev/null | awk "/Current Network Information:/ { getline; getline; gsub(/:/, \"\"); print \$1; exit }")
-fi
-
-# As last resort, check if we have an IP to know we are connected
-if [[ -z "$SSID" ]]; then
-  IP=$(ipconfig getifaddr en0 2>/dev/null)
-  if [[ -n "$IP" ]]; then
-    SSID="Connected"  # Generic connected status if we cant get SSID
-  fi
-fi
-
-if [[ -n "$SSID" ]] && [[ "$SSID" != "You are not associated with an AirPort network" ]]; then
-  # Try to get signal strength
-  RSSI=$(/System/Library/PrivateFrameworks/Apple80211.framework/Resources/airport -I 2>/dev/null | grep -E "agrCtlRSSI|RSSI" | awk "{print \$2}")
-  if [[ -n "$RSSI" ]]; then
-    # Calculate signal bars based on RSSI
-    if [ $RSSI -ge -50 ]; then
-      ICON=󰤨  # Full signal
-    elif [ $RSSI -ge -60 ]; then
-      ICON=󰤥  # 3 bars  
-    elif [ $RSSI -ge -70 ]; then
-      ICON=󰤢  # 2 bars
-    else
-      ICON=󰤟  # 1 bar
-    fi
-  else
-    ICON=󰤨  # Default to full if cant get RSSI
-  fi
-  sketchybar --set wifi icon="$ICON" label="$SSID"
+if [[ -n "$SSID" ]]; then
+  # Connected - show WiFi icon with network name
+  sketchybar --set wifi icon=󰤨 label="$SSID"
 else
-  sketchybar --set wifi icon=󰤭 label=""  # No connection
+  # Not connected - show WiFi with slash, no name
+  sketchybar --set wifi icon=󰤭 label=""
 fi
 '
 
