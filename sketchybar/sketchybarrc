@@ -72,40 +72,98 @@ sketchybar --add item cpu left \
            --set cpu update_freq=2 \
                     icon="CPU" \
                     icon.font="SF Pro:Regular:13.0" \
-                    script='CPU=$(top -l 1 | grep "CPU usage" | awk "{print int(\$3)}"); sketchybar --set cpu label="${CPU}%"'
+                    script='
+CPU=$(top -l 1 | grep "CPU usage" | awk "{print int(\$3)}")
+PREV_CPU=$(cat /tmp/sketchybar_cpu_prev 2>/dev/null || echo "$CPU")
+COLOR_FILE="/tmp/sketchybar_cpu_color"
+COLOR_COUNTER=$(cat "$COLOR_FILE" 2>/dev/null || echo "0")
+
+# Check if CPU changed
+if [ $CPU -gt $PREV_CPU ]; then
+  # CPU increased - soft red
+  COLOR="0xff990000"
+  echo "3" > "$COLOR_FILE"  # Show color for 3 updates (6 seconds)
+elif [ $CPU -lt $PREV_CPU ]; then
+  # CPU decreased - dark green
+  COLOR="0xff004400"
+  echo "3" > "$COLOR_FILE"
+elif [ $COLOR_COUNTER -gt 0 ]; then
+  # Continue showing previous color
+  if [ $CPU -gt $PREV_CPU ]; then
+    COLOR="0xff990000"
+  else
+    COLOR="0xff004400"
+  fi
+  echo $(( $COLOR_COUNTER - 1 )) > "$COLOR_FILE"
+else
+  # No change, default color (black)
+  COLOR="0xff000000"
+fi
+
+echo "$CPU" > /tmp/sketchybar_cpu_prev
+sketchybar --set cpu label="${CPU}%" label.color="$COLOR" icon.color="$COLOR"
+'
 
 # Memory Usage  
 sketchybar --add item memory left \
            --set memory update_freq=5 \
                         icon="MEM" \
                         icon.font="SF Pro:Regular:13.0" \
-                        script='MEM=$(memory_pressure | grep "System-wide memory free percentage" | awk "{print 100-\$5}" | cut -d "%" -f1); sketchybar --set memory label="${MEM}%"'
-
-# Network Activity (WiFi signal strength)
-sketchybar --add item network left \
-           --set network update_freq=5 \
-                        icon="NET" \
-                        icon.font="SF Pro:Regular:13.0" \
                         script='
-WIFI_INFO=$(/System/Library/PrivateFrameworks/Apple80211.framework/Resources/airport -I 2>/dev/null)
-if [[ -n "$WIFI_INFO" ]]; then
-  RSSI=$(echo "$WIFI_INFO" | grep -E "agrCtlRSSI|RSSI" | awk "{print \$2}")
-  if [[ -n "$RSSI" ]]; then
-    # Convert RSSI to percentage (approximation)
-    # -30 dBm = 100%, -90 dBm = 0%
-    if [ $RSSI -ge -30 ]; then
-      PERCENT=100
-    elif [ $RSSI -le -90 ]; then
-      PERCENT=0
-    else
-      PERCENT=$(( 100 - (($RSSI * -1 - 30) * 100 / 60) ))
-    fi
-    sketchybar --set network label="${PERCENT}%"
+MEM=$(memory_pressure | grep "System-wide memory free percentage" | awk "{print 100-\$5}" | cut -d "%" -f1)
+PREV_MEM=$(cat /tmp/sketchybar_mem_prev 2>/dev/null || echo "$MEM")
+COLOR_FILE="/tmp/sketchybar_mem_color"
+COLOR_COUNTER=$(cat "$COLOR_FILE" 2>/dev/null || echo "0")
+
+# Check if Memory changed
+if [ $MEM -gt $PREV_MEM ]; then
+  # Memory usage increased - soft red
+  COLOR="0xff990000"
+  echo "3" > "$COLOR_FILE"  # Show color for 3 updates (15 seconds at 5s interval)
+elif [ $MEM -lt $PREV_MEM ]; then
+  # Memory usage decreased - dark green
+  COLOR="0xff004400"
+  echo "3" > "$COLOR_FILE"
+elif [ $COLOR_COUNTER -gt 0 ]; then
+  # Continue showing previous color
+  LAST_COLOR=$(cat /tmp/sketchybar_mem_last_color 2>/dev/null || echo "white")
+  if [ "$LAST_COLOR" = "red" ]; then
+    COLOR="0xff990000"
   else
-    sketchybar --set network label="--"
+    COLOR="0xff004400"
   fi
+  echo $(( $COLOR_COUNTER - 1 )) > "$COLOR_FILE"
 else
-  sketchybar --set network label="OFF"
+  # No change, default color (black)
+  COLOR="0xff000000"
+fi
+
+# Save state for next update
+echo "$MEM" > /tmp/sketchybar_mem_prev
+if [ $MEM -gt $PREV_MEM ]; then
+  echo "red" > /tmp/sketchybar_mem_last_color
+elif [ $MEM -lt $PREV_MEM ]; then
+  echo "green" > /tmp/sketchybar_mem_last_color
+fi
+
+sketchybar --set memory label="${MEM}%" label.color="$COLOR" icon.color="$COLOR"
+'
+
+
+# Spotify (moved to left side)
+sketchybar --add item spotify left \
+           --set spotify update_freq=2 \
+                        icon=🎵 \
+                        icon.font="SF Pro:Regular:16.0" \
+                        label.font="SF Pro:Regular:13.0" \
+                        label.max_chars=50 \
+                        script='
+TRACK=$(osascript -e "tell application \"Spotify\" to if player state is playing then return name of current track" 2>/dev/null)
+if [[ -n "$TRACK" ]]; then
+  # Show full track name (up to 50 chars max)
+  sketchybar --set spotify label="$TRACK" drawing=on
+else
+  sketchybar --set spotify drawing=off
 fi
 '
 
@@ -170,8 +228,25 @@ if [[ "$BATTERY_STATUS" == "charging" ]] || [ $BATTERY_PERCENT -gt 20 ]; then
   rm -f "$NOTIFICATION_FILE" 2>/dev/null
 fi
 
-sketchybar --set battery icon="$BATTERY_ICON" label="${BATTERY_PERCENT}%"
+# Set color based on battery status and percentage
+if [[ "$BATTERY_STATUS" == "charging" ]]; then
+  COLOR="0xff004400"  # Dark green when charging
+elif [ $BATTERY_PERCENT -ge 50 ]; then
+  COLOR="0xff000000"  # Black for good battery
+elif [ $BATTERY_PERCENT -ge 20 ]; then
+  COLOR="0xffffff00"  # Yellow for medium battery
+else
+  COLOR="0xffff0000"  # Red for low battery
+fi
+
+sketchybar --set battery icon="$BATTERY_ICON" label="${BATTERY_PERCENT}%" label.color="$COLOR" icon.color="$COLOR"
 '
+
+# Volume (moved to left of battery)
+sketchybar --add item volume right \
+           --set volume update_freq=1 \
+                       script="sketchybar --set volume label=\"\$(osascript -e 'output volume of (get volume settings)')%\"" \
+                       icon=󰕾
 
 # WiFi Network
 sketchybar --add item wifi right \
@@ -204,10 +279,12 @@ except:
 " 2>/dev/null)
 
 if [[ -n "$SSID" ]]; then
-  # Connected - show WiFi icon with network name
+  # Truncate to 8 characters with dots
+  if [ ${#SSID} -gt 8 ]; then
+    SSID="${SSID:0:8}.."
+  fi
   sketchybar --set wifi icon=󰤨 label="$SSID"
 else
-  # Not connected - show WiFi with slash, no name
   sketchybar --set wifi icon=󰤭 label=""
 fi
 '
@@ -238,9 +315,9 @@ if [[ -n "$NETSKOPE_RUNNING" ]]; then
 fi
 
 if [[ -n "$VPN_NAME" ]]; then
-  # Truncate long VPN names
-  if [ ${#VPN_NAME} -gt 12 ]; then
-    VPN_NAME="${VPN_NAME:0:12}..."
+  # Truncate to 8 characters with dots
+  if [ ${#VPN_NAME} -gt 8 ]; then
+    VPN_NAME="${VPN_NAME:0:8}.."
   fi
   sketchybar --set vpn label="$VPN_NAME" drawing=on
 else
@@ -260,9 +337,9 @@ if [[ -n "$BT_DEVICES" ]]; then
   # Get first connected device name
   BT_DEVICE=$(echo "$BT_DEVICES" | head -1 | cut -d "," -f2 | sed "s/name: //g" | xargs)
   if [[ -n "$BT_DEVICE" ]]; then
-    # Truncate long device names
-    if [ ${#BT_DEVICE} -gt 15 ]; then
-      BT_DEVICE="${BT_DEVICE:0:15}..."
+    # Truncate to 8 characters with dots
+    if [ ${#BT_DEVICE} -gt 8 ]; then
+      BT_DEVICE="${BT_DEVICE:0:8}.."
     fi
     sketchybar --set bluetooth label="$BT_DEVICE" drawing=on
   else
@@ -273,27 +350,6 @@ else
 fi
 '
 
-# Spotify (next to volume)
-sketchybar --add item spotify right \
-           --set spotify update_freq=2 \
-                        icon=🎵 \
-                        icon.font="SF Pro:Regular:16.0" \
-                        label.max_chars=25 \
-                        label.font="SF Pro:Regular:13.0" \
-                        script='
-TRACK=$(osascript -e "tell application \"Spotify\" to if player state is playing then return name of current track" 2>/dev/null)
-if [[ -n "$TRACK" ]]; then
-  sketchybar --set spotify label="$TRACK" drawing=on
-else
-  sketchybar --set spotify drawing=off
-fi
-'
-
-# Volume
-sketchybar --add item volume right \
-           --set volume update_freq=1 \
-                       script="sketchybar --set volume label=\"\$(osascript -e 'output volume of (get volume settings)')%\"" \
-                       icon=󰕾
 
 # Subscribe to events
 sketchybar --subscribe front_app window_focus windows_on_spaces
