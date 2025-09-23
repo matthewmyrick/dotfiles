@@ -293,6 +293,68 @@ fftg() {
     fi
 }
 
+# ffb (Fuzzy Find Back) - Navigate back to parent directories in current path
+# Usage: Type 'ffb' in your terminal and press Enter to select a parent directory
+ffb() {
+    # Get the current directory and build parent path list
+    local current_dir="$PWD"
+    local temp_dir="$current_dir"
+    local paths_list=""
+    local level=0
+    
+    # Build the list of parent directories with metadata
+    while true; do
+        local dir_name=$(basename "$temp_dir")
+        local dir_count=$(find "$temp_dir" -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+        local file_count=$(find "$temp_dir" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+        
+        # Format the display based on level
+        if [[ $level -eq 0 ]]; then
+            paths_list="${paths_list}[Current] 📍 ${dir_name} (${file_count} files, ${dir_count} dirs)|${temp_dir}\n"
+        elif [[ $level -eq 1 ]]; then
+            paths_list="${paths_list}[↑ 1 up] 📂 ${dir_name} (${file_count} files, ${dir_count} dirs)|${temp_dir}\n"
+        else
+            paths_list="${paths_list}[↑ ${level} up] 📂 ${dir_name} (${file_count} files, ${dir_count} dirs)|${temp_dir}\n"
+        fi
+        
+        # Check if we've reached root
+        if [[ "$temp_dir" == "/" ]]; then
+            break
+        fi
+        
+        # Move up one directory
+        temp_dir="$(dirname "$temp_dir")"
+        level=$((level + 1))
+    done
+    
+    # Use fzf to select a directory
+    local selected
+    selected=$(echo -e "$paths_list" | fzf \
+        --height '80%' \
+        --border 'rounded' \
+        --header 'Navigate Back to Parent Directory | Arrow keys to browse, Enter to select' \
+        --preview 'dir=$(echo {} | cut -d"|" -f2); echo "📁 Directory: $dir"; echo ""; echo "Contents:"; echo "────────────────────"; eza --icons=always --color=always -la "$dir" 2>/dev/null | head -25' \
+        --preview-window 'right:60%' \
+        --with-nth 1 \
+        --delimiter '|' \
+        --ansi)
+    
+    # Extract the path and navigate
+    if [[ -n "$selected" ]]; then
+        local target_dir=$(echo "$selected" | cut -d'|' -f2)
+        
+        if [[ -n "$target_dir" ]] && [[ -d "$target_dir" ]]; then
+            cd "$target_dir" || return 1
+            
+            # Show where we navigated to
+            clear
+            echo "📁 Navigated to: $PWD"
+            echo ""
+            eza --icons=always -la --tree --level=1
+        fi
+    fi
+}
+
 # Yazi file manager integration
 function y() {
     local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
