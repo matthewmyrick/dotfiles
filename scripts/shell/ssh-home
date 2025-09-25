@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# ssh-home - Open a new Ghostty tab and SSH into home server
+# Usage: ssh-home
+
+# Check if Ghostty is running
+if ! pgrep -x "ghostty" > /dev/null; then
+    echo "Ghostty is not running. Starting Ghostty..."
+    open -a Ghostty
+    sleep 2
+fi
+
+# Use osascript to tell Ghostty to create a new tab with the home-server window configuration
+# and automatically SSH into the home server
+osascript <<EOF
+tell application "Ghostty"
+    activate
+    # Create new tab with home-server configuration and SSH command
+    do shell script "ghostty -w home-server -e 'ssh matthewmyrick@100.96.78.104' > /dev/null 2>&1 &"
+end tell
+EOF
+
+echo "Opening Home Server connection in new Ghostty tab..."

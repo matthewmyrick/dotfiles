@@ -23,6 +23,26 @@ return {
           winhighlight = "Normal:None,NormalFloat:None,FloatBorder:None,EndOfBuffer:None",
         },
       },
+      git = {
+        enable = true, -- Enable git integration
+        icons = {
+          untracked = "?", -- Icon for new/untracked files
+          added = "+",     -- Icon for added files
+          modified = "~",  -- Icon for modified files
+          deleted = "-",   -- Icon for deleted files
+          renamed = "→",   -- Icon for renamed files
+          ignored = "!",   -- Icon for ignored files
+        },
+        -- Customize git status colors (instead of black background)
+        hl = {
+          untracked = "DiagnosticWarn",  -- Use warning highlight (yellow) for new files
+          added = "DiagnosticInfo",      -- Use info highlight (blue) for added files
+          modified = "DiagnosticHint",   -- Use hint highlight (gray) for modified files
+          deleted = "DiagnosticError",   -- Use error highlight (red) for deleted files
+          renamed = "DiagnosticInfo",    -- Use info highlight for renamed files
+          ignored = "Comment",           -- Use comment highlight for ignored files
+        },
+      },
       filters = {
         dotfiles = false, -- Show dotfiles
         git_ignored = false, -- Show git ignored files

@@ -4,6 +4,7 @@ alias ..='cd ..'
 alias ...='cd ../..'
 alias back='cd -'
 alias root='cd /'
+alias notif="printf ''"
 
 # zoxide shortcuts
 alias zi='zi'  # Interactive directory picker

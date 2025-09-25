@@ -355,13 +355,3 @@ ffb() {
     fi
 }
 
-# Yazi file manager integration
-function y() {
-    local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
-    yazi "$@" --cwd-file="$tmp"
-    if [ -f "$tmp" ]; then
-        cwd=$(cat "$tmp")
-    fi
-    [ -n "$cwd" ] && [ "$cwd" != "$PWD" ] && builtin cd -- "$cwd"
-    rm -f -- "$tmp"
-}

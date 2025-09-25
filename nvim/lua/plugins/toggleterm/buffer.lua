@@ -7,8 +7,31 @@ local function set_terminal_name(name)
     if name == "" or name == nil then
         name = "terminal"
     end
-    -- Add the $ icon prefix
+    
+    -- Check if a buffer with this name already exists and auto-number if needed
+    local base_name = name
+    local counter = 1
     local full_name = "$ " .. name
+    
+    -- Get list of all buffer names
+    local existing_buffers = {}
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_valid(buf) then
+            local buf_name = vim.api.nvim_buf_get_name(buf)
+            if buf_name ~= "" then
+                -- Extract just the filename part
+                local filename = vim.fn.fnamemodify(buf_name, ":t")
+                existing_buffers[filename] = true
+            end
+        end
+    end
+    
+    -- If the name already exists, try numbered variations
+    while existing_buffers[full_name] do
+        counter = counter + 1
+        full_name = "$ " .. base_name .. " " .. counter
+    end
+    
     vim.cmd("file " .. vim.fn.fnameescape(full_name))
 end
 
@@ -85,7 +108,47 @@ function M.setup()
     
     -- Claude Vertical Split Terminal
     vim.api.nvim_create_user_command("ClaudeVerticalTerm", function()
-        -- Open a vertical split (50% width)
+        -- Check if Claude terminal already exists
+        local claude_buf = nil
+        for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+            if vim.api.nvim_buf_is_valid(buf) then
+                local buf_name = vim.api.nvim_buf_get_name(buf)
+                if buf_name ~= "" then
+                    local filename = vim.fn.fnamemodify(buf_name, ":t")
+                    if filename == "$ claude" then
+                        claude_buf = buf
+                        break
+                    end
+                end
+            end
+        end
+        
+        -- If Claude terminal exists, find and focus its window
+        if claude_buf then
+            local claude_win = nil
+            for _, win in ipairs(vim.api.nvim_list_wins()) do
+                if vim.api.nvim_win_get_buf(win) == claude_buf then
+                    claude_win = win
+                    break
+                end
+            end
+            
+            if claude_win then
+                -- Focus the existing Claude window
+                vim.api.nvim_set_current_win(claude_win)
+                vim.notify("Focused existing Claude terminal", vim.log.levels.INFO)
+                return
+            else
+                -- Claude buffer exists but no window is showing it, open it in a new split
+                vim.cmd("vsplit")
+                vim.cmd("wincmd l")
+                vim.api.nvim_set_current_buf(claude_buf)
+                vim.notify("Reopened existing Claude terminal", vim.log.levels.INFO)
+                return
+            end
+        end
+        
+        -- No existing Claude terminal, create a new one
         vim.cmd("vsplit")
         vim.cmd("wincmd l") -- Move to the new split
         
