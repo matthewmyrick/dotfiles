@@ -9,10 +9,10 @@ if ! command -v pipx &>/dev/null; then
   pipx ensurepath
 fi
 
-# Install rich using pipx or pip with break-system-packages
-echo "  📦 Checking rich (Python formatter)..."
+# Install essential Python packages for development
+echo "  📦 Installing essential Python packages..."
 
-# Try to check if rich is available in PATH
+# Install rich (Python formatter)
 if python3 -c "import rich" 2>/dev/null; then
   echo "    ✓ rich is available"
 else
@@ -29,6 +29,37 @@ else
       echo "    Try: python3 -m pip install --user --break-system-packages rich"
     }
   fi
+fi
+
+# Install pynvim (Neovim Python provider)
+if python3 -c "import pynvim" 2>/dev/null; then
+  echo "    ✓ pynvim is available"
+else
+  echo "    Installing pynvim for Neovim Python provider..."
+  python3 -m pip install --user --break-system-packages pynvim 2>/dev/null || {
+    echo "    ⚠️  Could not install pynvim automatically"
+    echo "    Try: python3 -m pip install --user --break-system-packages pynvim"
+  }
+fi
+
+# Add Python user bin directory to PATH if not already present
+PYTHON_USER_BIN="$HOME/Library/Python/$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')/bin"
+if [[ ":$PATH:" != *":$PYTHON_USER_BIN:"* ]]; then
+  echo "    Adding Python user bin directory to PATH..."
+  echo "export PATH=\"$PYTHON_USER_BIN:\$PATH\"" >> ~/.zshrc
+  export PATH="$PYTHON_USER_BIN:$PATH"
+fi
+
+# Verify pynvim installation with system Python
+echo "  🔍 Verifying Neovim Python provider setup..."
+if /opt/homebrew/bin/python3 -c "import pynvim" 2>/dev/null; then
+  echo "    ✓ pynvim is available to system Python"
+else
+  echo "    Installing pynvim for system Python..."
+  /opt/homebrew/bin/python3 -m pip install --break-system-packages pynvim 2>/dev/null || {
+    echo "    ⚠️  Could not install pynvim for system Python"
+    echo "    Try: /opt/homebrew/bin/python3 -m pip install --break-system-packages pynvim"
+  }
 fi
 
 # Setup Python virtual environment for Neovim
