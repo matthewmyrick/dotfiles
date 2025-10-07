@@ -293,6 +293,97 @@ fftg() {
     fi
 }
 
+# ffa (Fuzzy Find Apollo) - Interactively find a directory within ~/Apollo and navigate to it.
+# Usage: Type 'ffa' in your terminal and press Enter.
+ffa() {
+    # The search path is always the ~/Apollo directory.
+    local search_path="$HOME/Apollo"
+
+    # Check if the Apollo directory exists.
+    if [[ ! -d "$search_path" ]]; then
+        echo "Directory not found: $search_path"
+        echo "Please ensure the Apollo directory exists."
+        return 1
+    fi
+
+    # We need to export the search_path so the fzf preview subshell can access it.
+    export FZF_FFA_SEARCH_PATH="$search_path"
+
+    # Find directories within ~/Apollo, limiting the depth to 2 levels (org/project),
+    # strip the base path for a clean display, and pipe to fzf.
+    local selected_relative_path
+    selected_relative_path=$(fd --type d --max-depth 2 . "$search_path" --hidden --exclude .git --exclude node_modules \
+        | sed "s|^$search_path/||" \
+        | fzf \
+            --preview "eza --tree --color=always --icons=always --level=2 \"$FZF_FFA_SEARCH_PATH\"/{}" \
+            --preview-window 'right:50%' \
+            --height '80%' \
+            --border 'rounded' \
+            --header 'Apollo Project Finder | Press Enter to navigate')
+
+    # If a directory was selected (i.e., you pressed Enter)...
+    if [[ -n "$selected_relative_path" ]]; then
+        # ...reconstruct the full path by prepending the search_path.
+        local full_path="$search_path/$selected_relative_path"
+        # Change to the selected directory.
+        cd "$full_path"
+        # Clear and show the tree of the new location.
+        clear
+        eza --tree --icons=always --level=2
+    fi
+}
+
+# ffan (Fuzzy Find Apollo Neovim) - Interactively find a directory within ~/Apollo and open it in Neovim.
+# Usage: Type 'ffan' in your terminal and press Enter.
+ffan() {
+    # The search path is always the ~/Apollo directory.
+    local search_path="$HOME/Apollo"
+
+    # Check if the Apollo directory exists.
+    if [[ ! -d "$search_path" ]]; then
+        echo "Directory not found: $search_path"
+        echo "Please ensure the Apollo directory exists."
+        return 1
+    fi
+
+    # We need to export the search_path so the fzf preview subshell can access it.
+    export FZF_FFAN_SEARCH_PATH="$search_path"
+
+    # Find directories within ~/Apollo, limiting the depth to 2 levels (org/project),
+    # strip the base path for a clean display, and pipe to fzf.
+    local selected_relative_path
+    selected_relative_path=$(fd --type d --max-depth 2 . "$search_path" --hidden --exclude .git --exclude node_modules \
+        | sed "s|^$search_path/||" \
+        | fzf \
+            --preview "eza --tree --color=always --icons=always --level=2 \"$FZF_FFAN_SEARCH_PATH\"/{}" \
+            --preview-window 'right:50%' \
+            --height '80%' \
+            --border 'rounded' \
+            --header 'Apollo Project Finder | Press Enter to open in Neovim')
+
+    # If a directory was selected (i.e., you pressed Enter)...
+    if [[ -n "$selected_relative_path" ]]; then
+        # ...reconstruct the full path by prepending the search_path.
+        local full_path="$search_path/$selected_relative_path"
+        # Open the selected directory in Neovim.
+        cd "$full_path"
+        
+        # Extract just the project name (last part of the path)
+        local project_name=$(basename "$selected_relative_path")
+        
+        # Set the terminal tab name to the project name
+        if command -v ttn &>/dev/null; then
+            ttn "$project_name"
+        fi
+        
+        # Configure Neovim to not override the terminal title
+        export NVIM_TUI_ENABLE_TITLE=0
+        
+        # Open Neovim with title override disabled
+        nvim --cmd "set notitle" .
+    fi
+}
+
 # ffb (Fuzzy Find Back) - Navigate back to parent directories in current path
 # Usage: Type 'ffb' in your terminal and press Enter to select a parent directory
 ffb() {
