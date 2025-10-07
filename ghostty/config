@@ -7,7 +7,7 @@ font-feature = -calt
 theme = Catppuccin Mocha
 
 # SHADER - Catppuccin trail shader
-custom-shader = ${HOME}/.config/ghostty/shaders/trailer.glsl
+custom-shader = ~/.config/ghostty/shaders/trailer.glsl
 
 # TABS
 # Tab location at the top
