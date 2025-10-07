@@ -5,7 +5,6 @@ echo "📦 Installing Homebrew cask packages..."
 CASK_PACKAGES=(
   ghostty
   karabiner-elements
-  rectangle
   hammerspoon
 )
 

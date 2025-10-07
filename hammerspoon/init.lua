@@ -1,4 +1,4 @@
--- Hammerspoon config to auto-maximize certain applications and prevent sketchybar overlap
+-- Hammerspoon config to auto-size applications for Stage Manager + SketchyBar
 
 -- Height of sketchybar (adjust if your bar is different)
 local SKETCHYBAR_HEIGHT = 32
@@ -32,29 +32,22 @@ end
 -- Function to get safe frame that doesn't overlap sketchybar
 function getSafeFrame(screen)
     local frame = screen:frame()
-    
-    -- Only adjust for external monitors, not laptop screen
-    if not isLaptopScreen(screen) then
-        frame.y = frame.y + SKETCHYBAR_HEIGHT + EXTRA_PADDING
-        frame.h = frame.h - SKETCHYBAR_HEIGHT - EXTRA_PADDING
-    end
-    
+
+    -- Account for SketchyBar at top (all screens)
+    frame.y = frame.y + SKETCHYBAR_HEIGHT + EXTRA_PADDING
+    frame.h = frame.h - SKETCHYBAR_HEIGHT - EXTRA_PADDING
+
     return frame
 end
 
 -- Function to check if window overlaps with sketchybar
 function windowOverlapsBar(window)
     if not window then return false end
-    
+
     local screen = window:screen()
-    -- Skip check for laptop screen
-    if isLaptopScreen(screen) then
-        return false
-    end
-    
     local frame = window:frame()
     local screenFrame = screen:frame()
-    
+
     -- Check if window starts too close to the top of the screen (including padding)
     return frame.y < (screenFrame.y + SKETCHYBAR_HEIGHT + EXTRA_PADDING)
 end
@@ -63,17 +56,11 @@ end
 function fixWindowIfNeeded(window)
     if window and window:isStandard() then
         local screen = window:screen()
-        
-        -- Skip laptop screen
-        if isLaptopScreen(screen) then
-            return
-        end
-        
+
         if windowOverlapsBar(window) then
-            local safeFrame = getSafeFrame(screen)
             local currentFrame = window:frame()
             local screenFrame = screen:frame()
-            
+
             -- Adjust the window to not overlap sketchybar (with padding)
             if currentFrame.y < (screenFrame.y + SKETCHYBAR_HEIGHT + EXTRA_PADDING) then
                 currentFrame.y = screenFrame.y + SKETCHYBAR_HEIGHT + EXTRA_PADDING
@@ -89,26 +76,26 @@ function fixWindowIfNeeded(window)
     end
 end
 
--- Function to maximize a window (respects menu bar and sketchybar)
-function maximizeWindow(window)
+-- Function to resize a window (respects menu bar and sketchybar)
+function resizeWindow(window)
     if window then
         local screen = window:screen()
         local safeFrame = getSafeFrame(screen)
-        
+
         -- Add some debug logging
-        print("Maximizing window: " .. (window:title() or "Unknown"))
+        print("Resizing window: " .. (window:title() or "Unknown"))
         print("Safe frame: " .. safeFrame.x .. "," .. safeFrame.y .. " " .. safeFrame.w .. "x" .. safeFrame.h)
-        
+
         -- Set the window frame to safe area (not covering sketchybar)
         window:setFrame(safeFrame)
-        
+
         -- Show alert for debugging
-        hs.alert.show("Maximized (respecting sketchybar): " .. (window:title() or "Window"), 1)
+        hs.alert.show("Resized (respecting SketchyBar): " .. (window:title() or "Window"), 1)
     end
 end
 
--- Function to check if app should be maximized
-function shouldMaximize(appName)
+-- Function to check if app should be auto-resized
+function shouldResize(appName)
     for _, name in ipairs(appsToMaximize) do
         if string.find(string.lower(appName), string.lower(name)) then
             return true
@@ -121,14 +108,14 @@ end
 windowFilter = hs.window.filter.new()
 windowFilter:subscribe(hs.window.filter.windowCreated, function(window, appName, event)
     print("Window created: " .. appName .. " - " .. (window:title() or "Unknown"))
-    if shouldMaximize(appName) then
-        print("Should maximize: " .. appName)
-        -- Longer delay for Stage Manager compatibility
-        hs.timer.doAfter(1.0, function()
+    if shouldResize(appName) then
+        print("Should resize: " .. appName)
+        -- Delay to let window settle
+        hs.timer.doAfter(0.5, function()
             if window and window:isVisible() then
-                maximizeWindow(window)
+                resizeWindow(window)
             else
-                print("Window not visible, skipping maximize")
+                print("Window not visible, skipping resize")
             end
         end)
     end
@@ -136,12 +123,12 @@ end)
 
 -- Watch for application launch events (backup method)
 appWatcher = hs.application.watcher.new(function(appName, eventType, appObject)
-    if eventType == hs.application.watcher.launched and shouldMaximize(appName) then
+    if eventType == hs.application.watcher.launched and shouldResize(appName) then
         hs.timer.doAfter(0.5, function()
             local windows = appObject:allWindows()
             for _, window in ipairs(windows) do
                 if window:isStandard() then
-                    maximizeWindow(window)
+                    resizeWindow(window)
                 end
             end
         end)
@@ -150,12 +137,26 @@ end)
 
 appWatcher:start()
 
--- Keyboard shortcut to manually maximize current window
+-- Watch for window focus/activation to resize every time you switch to an app
+windowFocusFilter = hs.window.filter.new()
+windowFocusFilter:subscribe(hs.window.filter.windowFocused, function(window, appName, event)
+    if window and shouldResize(appName) then
+        print("Window focused: " .. appName .. " - " .. (window:title() or "Unknown"))
+        -- Small delay to let focus settle
+        hs.timer.doAfter(0.2, function()
+            if window and window:isVisible() and window:isStandard() then
+                resizeWindow(window)
+            end
+        end)
+    end
+end)
+
+-- Keyboard shortcut to manually resize current window (Cmd+Alt+M)
 hs.hotkey.bind({"cmd", "alt"}, "m", function()
     local window = hs.window.focusedWindow()
     if window then
-        maximizeWindow(window)
-        hs.alert.show("Window maximized")
+        resizeWindow(window)
+        hs.alert.show("Window resized")
     end
 end)
 
@@ -219,4 +220,4 @@ hs.timer.doAfter(0.5, function()
 end)
 
 -- Show notification when Hammerspoon loads
-hs.alert.show("Hammerspoon loaded - Sketchybar protection enabled")
+hs.alert.show("Hammerspoon loaded - SketchyBar compatible")

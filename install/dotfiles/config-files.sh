@@ -40,14 +40,7 @@ echo "  Installing Hammerspoon config..."
 mkdir -p ~/.hammerspoon
 cp "$DOTFILES_DIR/hammerspoon/init.lua" ~/.hammerspoon/
 
-echo "  Starting Rectangle and Hammerspoon..."
-# Open Rectangle if not already running
-if ! pgrep -x "Rectangle" > /dev/null; then
-  echo "    Opening Rectangle..."
-  open -a Rectangle
-else
-  echo "    ✓ Rectangle already running"
-fi
+echo "  Starting Hammerspoon..."
 
 # Open Hammerspoon if not already running
 if ! pgrep -x "Hammerspoon" > /dev/null; then

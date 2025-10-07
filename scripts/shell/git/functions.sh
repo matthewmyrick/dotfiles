@@ -1321,28 +1321,225 @@ ghro() {
   fi
 }
 
+# ghrnew (Git Hub Repository New) - Interactively create a new GitHub repository
+# If no org is provided, shows a fuzzy finder to select from available orgs.
+ghrnew() {
+  # --- 1. Handle Organization Selection ---
+  local org
+  if [ -z "$1" ]; then
+    # No org provided, use fuzzy finder to select from GitHub orgs
+    org=$(_select_org)
+    if [ -z "$org" ]; then
+      echo "❌ No organization selected."
+      return 1
+    fi
+    echo "Selected organization: $org"
+  else
+    org="$1"
+  fi
+
+  # --- 2. Prompt for Repository Name ---
+  echo
+  echo "📝 Repository Configuration"
+  echo "────────────────────────────────────────────────────────────────"
+  echo
+  read -r "repo_name?Enter repository name: "
+
+  if [ -z "$repo_name" ]; then
+    echo "❌ Repository name is required."
+    return 1
+  fi
+
+  # --- 3. Prompt for Description ---
+  read -r "repo_description?Enter repository description (optional): "
+
+  # --- 4. Select Visibility (Public/Private) ---
+  echo
+  echo "Select repository visibility:"
+  local visibility
+  visibility=$(echo -e "public\nprivate" | fzf \
+    --prompt="Select visibility > " \
+    --height="40%" \
+    --border \
+    --header="Choose repository visibility")
+
+  if [ -z "$visibility" ]; then
+    echo "❌ Visibility selection is required."
+    return 1
+  fi
+
+  # --- 5. Prompt for README ---
+  echo
+  read -r "add_readme?Add README.md? (y/n) [y]: "
+  add_readme="${add_readme:-y}"
+
+  # --- 6. Prompt for .gitignore ---
+  echo
+  read -r "add_gitignore?Add .gitignore? (y/n) [n]: "
+  add_gitignore="${add_gitignore:-n}"
+
+  local gitignore_template=""
+  if [[ "$add_gitignore" == "y" ]]; then
+    read -r "gitignore_template?Enter .gitignore template (e.g., Node, Python, Go) [Node]: "
+    gitignore_template="${gitignore_template:-Node}"
+  fi
+
+  # --- 7. Prompt for License ---
+  echo
+  read -r "add_license?Add license? (y/n) [n]: "
+  add_license="${add_license:-n}"
+
+  local license_template=""
+  if [[ "$add_license" == "y" ]]; then
+    # Show common licenses
+    license_template=$(echo -e "mit\napache-2.0\ngpl-3.0\nbsd-3-clause\nunlicense" | fzf \
+      --prompt="Select license > " \
+      --height="40%" \
+      --border \
+      --header="Choose license template")
+
+    if [ -z "$license_template" ]; then
+      echo "⚠️  No license selected, skipping..."
+      add_license="n"
+    fi
+  fi
+
+  # --- 8. Prompt for Clone Repository ---
+  echo
+  read -r "clone_repo?Clone repository after creation? (y/n) [y]: "
+  clone_repo="${clone_repo:-y}"
+
+  # --- 9. Display Summary ---
+  echo
+  echo "📋 Repository Summary"
+  echo "────────────────────────────────────────────────────────────────"
+  echo "Organization:  $org"
+  echo "Name:          $repo_name"
+  echo "Description:   ${repo_description:-<none>}"
+  echo "Visibility:    $visibility"
+  echo "README:        $add_readme"
+  echo "Gitignore:     $add_gitignore${gitignore_template:+ ($gitignore_template)}"
+  echo "License:       $add_license${license_template:+ ($license_template)}"
+  echo "Clone:         $clone_repo"
+  echo "────────────────────────────────────────────────────────────────"
+  echo
+  read -r "confirm?Create repository? (y/n) [y]: "
+  confirm="${confirm:-y}"
+
+  if [[ "$confirm" != "y" ]]; then
+    echo "❌ Repository creation cancelled."
+    return 0
+  fi
+
+  # --- 10. Build gh repo create command (without clone flag) ---
+  local gh_cmd="gh repo create \"$org/$repo_name\""
+  gh_cmd="$gh_cmd --$visibility"
+
+  if [ -n "$repo_description" ]; then
+    gh_cmd="$gh_cmd --description \"$repo_description\""
+  fi
+
+  if [[ "$add_readme" == "y" ]]; then
+    gh_cmd="$gh_cmd --add-readme"
+  fi
+
+  if [[ "$add_gitignore" == "y" && -n "$gitignore_template" ]]; then
+    gh_cmd="$gh_cmd --gitignore \"$gitignore_template\""
+  fi
+
+  if [[ "$add_license" == "y" && -n "$license_template" ]]; then
+    gh_cmd="$gh_cmd --license \"$license_template\""
+  fi
+
+  # --- 11. Create the Repository ---
+  echo
+  echo "🚀 Creating repository..."
+  echo "Command: $gh_cmd"
+  echo
+
+  # Execute the command
+  eval "$gh_cmd"
+  local create_status=$?
+
+  if [ $create_status -ne 0 ]; then
+    echo "❌ Failed to create repository."
+    return 1
+  fi
+
+  echo
+  echo "✅ Repository created successfully!"
+  echo "🔗 URL: https://github.com/$org/$repo_name"
+
+  # --- 12. Handle Clone (following ghrc standard: ~/GitHub/<org>/<repo>) ---
+  if [[ "$clone_repo" == "y" ]]; then
+    local base_dir="$HOME/GitHub"
+    local org_dir="$base_dir/$org"
+    local repo_path="$org_dir/$repo_name"
+
+    # Create the organization directory if it doesn't exist
+    mkdir -p "$org_dir"
+
+    echo
+    echo "Cloning $org/$repo_name into $repo_path..."
+    gh repo clone "$org/$repo_name" "$repo_path"
+
+    if [ $? -eq 0 ] && [ -d "$repo_path" ]; then
+      echo "✅ Repository cloned to $repo_path"
+
+      echo
+      read -r "open_repo?Open repository in browser? (y/n) [y]: "
+      open_repo="${open_repo:-y}"
+
+      if [[ "$open_repo" == "y" ]]; then
+        echo "🌐 Opening repository in browser..."
+        open "https://github.com/$org/$repo_name"
+      fi
+
+      echo
+      read -r "cd_repo?Navigate to repository directory? (y/n) [y]: "
+      cd_repo="${cd_repo:-y}"
+
+      if [[ "$cd_repo" == "y" ]]; then
+        echo "📂 Navigating to $repo_path"
+        cd "$repo_path"
+      fi
+    else
+      echo "⚠️  Failed to clone repository to $repo_path"
+    fi
+  else
+    echo
+    read -r "open_repo?Open repository in browser? (y/n) [y]: "
+    open_repo="${open_repo:-y}"
+
+    if [[ "$open_repo" == "y" ]]; then
+      echo "🌐 Opening repository in browser..."
+      open "https://github.com/$org/$repo_name"
+    fi
+  fi
+}
+
 # ghprc (Git Pull Request Create) - Create PR and open in browser
 ghprc() {
   echo "🚀 Creating pull request..."
-  
+
   # Run gh pr create and capture output
   local pr_output
   pr_output=$(gh pr create "$@" 2>&1)
   local create_status=$?
-  
+
   if [ $create_status -ne 0 ]; then
     echo "❌ Failed to create pull request:"
     echo "$pr_output"
     return 1
   fi
-  
+
   # Display the output (includes PR details)
   echo "$pr_output"
-  
+
   # Extract PR URL from output
   local pr_url
   pr_url=$(echo "$pr_output" | grep -o 'https://github\.com/[^/]*/[^/]*/pull/[0-9]*' | head -1)
-  
+
   if [ -n "$pr_url" ]; then
     echo "🔗 PR URL: $pr_url"
     echo "🌐 Opening PR in browser..."
