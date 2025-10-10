@@ -1,0 +1,22 @@
+Error detected while processing /Users/matthewmyrick/GitHub/matthewmyrick/dotfiles/nvim-new/init.lua:
+Failed to load `plugins.languages`
+
+/Users/matthewmyrick/.config/nvim/lua/plugins/languages.lua:82: module 'schemastore' not found:
+        no field package.preload['schemastore']
+        cache_loader: module 'schemastore' not found
+        cache_loader_lib: module 'schemastore' not found
+        no file './schemastore.lua'
+        no file '/opt/homebrew/share/luajit-2.1/schemastore.lua'
+        no file '/usr/local/share/lua/5.1/schemastore.lua'
+        no file '/usr/local/share/lua/5.1/schemastore/init.lua'
+        no file '/opt/homebrew/share/lua/5.1/schemastore.lua'
+        no file '/opt/homebrew/share/lua/5.1/schemastore/init.lua'
+        no file './schemastore.so'
+        no file '/usr/local/lib/lua/5.1/schemastore.so'
+        no file '/opt/homebrew/lib/lua/5.1/schemastore.so'
+        no file '/usr/local/lib/lua/5.1/loadall.so'
+
+# stacktrace:
+  - ~/.config/nvim/lua/plugins/languages.lua:82 _in_ **load**
+  - ~/.config/nvim/lua/config/lazy.lua:2
+  - ~/GitHub/matthewmyrick/dotfiles/nvim-new/init.lua:23
