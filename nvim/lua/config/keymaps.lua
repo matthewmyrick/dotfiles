@@ -360,6 +360,20 @@ vim.keymap.set("n", "<leader>sb", function()
         return
     end
 
-    -- Use lines picker with default config (ivy preset at bottom)
-    require('snacks').picker.lines()
+    -- Use lines picker with large floating layout (default preset)
+    require('snacks').picker.lines({
+        layout = {
+            preview = "main",
+            preset = "default",  -- Large floating centered (80% width/height)
+        },
+        jump = { match = true },
+        main = { current = true },
+        on_show = function(picker)
+            local cursor = vim.api.nvim_win_get_cursor(picker.main)
+            local info = vim.api.nvim_win_call(picker.main, vim.fn.winsaveview)
+            picker.list:view(cursor[1], info.topline)
+            picker:show_preview()
+        end,
+        sort = { fields = { "score:desc", "idx" } },
+    })
 end, { desc = "Search lines in current buffer" })
