@@ -1,64 +1,93 @@
+-- Lualine statusline
 return {
   "nvim-lualine/lualine.nvim",
-  opts = function(_, opts)
-    -- Override the default time format in the status line
-    if not opts.sections then
-      opts.sections = {}
-    end
-    if not opts.sections.lualine_z then
-      opts.sections.lualine_z = {}
-    end
-    if not opts.sections.lualine_c then
-      opts.sections.lualine_c = {}
-    end
-    
-    -- Custom filename component that shows 5 directories
-    local custom_filename = {
-      function()
-        local path = vim.fn.expand('%:p')  -- Get full path
-        if path == '' then
-          return '[No Name]'
-        end
-        
-        -- Split path into components
-        local parts = {}
-        for part in path:gmatch('[^/]+') do
-          table.insert(parts, part)
-        end
-        
-        -- Get last 5 directories + filename
-        local num_parts = #parts
-        local start_idx = math.max(1, num_parts - 5)
-        
-        -- Rebuild the path with last 5 components
-        local result = {}
-        for i = start_idx, num_parts do
-          table.insert(result, parts[i])
-        end
-        
-        -- Add ... if there are more directories
-        if start_idx > 1 then
-          return '.../' .. table.concat(result, '/')
-        else
-          return table.concat(result, '/')
-        end
-      end,
-      icon = '',
-      color = {},
+  event = "VeryLazy",
+  dependencies = { "nvim-tree/nvim-web-devicons" },
+  opts = function()
+    local icons = {
+      diagnostics = {
+        Error = " ",
+        Warn = " ",
+        Hint = " ",
+        Info = " ",
+      },
+      git = {
+        added = " ",
+        modified = " ",
+        removed = " ",
+      },
     }
-    
-    -- Replace filename component in lualine_c with custom one
-    opts.sections.lualine_c = { custom_filename }
-    
-    -- Replace the entire lualine_z section with only EST time
-    opts.sections.lualine_z = {
-      {
-        function()
-          return os.date("%I:%M %p EST")
-        end,
-      }
+
+    return {
+      options = {
+        theme = "auto",
+        globalstatus = true,
+        disabled_filetypes = { statusline = { "dashboard", "snacks_dashboard", "alpha" } },
+        component_separators = { left = "", right = "" },
+        section_separators = { left = "", right = "" },
+      },
+      -- Move statusline to top using tabline (always visible, even in Snacks UI)
+      tabline = {
+        lualine_a = { "mode" },
+        lualine_b = { "branch" },
+        lualine_c = {
+          {
+            "diagnostics",
+            symbols = {
+              error = icons.diagnostics.Error,
+              warn = icons.diagnostics.Warn,
+              info = icons.diagnostics.Info,
+              hint = icons.diagnostics.Hint,
+            },
+          },
+          { "filetype", icon_only = true, separator = "", padding = { left = 1, right = 0 } },
+          { "filename", path = 3, symbols = { modified = "  ", readonly = "", unnamed = "" } },
+        },
+        lualine_x = {
+          {
+            function()
+              return require("noice").api.status.command.get()
+            end,
+            cond = function()
+              return package.loaded["noice"] and require("noice").api.status.command.has()
+            end,
+            color = { fg = "#ff9e64" },
+          },
+          {
+            function()
+              return require("noice").api.status.mode.get()
+            end,
+            cond = function()
+              return package.loaded["noice"] and require("noice").api.status.mode.has()
+            end,
+            color = { fg = "#ff9e64" },
+          },
+          {
+            require("lazy.status").updates,
+            cond = require("lazy.status").has_updates,
+            color = { fg = "#ff9e64" },
+          },
+          {
+            "diff",
+            symbols = {
+              added = icons.git.added,
+              modified = icons.git.modified,
+              removed = icons.git.removed,
+            },
+          },
+        },
+        lualine_y = {
+          { "progress", separator = " ", padding = { left = 1, right = 0 } },
+          { "location", padding = { left = 0, right = 1 } },
+        },
+        lualine_z = {
+          function()
+            return " " .. os.date("%I:%M %p EST")
+          end,
+        },
+      },
+      sections = {},
+      extensions = { "lazy" },
     }
-    
-    return opts
   end,
 }

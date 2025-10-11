@@ -1,143 +1,135 @@
+-- Catppuccin colorscheme with transparency
 return {
-    -- GitHub Dark Theme (commented out)
-    -- {
-    --     "projekt0n/github-nvim-theme",
-    --     name = "github-theme",
-    --     lazy = false,
-    --     priority = 1000,
-    --     config = function()
-    --         require('github-theme').setup({
-    --             options = {
-    --                 compile_path = vim.fn.stdpath('cache') .. '/github-theme',
-    --                 compile_file_suffix = '_compiled',
-    --                 hide_end_of_buffer = true,
-    --                 hide_nc_statusline = true,
-    --                 transparent = false,
-    --                 terminal_colors = true,
-    --                 dim_inactive = false,
-    --                 module_default = true,
-    --                 styles = {
-    --                     comments = 'italic',
-    --                     functions = 'NONE',
-    --                     keywords = 'NONE',
-    --                     variables = 'NONE',
-    --                     conditionals = 'NONE',
-    --                     constants = 'NONE',
-    --                     numbers = 'NONE',
-    --                     operators = 'NONE',
-    --                     strings = 'NONE',
-    --                     types = 'NONE',
-    --                 },
-    --                 inverse = {
-    --                     match_paren = false,
-    --                     visual = false,
-    --                     search = false,
-    --                 },
-    --             },
-    --             groups = {
-    --                 all = {
-    --                     -- File explorer folder colors
-    --                     NeoTreeDirectoryIcon = { fg = '#58a6ff' },  -- Blue folder icon
-    --                     NeoTreeDirectoryName = { fg = '#58a6ff' },  -- Blue folder name
-    --                     NeoTreeRootName = { fg = '#58a6ff', bold = true },  -- Blue root folder
-    --
-    --                     -- Snacks dashboard folder colors
-    --                     SnacksExplorerDirectory = { fg = '#58a6ff' },
-    --                     SnacksExplorerDirectoryIcon = { fg = '#58a6ff' },
-    --
-    --                     -- General directory highlights
-    --                     Directory = { fg = '#58a6ff' },
-    --                 },
-    --             },
-    --         })
-    --
-    --         -- Additional overrides after theme loads
-    --         vim.api.nvim_create_autocmd("ColorScheme", {
-    --             pattern = "github_*",
-    --             callback = function()
-    --                 -- Override folder colors for various file explorers
-    --                 vim.api.nvim_set_hl(0, "NeoTreeDirectoryIcon", { fg = "#58a6ff" })
-    --                 vim.api.nvim_set_hl(0, "NeoTreeDirectoryName", { fg = "#58a6ff" })
-    --                 vim.api.nvim_set_hl(0, "Directory", { fg = "#58a6ff" })
-    --
-    --                 -- Snacks specific overrides
-    --                 vim.api.nvim_set_hl(0, "SnacksExplorerDirectory", { fg = "#58a6ff" })
-    --                 vim.api.nvim_set_hl(0, "SnacksExplorerDirectoryIcon", { fg = "#58a6ff" })
-    --             end,
-    --         })
-    --     end,
-    -- },
-    -- {
-    --     "LazyVim/LazyVim",
-    --     opts = {
-    --         colorscheme = "github_dark",
-    --     },
-    -- },
+  "catppuccin/nvim",
+  name = "catppuccin",
+  lazy = false,
+  priority = 1000,
+  opts = {
+    flavour = "mocha",
+    transparent_background = true,
+    custom_highlights = function(colors)
+      return {
+        EndOfBuffer = { fg = colors.crust, bg = colors.none },
+      }
+    end,
+    integrations = {
+      blink_cmp = true,
+      gitsigns = true,
+      mason = true,
+      native_lsp = {
+        enabled = true,
+        virtual_text = {
+          errors = { "italic" },
+          hints = { "italic" },
+          warnings = { "italic" },
+          information = { "italic" },
+        },
+        underlines = {
+          errors = { "underline" },
+          hints = { "underline" },
+          warnings = { "underline" },
+          information = { "underline" },
+        },
+        inlay_hints = {
+          background = true,
+        },
+      },
+      snacks = true,
+      telescope = true,
+      treesitter = true,
+      which_key = false, -- Disable to prevent catppuccin from adding background
+    },
+  },
+  config = function(_, opts)
+    require("catppuccin").setup(opts)
+    vim.cmd.colorscheme("catppuccin-mocha")
 
-    -- Catppuccin Theme
-    {
-        "catppuccin/nvim",
-        name = "catppuccin",
-        lazy = false,
-        priority = 1000,
-        opts = {
-            flavour = "mocha", -- Use Mocha variant (dark)
-            transparent_background = true, -- Enable transparency
-            integrations = {
-                bufferline = false,
-                cmp = true,
-                gitsigns = true,
-                illuminate = true,
-                indent_blankline = { enabled = true },
-                lsp_trouble = true,
-                mason = true,
-                mini = true,
-                native_lsp = {
-                    enabled = true,
-                },
-                navic = { enabled = true, custom_bg = "lualine" },
-                snacks = true,
-                noice = true,
-                notify = true,
-                semantic_tokens = true,
-                telescope = true,
-                treesitter = true,
-                which_key = true,
-            },
-        },
-        config = function(_, opts)
-            require("catppuccin").setup(opts)
-            vim.cmd.colorscheme("catppuccin-mocha")
-            
-            -- Fix snacks explorer background highlights
-            vim.api.nvim_create_autocmd("FileType", {
-                pattern = "snacks_explorer",
-                callback = function()
-                    vim.wo.winhighlight = "Normal:None,NormalFloat:None,FloatBorder:None,CursorLine:None,EndOfBuffer:None"
-                    vim.wo.cursorline = false
-                    vim.wo.winblend = 0
-                end,
-            })
-            
-            -- Also set highlights globally for explorer
-            vim.api.nvim_set_hl(0, "SnacksExplorerNormal", { bg = "NONE" })
-            vim.api.nvim_set_hl(0, "SnacksExplorerTitle", { bg = "NONE" })
-            vim.api.nvim_set_hl(0, "SnacksExplorerHeader", { bg = "NONE" })
-            
-            -- Fix markdown code block backgrounds
-            vim.api.nvim_set_hl(0, "RenderMarkdownCode", { bg = "NONE" })
-            vim.api.nvim_set_hl(0, "RenderMarkdownCodeInline", { bg = "NONE" })
-            vim.api.nvim_set_hl(0, "@markup.raw.block.markdown", { bg = "NONE" })
-            vim.api.nvim_set_hl(0, "@markup.raw.markdown_inline", { bg = "NONE" })
-            vim.api.nvim_set_hl(0, "markdownCode", { bg = "NONE" })
-            vim.api.nvim_set_hl(0, "markdownCodeBlock", { bg = "NONE" })
-            vim.api.nvim_set_hl(0, "markdownHighlight", { bg = "NONE" })
-        end,
-    },
-    {
-        "LazyVim/LazyVim",
-        opts = {
-            colorscheme = "catppuccin-mocha",
-        },
-    },
+    -- Snacks picker transparency
+    vim.api.nvim_set_hl(0, "SnacksPickerBorder", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "SnacksPickerTitle", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "SnacksPickerInput", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "SnacksPickerPreview", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "SnacksPickerPreviewNormal", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "SnacksPickerPreviewBorder", { bg = "NONE" })
+
+    -- Fix markdown code blocks
+    vim.api.nvim_set_hl(0, "RenderMarkdownCode", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "RenderMarkdownCodeInline", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "@markup.raw.block.markdown", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "@markup.raw.markdown_inline", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "markdownCode", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "markdownCodeBlock", { bg = "NONE" })
+
+    -- Noice cmdline border - soft muted blue (not bright)
+    vim.api.nvim_set_hl(0, "NoiceCmdlineBorder", { fg = "#5a7a9f", bg = "NONE" })
+    vim.api.nvim_set_hl(0, "NoiceCmdlinePopup", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "NoiceCmdlinePopupBorder", { fg = "#5a7a9f", bg = "NONE" })
+    vim.api.nvim_set_hl(0, "NoiceCmdlineIcon", { fg = "#5a7a9f", bg = "NONE" })
+
+    -- Which-key transparency - force all highlight groups
+    vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyNormal", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyBorder", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyFloat", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyGroup", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyDesc", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeySeperator", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeySeparator", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyValue", { bg = "NONE" })
+
+    -- Yank highlight - 99% transparent, essentially invisible
+    vim.api.nvim_set_hl(0, "YankHighlight", { bg = "#b07a3b", blend = 99 })
+
+    -- Hide EndOfBuffer tildes completely by making them invisible
+    vim.opt.fillchars:append({ eob = " " })
+
+    -- Force explorer transparency and noice colors after a delay
+    vim.defer_fn(function()
+      -- Explorer transparency - all highlights
+      vim.api.nvim_set_hl(0, "SnacksExplorerNormal", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksWin", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksNormal", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksNormalNC", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksExplorerList", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksExplorerItem", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksPickerList", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksPickerNormal", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksPickerNormalNC", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksPickerPreview", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksPickerPreviewNormal", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksPickerPreviewBorder", { bg = "NONE", ctermbg = "NONE" })
+
+      -- Noice cmdline colors - force after noice loads
+      vim.api.nvim_set_hl(0, "NoiceCmdlineBorder", { fg = "#5a7a9f", bg = "NONE" })
+      vim.api.nvim_set_hl(0, "NoiceCmdlinePopup", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "NoiceCmdlinePopupBorder", { fg = "#5a7a9f", bg = "NONE" })
+      vim.api.nvim_set_hl(0, "NoiceCmdlineIcon", { fg = "#5a7a9f", bg = "NONE" })
+
+      -- Which-key transparency - force after which-key loads
+      vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyNormal", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyBorder", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyFloat", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyGroup", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyDesc", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeySeperator", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeySeparator", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyValue", { bg = "NONE" })
+
+      -- Hide EndOfBuffer tildes - force after colorscheme loads
+      vim.opt.fillchars:append({ eob = " " })
+
+      -- Also force any active explorer windows to update
+      for _, win in ipairs(vim.api.nvim_list_wins()) do
+        local buf = vim.api.nvim_win_get_buf(win)
+        if vim.api.nvim_buf_is_valid(buf) then
+          local ft = vim.bo[buf].filetype
+          if ft == "snacks_explorer" or ft == "snacks_picker" or ft == "snacks_picker_list" then
+            vim.wo[win].winhighlight = "Normal:Normal,NormalNC:Normal,NormalFloat:Normal,FloatBorder:Normal,EndOfBuffer:Normal,SignColumn:Normal,CursorLine:NONE,VertSplit:Normal"
+            vim.wo[win].winblend = 0
+          end
+        end
+      end
+    end, 100)
+  end,
 }
