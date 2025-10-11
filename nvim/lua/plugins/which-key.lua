@@ -11,7 +11,7 @@ return {
       border = "rounded",
       wo = {
         winblend = 0, -- No transparency blending
-        winhighlight = "Normal:Normal,NormalFloat:Normal,FloatBorder:Normal",
+        winhighlight = "Normal:Normal,NormalFloat:Normal,FloatBorder:WhichKeyBorder",
       },
     },
   },
@@ -19,10 +19,14 @@ return {
     local wk = require("which-key")
     wk.setup(opts)
 
+    -- Get the current FloatBorder foreground color to keep border visible
+    local float_border = vim.api.nvim_get_hl(0, { name = "FloatBorder" })
+    local border_fg = float_border.fg or "#89b4fa" -- Default to catppuccin blue if not set
+
     -- Force transparent background with border after setup - all possible highlight groups
     vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "WhichKeyNormal", { bg = "NONE" })
-    vim.api.nvim_set_hl(0, "WhichKeyBorder", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyBorder", { fg = border_fg, bg = "NONE" })
     vim.api.nvim_set_hl(0, "WhichKeyFloat", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "WhichKeyGroup", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "WhichKeyDesc", { bg = "NONE" })
@@ -45,6 +49,7 @@ return {
     vim.defer_fn(function()
       vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })
       vim.api.nvim_set_hl(0, "WhichKeyNormal", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyBorder", { fg = border_fg, bg = "NONE" })
       vim.api.nvim_set_hl(0, "WhichKeyFloat", { bg = "NONE" })
     end, 100)
     wk.add({
