@@ -77,6 +77,19 @@ return {
     vim.api.nvim_set_hl(0, "NoicePopupmenuSelected", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "NoicePopupmenuMatch", { bg = "NONE" })
 
+    -- Telescope transparency
+    vim.api.nvim_set_hl(0, "TelescopeNormal", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "TelescopeBorder", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "TelescopePromptNormal", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "TelescopePromptBorder", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "TelescopePromptTitle", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "TelescopeResultsNormal", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "TelescopeResultsBorder", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "TelescopeResultsTitle", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "TelescopePreviewNormal", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "TelescopePreviewBorder", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "TelescopePreviewTitle", { bg = "NONE" })
+
     -- Which-key transparency - force all highlight groups
     vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "WhichKeyNormal", { bg = "NONE" })
@@ -126,6 +139,19 @@ return {
       vim.api.nvim_set_hl(0, "NoicePopupmenuBorder", { fg = "NONE", bg = "NONE" })
       vim.api.nvim_set_hl(0, "NoicePopupmenuSelected", { bg = "NONE" })
       vim.api.nvim_set_hl(0, "NoicePopupmenuMatch", { bg = "NONE" })
+
+      -- Telescope transparency - force after telescope loads
+      vim.api.nvim_set_hl(0, "TelescopeNormal", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "TelescopeBorder", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "TelescopePromptNormal", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "TelescopePromptBorder", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "TelescopePromptTitle", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "TelescopeResultsNormal", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "TelescopeResultsBorder", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "TelescopeResultsTitle", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "TelescopePreviewNormal", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "TelescopePreviewBorder", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "TelescopePreviewTitle", { bg = "NONE" })
 
       -- Which-key transparency - force after which-key loads
       vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })

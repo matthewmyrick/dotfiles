@@ -90,6 +90,9 @@ vim.keymap.set("n", "<leader>ww", "<cmd>w<CR>", { desc = "Save file" })
 -- Close/quit current window with <leader>wq
 vim.keymap.set("n", "<leader>wq", "<cmd>q<CR>", { desc = "Close window" })
 
+-- Equalize window sizes with <leader>we
+vim.keymap.set("n", "<leader>we", "<cmd>wincmd =<CR>", { desc = "Equalize window sizes" })
+
 -- Quit Neovim entirely with <leader>qq
 vim.keymap.set("n", "<leader>qq", "<cmd>qa<CR>", { desc = "Quit Neovim" })
 
@@ -340,31 +343,44 @@ vim.api.nvim_create_autocmd("FileType", {
     end,
 })
 
--- Search lines in current buffer with right preset (50% width)
-vim.keymap.set("n", "<leader>sb", function()
-    if not Snacks or not Snacks.picker then
-        vim.notify("Snacks picker not available", vim.log.levels.WARN)
-        return
-    end
+-- Fuzzy search lines in current buffer using telescope (backslash key)
+vim.keymap.set('n', '\\', function()
+    local builtin = require('telescope.builtin')
 
-    -- Check if we're in a real buffer
-    local buftype = vim.bo.buftype
-    if buftype ~= "" then
-        vim.notify("Must be in a file buffer to search", vim.log.levels.WARN)
-        return
-    end
+    -- Get current buffer info
+    local bufnr = vim.api.nvim_get_current_buf()
+    local filename = vim.fn.expand('%:t')
 
-    local current_file = vim.fn.expand("%:p")
-    if current_file == "" or current_file == nil then
-        vim.notify("Must be in a file buffer to search", vim.log.levels.WARN)
-        return
-    end
-
-    -- Use right preset for vertical split on right side
-    require('snacks').picker.lines({
-        layout = {
-            preset = "right",
+    builtin.current_buffer_fuzzy_find({
+        prompt_title = "🔍 Search Lines in Current Buffer",
+        results_title = "Matches in " .. filename,
+        preview_title = "Context Preview",
+        layout_strategy = 'horizontal',
+        layout_config = {
+            preview_width = 0.6,
+            width = 0.95,
+            height = 0.85,
+            prompt_position = "top",
         },
-        jump = { match = true },
+        sorting_strategy = "ascending",
+        default_text = "",
+        attach_mappings = function(prompt_bufnr, map)
+            local actions = require('telescope.actions')
+            local action_state = require('telescope.actions.state')
+
+            actions.select_default:replace(function()
+                actions.close(prompt_bufnr)
+                local selection = action_state.get_selected_entry()
+                if selection then
+                    -- Jump to the selected line and center it
+                    vim.api.nvim_win_set_cursor(0, {selection.lnum, 0})
+                    vim.cmd('normal! zz')
+                end
+            end)
+            return true
+        end,
+        preview = {
+            treesitter = false,  -- Disable treesitter for faster preview
+        },
     })
-end, { desc = "Search lines in current buffer" })
+end, { desc = "Fuzzy search in current buffer with context preview" })
