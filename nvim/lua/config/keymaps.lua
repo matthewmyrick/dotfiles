@@ -340,7 +340,7 @@ vim.api.nvim_create_autocmd("FileType", {
     end,
 })
 
--- Search lines in current buffer with floating layout
+-- Search lines in current buffer with right preset (50% width)
 vim.keymap.set("n", "<leader>sb", function()
     if not Snacks or not Snacks.picker then
         vim.notify("Snacks picker not available", vim.log.levels.WARN)
@@ -360,20 +360,11 @@ vim.keymap.set("n", "<leader>sb", function()
         return
     end
 
-    -- Use lines picker with large floating layout (default preset)
+    -- Use right preset for vertical split on right side
     require('snacks').picker.lines({
         layout = {
-            preview = "main",
-            preset = "default",  -- Large floating centered (80% width/height)
+            preset = "right",
         },
         jump = { match = true },
-        main = { current = true },
-        on_show = function(picker)
-            local cursor = vim.api.nvim_win_get_cursor(picker.main)
-            local info = vim.api.nvim_win_call(picker.main, vim.fn.winsaveview)
-            picker.list:view(cursor[1], info.topline)
-            picker:show_preview()
-        end,
-        sort = { fields = { "score:desc", "idx" } },
     })
 end, { desc = "Search lines in current buffer" })

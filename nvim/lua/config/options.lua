@@ -66,3 +66,7 @@ vim.api.nvim_set_hl(0, "VertSplit", { fg = "#6e7681", bg = "NONE" })
 -- Disable netrw (we use snacks explorer)
 g.loaded_netrw = 1
 g.loaded_netrwPlugin = 1
+
+-- Disable command-line completion/wildmenu
+opt.wildmenu = false
+opt.wildmode = ""

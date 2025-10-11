@@ -8,17 +8,12 @@ return {
   opts = {
     cmdline = {
       enabled = true,
-      view = "cmdline_popup", -- Centered popup
-      opts = {
-        cmdheight = 0,
-      },
+      view = "cmdline", -- Simple cmdline at bottom (not popup)
+      opts = {},
       format = {
         cmdline = { pattern = "^:", icon = "", lang = "vim" },
-        search_down = { kind = "search", pattern = "^/", icon = " ", lang = "regex" },
-        search_up = { kind = "search", pattern = "^%?", icon = " ", lang = "regex" },
-        filter = { pattern = "^:%s*!", icon = "$", lang = "bash" },
-        lua = { pattern = { "^:%s*lua%s+", "^:%s*lua%s*=%s*", "^:%s*=%s*" }, icon = "", lang = "lua" },
-        help = { pattern = "^:%s*he?l?p?%s+", icon = "" },
+        search_down = { kind = "search", pattern = "^/", icon = "", lang = "regex" },
+        search_up = { kind = "search", pattern = "^%?", icon = "", lang = "regex" },
       },
     },
     messages = {
@@ -31,7 +26,6 @@ return {
     },
     popupmenu = {
       enabled = false, -- Disable cmdline completion/suggestions
-      backend = "nui",
     },
     notify = {
       enabled = false, -- Use Snacks notifier instead
@@ -67,21 +61,21 @@ return {
       lsp_doc_border = true, -- Add border to hover and signature
     },
     views = {
-      cmdline_popup = {
+      cmdline = {
         position = {
-          row = "10%", -- 10% from top (very high)
-          col = "50%", -- Center horizontally
+          row = "100%", -- At the bottom
+          col = 0,
         },
         size = {
-          width = "50%", -- Reduced from 70% to 50%
-          height = "auto", -- Auto height for normal input size
+          width = "100%",
+          height = "auto",
         },
         border = {
-          style = "rounded",
+          style = "none",
         },
         win_options = {
           winblend = 0,
-          winhighlight = "Normal:Normal,NormalFloat:Normal,NormalNC:Normal,FloatBorder:NoiceCmdlineBorder,FloatTitle:NoiceCmdlineBorder,CursorLine:NONE,SignColumn:Normal,EndOfBuffer:Normal,StatusLine:Normal,StatusLineNC:Normal",
+          winhighlight = "Normal:Normal,NormalFloat:Normal",
         },
       },
       popupmenu = {

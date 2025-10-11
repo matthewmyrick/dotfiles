@@ -60,11 +60,22 @@ return {
     vim.api.nvim_set_hl(0, "markdownCode", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "markdownCodeBlock", { bg = "NONE" })
 
-    -- Noice cmdline border - soft muted blue (not bright)
+    -- Noice cmdline transparency - all highlights
+    vim.api.nvim_set_hl(0, "NoiceCmdline", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "NoiceCmdlineBorder", { fg = "#5a7a9f", bg = "NONE" })
     vim.api.nvim_set_hl(0, "NoiceCmdlinePopup", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "NoiceCmdlinePopupBorder", { fg = "#5a7a9f", bg = "NONE" })
+    vim.api.nvim_set_hl(0, "NoiceCmdlinePopupBorderCmdline", { fg = "#5a7a9f", bg = "NONE" })
+    vim.api.nvim_set_hl(0, "NoiceCmdlinePopupBorderSearch", { fg = "#5a7a9f", bg = "NONE" })
     vim.api.nvim_set_hl(0, "NoiceCmdlineIcon", { fg = "#5a7a9f", bg = "NONE" })
+    vim.api.nvim_set_hl(0, "NoiceCmdlineIconCmdline", { fg = "#5a7a9f", bg = "NONE" })
+    vim.api.nvim_set_hl(0, "NoiceCmdlineIconSearch", { fg = "#5a7a9f", bg = "NONE" })
+
+    -- Disable Noice popupmenu (completion/autofill)
+    vim.api.nvim_set_hl(0, "NoicePopupmenu", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "NoicePopupmenuBorder", { fg = "NONE", bg = "NONE" })
+    vim.api.nvim_set_hl(0, "NoicePopupmenuSelected", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "NoicePopupmenuMatch", { bg = "NONE" })
 
     -- Which-key transparency - force all highlight groups
     vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })
@@ -99,11 +110,22 @@ return {
       vim.api.nvim_set_hl(0, "SnacksPickerPreviewNormal", { bg = "NONE", ctermbg = "NONE" })
       vim.api.nvim_set_hl(0, "SnacksPickerPreviewBorder", { bg = "NONE", ctermbg = "NONE" })
 
-      -- Noice cmdline colors - force after noice loads
+      -- Noice cmdline transparency - force after noice loads
+      vim.api.nvim_set_hl(0, "NoiceCmdline", { bg = "NONE" })
       vim.api.nvim_set_hl(0, "NoiceCmdlineBorder", { fg = "#5a7a9f", bg = "NONE" })
       vim.api.nvim_set_hl(0, "NoiceCmdlinePopup", { bg = "NONE" })
       vim.api.nvim_set_hl(0, "NoiceCmdlinePopupBorder", { fg = "#5a7a9f", bg = "NONE" })
+      vim.api.nvim_set_hl(0, "NoiceCmdlinePopupBorderCmdline", { fg = "#5a7a9f", bg = "NONE" })
+      vim.api.nvim_set_hl(0, "NoiceCmdlinePopupBorderSearch", { fg = "#5a7a9f", bg = "NONE" })
       vim.api.nvim_set_hl(0, "NoiceCmdlineIcon", { fg = "#5a7a9f", bg = "NONE" })
+      vim.api.nvim_set_hl(0, "NoiceCmdlineIconCmdline", { fg = "#5a7a9f", bg = "NONE" })
+      vim.api.nvim_set_hl(0, "NoiceCmdlineIconSearch", { fg = "#5a7a9f", bg = "NONE" })
+
+      -- Disable Noice popupmenu (completion/autofill)
+      vim.api.nvim_set_hl(0, "NoicePopupmenu", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "NoicePopupmenuBorder", { fg = "NONE", bg = "NONE" })
+      vim.api.nvim_set_hl(0, "NoicePopupmenuSelected", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "NoicePopupmenuMatch", { bg = "NONE" })
 
       -- Which-key transparency - force after which-key loads
       vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })
