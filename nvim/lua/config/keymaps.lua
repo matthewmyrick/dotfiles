@@ -339,3 +339,27 @@ vim.api.nvim_create_autocmd("FileType", {
         vim.keymap.set("n", "<leader>gv", "<cmd>GoVet<cr>", { buffer = true, desc = "Go Vet" })
     end,
 })
+
+-- Search lines in current buffer with floating layout
+vim.keymap.set("n", "<leader>sb", function()
+    if not Snacks or not Snacks.picker then
+        vim.notify("Snacks picker not available", vim.log.levels.WARN)
+        return
+    end
+
+    -- Check if we're in a real buffer
+    local buftype = vim.bo.buftype
+    if buftype ~= "" then
+        vim.notify("Must be in a file buffer to search", vim.log.levels.WARN)
+        return
+    end
+
+    local current_file = vim.fn.expand("%:p")
+    if current_file == "" or current_file == nil then
+        vim.notify("Must be in a file buffer to search", vim.log.levels.WARN)
+        return
+    end
+
+    -- Use lines picker with default config (ivy preset at bottom)
+    require('snacks').picker.lines()
+end, { desc = "Search lines in current buffer" })

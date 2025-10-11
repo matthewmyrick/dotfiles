@@ -9,11 +9,25 @@ return {
     },
     win = {
       border = "rounded",
+      wo = {
+        winblend = 0, -- No transparency blending
+      },
     },
   },
   config = function(_, opts)
     local wk = require("which-key")
     wk.setup(opts)
+
+    -- Force transparent background with border after setup
+    vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyNormal", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyBorder", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyFloat", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyGroup", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyDesc", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeySeperator", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeySeparator", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyValue", { bg = "NONE" })
     wk.add({
       { "<leader>b", group = "buffer" },
       { "<leader>c", group = "code" },

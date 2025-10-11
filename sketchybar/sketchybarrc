@@ -104,7 +104,7 @@ echo "$CPU" > /tmp/sketchybar_cpu_prev
 sketchybar --set cpu label="${CPU}%" label.color="$COLOR" icon.color="$COLOR"
 '
 
-# Memory Usage  
+# Memory Usage
 sketchybar --add item memory left \
            --set memory update_freq=5 \
                         icon="MEM" \
@@ -147,6 +147,86 @@ elif [ $MEM -lt $PREV_MEM ]; then
 fi
 
 sketchybar --set memory label="${MEM}%" label.color="$COLOR" icon.color="$COLOR"
+'
+
+# Network Usage
+sketchybar --add item network left \
+           --set network update_freq=2 \
+                        icon="NET" \
+                        icon.font="SF Pro:Regular:13.0" \
+                        script='
+# Get network interface stats (only en interfaces with Link#)
+NET_STATS=$(netstat -ibn | awk "/^en.*Link/ {ibytes+=\$7; obytes+=\$10} END {print ibytes, obytes}")
+IBYTES=$(echo $NET_STATS | awk "{print \$1}")
+OBYTES=$(echo $NET_STATS | awk "{print \$2}")
+
+# Read previous values
+PREV_IBYTES=$(cat /tmp/sketchybar_net_ibytes 2>/dev/null || echo "$IBYTES")
+PREV_OBYTES=$(cat /tmp/sketchybar_net_obytes 2>/dev/null || echo "$OBYTES")
+PREV_TIME=$(cat /tmp/sketchybar_net_time 2>/dev/null || echo "$(date +%s)")
+CURRENT_TIME=$(date +%s)
+
+# Calculate bytes per second
+TIME_DIFF=$((CURRENT_TIME - PREV_TIME))
+if [ $TIME_DIFF -gt 0 ]; then
+  IBYTES_DIFF=$((IBYTES - PREV_IBYTES))
+  OBYTES_DIFF=$((OBYTES - PREV_OBYTES))
+
+  # Convert to Mbps
+  DOWN_MBPS=$(echo "scale=1; ($IBYTES_DIFF * 8) / ($TIME_DIFF * 1000000)" | bc)
+  UP_MBPS=$(echo "scale=1; ($OBYTES_DIFF * 8) / ($TIME_DIFF * 1000000)" | bc)
+
+  # Assume 1 Gbps max capacity (adjust if your connection is different)
+  MAX_MBPS=1000
+  TOTAL_MBPS=$(echo "$DOWN_MBPS + $UP_MBPS" | bc)
+  NET_PERCENT=$(echo "scale=0; ($TOTAL_MBPS * 100) / $MAX_MBPS" | bc 2>/dev/null || echo "0")
+
+  # Cap at 100%
+  if [ $NET_PERCENT -gt 100 ]; then
+    NET_PERCENT=100
+  fi
+else
+  NET_PERCENT=0
+fi
+
+# Color change based on usage change
+PREV_NET=$(cat /tmp/sketchybar_net_prev 2>/dev/null || echo "$NET_PERCENT")
+COLOR_FILE="/tmp/sketchybar_net_color"
+COLOR_COUNTER=$(cat "$COLOR_FILE" 2>/dev/null || echo "0")
+
+if [ $NET_PERCENT -gt $PREV_NET ]; then
+  # Network usage increased - soft red
+  COLOR="0xff990000"
+  echo "3" > "$COLOR_FILE"
+elif [ $NET_PERCENT -lt $PREV_NET ]; then
+  # Network usage decreased - dark green
+  COLOR="0xff004400"
+  echo "3" > "$COLOR_FILE"
+elif [ $COLOR_COUNTER -gt 0 ]; then
+  # Continue showing previous color
+  LAST_COLOR=$(cat /tmp/sketchybar_net_last_color 2>/dev/null || echo "white")
+  if [ "$LAST_COLOR" = "red" ]; then
+    COLOR="0xff990000"
+  else
+    COLOR="0xff004400"
+  fi
+  echo $(( $COLOR_COUNTER - 1 )) > "$COLOR_FILE"
+else
+  COLOR="0xff000000"
+fi
+
+# Save state for next update
+echo "$IBYTES" > /tmp/sketchybar_net_ibytes
+echo "$OBYTES" > /tmp/sketchybar_net_obytes
+echo "$CURRENT_TIME" > /tmp/sketchybar_net_time
+echo "$NET_PERCENT" > /tmp/sketchybar_net_prev
+if [ $NET_PERCENT -gt $PREV_NET ]; then
+  echo "red" > /tmp/sketchybar_net_last_color
+elif [ $NET_PERCENT -lt $PREV_NET ]; then
+  echo "green" > /tmp/sketchybar_net_last_color
+fi
+
+sketchybar --set network label="${NET_PERCENT}%" label.color="$COLOR" icon.color="$COLOR"
 '
 
 

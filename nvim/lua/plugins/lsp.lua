@@ -7,10 +7,39 @@ return {
     build = ":MasonUpdate",
     opts = {
       ensure_installed = {
+        -- Lua
         "stylua",
-        "shellcheck",
-        "shfmt",
-        "flake8",
+
+        -- Shell
+        "shellcheck",   -- Shell script linter
+        "shfmt",        -- Shell script formatter
+        "shellharden",  -- Shell script hardener/linter
+        "beautysh",     -- Shell script beautifier
+
+        -- Go
+        "gofumpt",      -- Go formatter (better than gofmt)
+        "goimports",    -- Go imports organizer
+        "golangci-lint", -- Go linter
+        "gomodifytags", -- Go struct tag modifier
+        "impl",         -- Go interface implementation generator
+
+        -- Python
+        "black",        -- Python formatter
+        "isort",        -- Python import sorter
+        "flake8",       -- Python linter
+        "pylint",       -- Python linter
+        "mypy",         -- Python type checker
+
+        -- JavaScript/TypeScript
+        "prettier",     -- JS/TS/JSON/YAML formatter
+        "eslint_d",     -- JS/TS linter (faster)
+
+        -- YAML
+        "yamllint",     -- YAML linter
+        "yamlfmt",      -- YAML formatter
+
+        -- JSON
+        "jsonlint",     -- JSON linter
       },
     },
     config = function(_, opts)

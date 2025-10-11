@@ -233,6 +233,7 @@ fi
       enabled = true,
       layout = {
         backdrop = false,
+        border = "rounded",
       },
       win = {
         input = {
