@@ -11,6 +11,7 @@ return {
       border = "rounded",
       wo = {
         winblend = 0, -- No transparency blending
+        winhighlight = "Normal:Normal,NormalFloat:Normal,FloatBorder:Normal",
       },
     },
   },
@@ -18,7 +19,7 @@ return {
     local wk = require("which-key")
     wk.setup(opts)
 
-    -- Force transparent background with border after setup
+    -- Force transparent background with border after setup - all possible highlight groups
     vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "WhichKeyNormal", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "WhichKeyBorder", { bg = "NONE" })
@@ -28,6 +29,24 @@ return {
     vim.api.nvim_set_hl(0, "WhichKeySeperator", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "WhichKeySeparator", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "WhichKeyValue", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyTitle", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyIcon", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyIconAzure", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyIconBlue", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyIconCyan", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyIconGreen", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyIconGrey", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyIconOrange", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyIconPurple", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyIconRed", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyIconYellow", { bg = "NONE" })
+
+    -- Delay to ensure which-key has fully loaded
+    vim.defer_fn(function()
+      vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyNormal", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyFloat", { bg = "NONE" })
+    end, 100)
     wk.add({
       { "<leader>b", group = "buffer" },
       { "<leader>c", group = "code" },
