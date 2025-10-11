@@ -99,8 +99,6 @@ vim.keymap.set("n", "<leader>wv", function()
     vim.schedule(function()
         if Snacks and Snacks.picker then
             Snacks.picker.files()
-        elseif package.loaded["telescope"] then
-            require("telescope.builtin").find_files()
         else
             vim.notify("No file picker available", vim.log.levels.WARN)
         end
@@ -113,8 +111,6 @@ vim.keymap.set("n", "<leader>wh", function()
     vim.schedule(function()
         if Snacks and Snacks.picker then
             Snacks.picker.files()
-        elseif package.loaded["telescope"] then
-            require("telescope.builtin").find_files()
         else
             vim.notify("No file picker available", vim.log.levels.WARN)
         end
@@ -145,51 +141,14 @@ vim.keymap.set({ "n", "v" }, "^", "0", { desc = "Go to beginning of line" })
 vim.keymap.set("n", "dd", '"_dd', { desc = "Delete line without copying" })
 vim.keymap.set("v", "d", '"_d', { desc = "Delete selection without copying" })
 
--- Override <leader><leader> to focus/open file explorer
-vim.keymap.set("n", "<leader><leader>", function()
-    if Snacks and Snacks.explorer then
-        -- Check if explorer is already open
-        local explorer_win = nil
-        for _, win in ipairs(vim.api.nvim_list_wins()) do
-            local buf = vim.api.nvim_win_get_buf(win)
-            local ft = vim.api.nvim_buf_get_option(buf, "filetype")
-            if ft == "snacks_explorer" then
-                explorer_win = win
-                break
-            end
-        end
-        
-        if explorer_win then
-            -- Explorer is open, just focus it
-            vim.api.nvim_set_current_win(explorer_win)
-        else
-            -- Explorer not open, open it
-            Snacks.explorer()
-        end
-    else
-        vim.notify("Snacks explorer not available", vim.log.levels.WARN)
-    end
-end, { desc = "Focus/Open File Explorer" })
+-- Select entire buffer (vag) and yank entire buffer (yag)
+vim.keymap.set("n", "vag", "ggVG", { desc = "Select entire buffer" })
+vim.keymap.set("n", "yag", "ggyG", { desc = "Yank entire buffer" })
 
 -- Override <leader>sg to use current window for live grep
 vim.keymap.set("n", "<leader>sg", function()
-    local ok, snacks = pcall(function()
-        return Snacks
-    end)
-    if ok and snacks and snacks.picker then
-        -- Use Snacks picker with edit action to open in current window
-        snacks.picker.grep({
-            action = function(item, ctx)
-                -- Edit in current window instead of split
-                vim.cmd("edit " .. item.file)
-                if item.pos and item.pos[1] then
-                    vim.api.nvim_win_set_cursor(0, { item.pos[1], item.pos[2] or 0 })
-                end
-            end,
-        })
-    elseif package.loaded["telescope"] then
-        -- Fallback to Telescope if Snacks is not available
-        require("telescope.builtin").live_grep()
+    if Snacks and Snacks.picker then
+        Snacks.picker.grep()
     else
         vim.notify("No grep picker available", vim.log.levels.WARN)
     end
@@ -197,30 +156,14 @@ end, { desc = "Grep (current window)" })
 
 -- Override <leader>sG to use current window for grep string
 vim.keymap.set("n", "<leader>sG", function()
-    local ok, snacks = pcall(function()
-        return Snacks
-    end)
-    if ok and snacks and snacks.picker then
-        -- Use Snacks picker with edit action to open in current window
-        snacks.picker.grep_word({
-            action = function(item, ctx)
-                -- Edit in current window instead of split
-                vim.cmd("edit " .. item.file)
-                if item.pos and item.pos[1] then
-                    vim.api.nvim_win_set_cursor(0, { item.pos[1], item.pos[2] or 0 })
-                end
-            end,
-        })
-    elseif package.loaded["telescope"] then
-        -- Fallback to Telescope if Snacks is not available
-        require("telescope.builtin").grep_string()
+    if Snacks and Snacks.picker then
+        Snacks.picker.grep_word()
     else
         vim.notify("No grep string picker available", vim.log.levels.WARN)
     end
 end, { desc = "Grep string (current window)" })
 
 -- Diagnostic keymaps
-vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float, { desc = "Open diagnostic float" })
 vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, { desc = "Go to previous diagnostic" })
 vim.keymap.set("n", "]d", vim.diagnostic.goto_next, { desc = "Go to next diagnostic" })
 vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagnostics list" })
@@ -252,184 +195,20 @@ local function open_buffer_smart(bufnr)
     end
 end
 
--- Buffer search keymaps
+-- Buffer search keymaps (using Snacks picker)
 vim.keymap.set("n", "<leader>bf", function()
     -- Don't work in file explorer
     if is_in_explorer() then
         vim.notify("Buffer search disabled in file explorer", vim.log.levels.INFO)
         return
     end
-    
-    if package.loaded["telescope"] then
-        local actions = require("telescope.actions")
-        local action_state = require("telescope.actions.state")
-        
-        require("telescope.builtin").buffers({
-            sort_mru = true,
-            sort_lastused = true,
-            show_all_buffers = true,
-            previewer = require("telescope.config").values.file_previewer({}),
-            attach_mappings = function(prompt_bufnr, map)
-                -- Override default select action
-                actions.select_default:replace(function()
-                    local selection = action_state.get_selected_entry()
-                    actions.close(prompt_bufnr)
-                    if selection then
-                        open_buffer_smart(selection.bufnr)
-                    end
-                end)
-                
-                -- Custom delete mappings with Claude terminal check
-                local function smart_delete_buffer()
-                    local selection = action_state.get_selected_entry()
-                    if selection then
-                        local buf = selection.bufnr
-                        if is_claude_terminal(buf) then
-                            vim.ui.input({
-                                prompt = "Delete Claude terminal? (y/N): ",
-                                default = "N",
-                            }, function(input)
-                                if input and string.lower(input) == "y" then
-                                    vim.api.nvim_buf_delete(buf, { force = true })
-                                    vim.notify("Claude terminal deleted", vim.log.levels.INFO)
-                                end
-                            end)
-                        else
-                            local is_terminal = vim.api.nvim_buf_get_option(buf, "buftype") == "terminal"
-                            vim.api.nvim_buf_delete(buf, { force = is_terminal })
-                        end
-                    end
-                end
-                
-                map("n", "dd", smart_delete_buffer)
-                map("i", "<C-d>", smart_delete_buffer)
-                return true
-            end,
-        })
+
+    if Snacks and Snacks.picker then
+        Snacks.picker.buffers()
     else
-        local ok, snacks = pcall(function()
-            return Snacks
-        end)
-        if ok and snacks and snacks.picker then
-            snacks.picker.buffers()
-        else
-            vim.notify("No buffer picker available", vim.log.levels.WARN)
-        end
+        vim.notify("No buffer picker available", vim.log.levels.WARN)
     end
-end, { desc = "Search open buffers (smart split)" })
-
--- Alternative buffer search with Telescope (with smart split)
-vim.keymap.set("n", "<leader>fb", function()
-    -- Don't work in file explorer
-    if is_in_explorer() then
-        vim.notify("Buffer search disabled in file explorer", vim.log.levels.INFO)
-        return
-    end
-    
-    local actions = require("telescope.actions")
-    local action_state = require("telescope.actions.state")
-    
-    require("telescope.builtin").buffers({
-        attach_mappings = function(prompt_bufnr, map)
-            -- Override default select action
-            actions.select_default:replace(function()
-                local selection = action_state.get_selected_entry()
-                actions.close(prompt_bufnr)
-                if selection then
-                    open_buffer_smart(selection.bufnr)
-                end
-            end)
-            return true
-        end,
-    })
-end, { desc = "Find buffers (smart split)" })
-
--- Mass buffer deletion with multi-select using Telescope
-vim.keymap.set("n", "<leader>fBd", function()
-    require("telescope.builtin").buffers({
-        sort_mru = true,
-        sort_lastused = true,
-        show_all_buffers = true,
-        prompt_title = "Delete Buffers (Tab to select multiple)",
-        attach_mappings = function(prompt_bufnr, map)
-            local actions = require("telescope.actions")
-            local action_state = require("telescope.actions.state")
-
-            -- Custom multi-select delete action
-            actions.select_default:replace(function()
-                local picker = action_state.get_current_picker(prompt_bufnr)
-                local multi_selections = picker:get_multi_selection()
-
-                if #multi_selections > 0 then
-                    -- Check if any are Claude terminals
-                    local claude_terminals = {}
-                    local other_buffers = {}
-                    
-                    for _, entry in ipairs(multi_selections) do
-                        if is_claude_terminal(entry.bufnr) then
-                            table.insert(claude_terminals, entry)
-                        else
-                            table.insert(other_buffers, entry)
-                        end
-                    end
-                    
-                    -- Delete non-Claude buffers first
-                    for _, entry in ipairs(other_buffers) do
-                        local is_terminal = vim.api.nvim_buf_get_option(entry.bufnr, "buftype") == "terminal"
-                        vim.api.nvim_buf_delete(entry.bufnr, { force = is_terminal })
-                    end
-                    
-                    -- Ask about Claude terminals if any
-                    if #claude_terminals > 0 then
-                        vim.ui.input({
-                            prompt = string.format("Delete %d Claude terminal(s)? (y/N): ", #claude_terminals),
-                            default = "N",
-                        }, function(input)
-                            if input and string.lower(input) == "y" then
-                                for _, entry in ipairs(claude_terminals) do
-                                    vim.api.nvim_buf_delete(entry.bufnr, { force = true })
-                                end
-                                vim.notify(string.format("Deleted %d buffer(s)", #multi_selections), vim.log.levels.INFO)
-                            else
-                                vim.notify(string.format("Deleted %d buffer(s), %d Claude terminal(s) kept", #other_buffers, #claude_terminals), vim.log.levels.INFO)
-                            end
-                        end)
-                    else
-                        vim.notify(string.format("Deleted %d buffer(s)", #multi_selections), vim.log.levels.INFO)
-                    end
-                else
-                    local selection = action_state.get_selected_entry()
-                    if selection then
-                        if is_claude_terminal(selection.bufnr) then
-                            vim.ui.input({
-                                prompt = "Delete Claude terminal? (y/N): ",
-                                default = "N",
-                            }, function(input)
-                                if input and string.lower(input) == "y" then
-                                    vim.api.nvim_buf_delete(selection.bufnr, { force = true })
-                                    vim.notify("Deleted 1 buffer", vim.log.levels.INFO)
-                                end
-                            end)
-                        else
-                            local is_terminal = vim.api.nvim_buf_get_option(selection.bufnr, "buftype") == "terminal"
-                            vim.api.nvim_buf_delete(selection.bufnr, { force = is_terminal })
-                            vim.notify("Deleted 1 buffer", vim.log.levels.INFO)
-                        end
-                    end
-                end
-                actions.close(prompt_bufnr)
-            end)
-
-            -- Map Tab to toggle selection for multi-select
-            map("i", "<Tab>", actions.toggle_selection + actions.move_selection_worse)
-            map("i", "<S-Tab>", actions.toggle_selection + actions.move_selection_better)
-            map("n", "<Tab>", actions.toggle_selection + actions.move_selection_worse)
-            map("n", "<S-Tab>", actions.toggle_selection + actions.move_selection_better)
-
-            return true
-        end,
-    })
-end, { desc = "Find and delete buffers (multi-select)" })
+end, { desc = "Search open buffers" })
 
 -- Quick buffer delete current buffer
 vim.keymap.set("n", "<leader>bd", function()
@@ -531,6 +310,21 @@ for key, obj in pairs(text_objects) do
     vim.keymap.set("n", "gta" .. key, move_to_text_object_start(false, obj), 
         { desc = "Move to beginning around " .. key, silent = true })
 end
+
+-- Git hunks (mini.diff)
+vim.keymap.set("n", "]h", function()
+  local ok, minidiff = pcall(require, "mini.diff")
+  if ok then
+    minidiff.goto_hunk("next")
+  end
+end, { desc = "Next Git Hunk" })
+
+vim.keymap.set("n", "[h", function()
+  local ok, minidiff = pcall(require, "mini.diff")
+  if ok then
+    minidiff.goto_hunk("prev")
+  end
+end, { desc = "Prev Git Hunk" })
 
 -- Go specific keymaps
 vim.api.nvim_create_autocmd("FileType", {

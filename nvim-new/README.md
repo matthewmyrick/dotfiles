@@ -57,7 +57,7 @@ Lazy.nvim will automatically:
 - Never closes, always accessible
 
 ### Fuzzy Finding (Snacks Picker)
-- `<leader>ff` - Find files
+- `<leader><leader>` - Find files
 - `<leader>fg` - Live grep
 - `<leader>fb` - Find buffers
 - `<leader>sg` - Grep (opens in current window)

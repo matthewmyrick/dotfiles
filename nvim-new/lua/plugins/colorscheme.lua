@@ -7,6 +7,11 @@ return {
   opts = {
     flavour = "mocha",
     transparent_background = true,
+    custom_highlights = function(colors)
+      return {
+        EndOfBuffer = { fg = colors.crust, bg = colors.none },
+      }
+    end,
     integrations = {
       blink_cmp = true,
       gitsigns = true,
@@ -32,21 +37,20 @@ return {
       snacks = true,
       telescope = true,
       treesitter = true,
-      which_key = true,
+      which_key = false, -- Disable to prevent catppuccin from adding background
     },
   },
   config = function(_, opts)
     require("catppuccin").setup(opts)
     vim.cmd.colorscheme("catppuccin-mocha")
 
-    -- Set picker highlights to be transparent
+    -- Snacks picker transparency
     vim.api.nvim_set_hl(0, "SnacksPickerBorder", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "SnacksPickerTitle", { bg = "NONE" })
     vim.api.nvim_set_hl(0, "SnacksPickerInput", { bg = "NONE" })
-
-    -- Explorer title transparency
-    vim.api.nvim_set_hl(0, "SnacksExplorerTitle", { bg = "NONE" })
-    vim.api.nvim_set_hl(0, "SnacksWinTitle", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "SnacksPickerPreview", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "SnacksPickerPreviewNormal", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "SnacksPickerPreviewBorder", { bg = "NONE" })
 
     -- Fix markdown code blocks
     vim.api.nvim_set_hl(0, "RenderMarkdownCode", { bg = "NONE" })
@@ -62,6 +66,24 @@ return {
     vim.api.nvim_set_hl(0, "NoiceCmdlinePopupBorder", { fg = "#5a7a9f", bg = "NONE" })
     vim.api.nvim_set_hl(0, "NoiceCmdlineIcon", { fg = "#5a7a9f", bg = "NONE" })
 
+    -- Which-key transparency - force all highlight groups
+    vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyNormal", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyBorder", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyFloat", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyGroup", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyDesc", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeySeperator", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeySeparator", { bg = "NONE" })
+    vim.api.nvim_set_hl(0, "WhichKeyValue", { bg = "NONE" })
+
+    -- Yank highlight - 99% transparent, essentially invisible
+    vim.api.nvim_set_hl(0, "YankHighlight", { bg = "#b07a3b", blend = 99 })
+
+    -- Hide EndOfBuffer tildes completely by making them invisible
+    local colors_palette = require("catppuccin.palettes").get_palette("mocha")
+    vim.api.nvim_set_hl(0, "EndOfBuffer", { fg = colors_palette.base, bg = colors_palette.base })
+
     -- Force explorer transparency and noice colors after a delay
     vim.defer_fn(function()
       -- Explorer transparency - all highlights
@@ -74,12 +96,30 @@ return {
       vim.api.nvim_set_hl(0, "SnacksPickerList", { bg = "NONE", ctermbg = "NONE" })
       vim.api.nvim_set_hl(0, "SnacksPickerNormal", { bg = "NONE", ctermbg = "NONE" })
       vim.api.nvim_set_hl(0, "SnacksPickerNormalNC", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksPickerPreview", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksPickerPreviewNormal", { bg = "NONE", ctermbg = "NONE" })
+      vim.api.nvim_set_hl(0, "SnacksPickerPreviewBorder", { bg = "NONE", ctermbg = "NONE" })
 
       -- Noice cmdline colors - force after noice loads
       vim.api.nvim_set_hl(0, "NoiceCmdlineBorder", { fg = "#5a7a9f", bg = "NONE" })
       vim.api.nvim_set_hl(0, "NoiceCmdlinePopup", { bg = "NONE" })
       vim.api.nvim_set_hl(0, "NoiceCmdlinePopupBorder", { fg = "#5a7a9f", bg = "NONE" })
       vim.api.nvim_set_hl(0, "NoiceCmdlineIcon", { fg = "#5a7a9f", bg = "NONE" })
+
+      -- Which-key transparency - force after which-key loads
+      vim.api.nvim_set_hl(0, "WhichKey", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyNormal", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyBorder", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyFloat", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyGroup", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyDesc", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeySeperator", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeySeparator", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "WhichKeyValue", { bg = "NONE" })
+
+      -- Hide EndOfBuffer tildes - force after colorscheme loads
+      local colors_deferred = require("catppuccin.palettes").get_palette("mocha")
+      vim.api.nvim_set_hl(0, "EndOfBuffer", { fg = colors_deferred.base, bg = colors_deferred.base })
 
       -- Also force any active explorer windows to update
       for _, win in ipairs(vim.api.nvim_list_wins()) do

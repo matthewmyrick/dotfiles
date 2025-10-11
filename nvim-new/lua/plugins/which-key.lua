@@ -7,6 +7,9 @@ return {
     icons = {
       group = "",
     },
+    win = {
+      border = "rounded",
+    },
   },
   config = function(_, opts)
     local wk = require("which-key")

@@ -86,12 +86,12 @@ return {
         },
       })
 
-      -- Diagnostic signs
-      local signs = { Error = " ", Warn = " ", Hint = " ", Info = " " }
-      for type, icon in pairs(signs) do
-        local hl = "DiagnosticSign" .. type
-        vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = "" })
-      end
+      -- Diagnostic signs (handled by mini.nvim)
+      -- local signs = { Error = " ", Warn = " ", Hint = " ", Info = " " }
+      -- for type, icon in pairs(signs) do
+      --   local hl = "DiagnosticSign" .. type
+      --   vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = "" })
+      -- end
 
       -- LSP keymaps (on attach)
       local on_attach = function(client, bufnr)
@@ -121,9 +121,6 @@ return {
 
       -- Setup language servers
       local lspconfig = require("lspconfig")
-
-      -- Suppress deprecation warning
-      vim.g.lspconfig_deprecation_warnings = false
 
       -- Lua
       lspconfig.lua_ls.setup({

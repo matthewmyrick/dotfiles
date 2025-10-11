@@ -33,6 +33,7 @@ opt.smartindent = true -- Smart auto-indent
 opt.showtabline = 2 -- Always show tabline
 opt.laststatus = 3 -- Global statusline
 opt.cmdheight = 0 -- No command line space at bottom
+opt.showmode = false -- Don't show mode (noice handles this)
 
 -- Window focus highlighting
 opt.winhl = "Normal:ActiveWindow,NormalNC:InactiveWindow"

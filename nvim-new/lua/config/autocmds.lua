@@ -9,11 +9,14 @@ vim.api.nvim_create_autocmd({ "FocusGained", "TermClose", "TermLeave" }, {
   command = "checktime",
 })
 
--- Highlight on yank
+-- Highlight on yank (yellow-orange)
 vim.api.nvim_create_autocmd("TextYankPost", {
   group = augroup("highlight_yank"),
   callback = function()
-    vim.highlight.on_yank()
+    vim.highlight.on_yank({
+      higroup = "YankHighlight",
+      timeout = 200,
+    })
   end,
 })
 
@@ -74,12 +77,12 @@ vim.api.nvim_create_autocmd({ "BufWritePre" }, {
   end,
 })
 
--- Force Snacks explorer to be transparent - NUCLEAR OPTION
+-- Force Snacks explorer and picker to be transparent - NUCLEAR OPTION
 vim.api.nvim_create_autocmd({ "FileType", "BufEnter", "WinEnter", "BufWinEnter" }, {
   group = augroup("force_explorer_transparent"),
   callback = function()
     local ft = vim.bo.filetype
-    if ft == "snacks_explorer" or ft == "snacks_picker" or ft == "snacks_picker_list" or string.match(ft, "^snacks") then
+    if ft == "snacks_explorer" or ft == "snacks_picker" or ft == "snacks_picker_list" or ft == "snacks_picker_preview" or string.match(ft, "^snacks") then
       vim.schedule(function()
         vim.wo.winhighlight = "Normal:Normal,NormalNC:Normal,NormalFloat:Normal,FloatBorder:Normal,EndOfBuffer:Normal,SignColumn:Normal,CursorLine:NONE,CursorLineNr:NONE,VertSplit:Normal,StatusLine:Normal,StatusLineNC:Normal"
         vim.wo.winblend = 0
@@ -95,5 +98,41 @@ vim.api.nvim_create_autocmd("VeryLazy", {
   callback = function()
     vim.opt.cmdheight = 0
     vim.opt.laststatus = 3
+  end,
+})
+
+-- Auto format on save for specific filetypes
+vim.api.nvim_create_autocmd("BufWritePre", {
+  group = augroup("auto_format"),
+  pattern = { "*.tf", "*.json", "*.yaml", "*.yml", "*.ts", "*.tsx", "*.js", "*.jsx", "*.py" },
+  callback = function()
+    vim.lsp.buf.format({ async = false })
+  end,
+})
+
+-- Go auto format (uses goimports if available, otherwise gofmt)
+vim.api.nvim_create_autocmd("BufWritePre", {
+  group = augroup("go_format"),
+  pattern = "*.go",
+  callback = function()
+    -- First try LSP formatting
+    local params = vim.lsp.util.make_formatting_params({})
+    local clients = vim.lsp.get_active_clients({ bufnr = 0 })
+
+    for _, client in ipairs(clients) do
+      if client.name == "gopls" and client.server_capabilities.documentFormattingProvider then
+        vim.lsp.buf.format({ async = false })
+        return
+      end
+    end
+
+    -- Fallback to goimports or gofmt
+    local cmd = vim.fn.executable("goimports") == 1 and "goimports" or "gofmt"
+    local output = vim.fn.systemlist(cmd .. " " .. vim.fn.shellescape(vim.fn.expand("%")))
+    if vim.v.shell_error == 0 then
+      local view = vim.fn.winsaveview()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, output)
+      vim.fn.winrestview(view)
+    end
   end,
 })
