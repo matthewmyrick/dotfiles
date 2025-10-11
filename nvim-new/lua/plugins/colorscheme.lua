@@ -81,8 +81,7 @@ return {
     vim.api.nvim_set_hl(0, "YankHighlight", { bg = "#b07a3b", blend = 99 })
 
     -- Hide EndOfBuffer tildes completely by making them invisible
-    local colors_palette = require("catppuccin.palettes").get_palette("mocha")
-    vim.api.nvim_set_hl(0, "EndOfBuffer", { fg = colors_palette.base, bg = colors_palette.base })
+    vim.opt.fillchars:append({ eob = " " })
 
     -- Force explorer transparency and noice colors after a delay
     vim.defer_fn(function()
@@ -118,8 +117,7 @@ return {
       vim.api.nvim_set_hl(0, "WhichKeyValue", { bg = "NONE" })
 
       -- Hide EndOfBuffer tildes - force after colorscheme loads
-      local colors_deferred = require("catppuccin.palettes").get_palette("mocha")
-      vim.api.nvim_set_hl(0, "EndOfBuffer", { fg = colors_deferred.base, bg = colors_deferred.base })
+      vim.opt.fillchars:append({ eob = " " })
 
       -- Also force any active explorer windows to update
       for _, win in ipairs(vim.api.nvim_list_wins()) do
