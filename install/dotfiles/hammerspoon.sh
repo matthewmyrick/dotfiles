@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "🚀 Installing Hammerspoon Configuration"
-echo "======================================="
+echo "🚀 Installing/Updating Hammerspoon Configuration"
+echo "=============================================="
 echo
 
 # Check if hammerspoon is installed
@@ -26,18 +26,28 @@ if [ ! -d "$HAMMERSPOON_DIR" ]; then
     exit 1
 fi
 
-# Backup existing config
-if [ -d "$HOME/.hammerspoon" ] || [ -L "$HOME/.hammerspoon" ]; then
-    echo "📦 Backing up existing Hammerspoon configuration..."
-    timestamp=$(date +%Y%m%d_%H%M%S)
-    
-    if [ -L "$HOME/.hammerspoon" ]; then
-        echo "   Removing existing symlink..."
-        rm "$HOME/.hammerspoon"
+# Check if config is already properly linked
+if [ -L "$HOME/.hammerspoon" ]; then
+    CURRENT_LINK=$(readlink "$HOME/.hammerspoon")
+    if [ "$CURRENT_LINK" = "$HAMMERSPOON_DIR" ]; then
+        echo "✅ Hammerspoon configuration is already properly linked!"
+        echo "   ~/.hammerspoon -> $HAMMERSPOON_DIR"
+        echo ""
+        echo "🎯 Next steps:"
+        echo "   1. Launch Hammerspoon.app"
+        echo "   2. Click 'Reload Config' in the Hammerspoon menu"
+        echo ""
+        echo "✨ Configuration is up to date!"
+        exit 0
     else
-        mv "$HOME/.hammerspoon" "$HOME/.hammerspoon.backup.$timestamp"
-        echo "   ✅ Backup saved to: ~/.hammerspoon.backup.$timestamp"
+        echo "🔗 Updating Hammerspoon symlink..."
+        rm "$HOME/.hammerspoon"
     fi
+elif [ -d "$HOME/.hammerspoon" ]; then
+    echo "📁 Found existing Hammerspoon directory (not symlinked), creating symlink..."
+    timestamp=$(date +%Y%m%d_%H%M%S)
+    mv "$HOME/.hammerspoon" "$HOME/.hammerspoon.backup.$timestamp"
+    echo "   📦 Backup saved to: ~/.hammerspoon.backup.$timestamp"
 fi
 
 # Create symlink
@@ -54,22 +64,13 @@ fi
 echo ""
 echo "✅ Installation complete!"
 echo ""
-echo "📋 Configuration details:"
-echo "   Location: $HAMMERSPOON_DIR"
-echo "   Config:   ~/.hammerspoon"
-echo ""
 echo "🎯 Next steps:"
 echo "   1. Launch Hammerspoon.app"
 echo "   2. Enable Accessibility permissions when prompted"
 echo "   3. Click 'Reload Config' in the Hammerspoon menu"
-echo "   4. Configuration will be loaded automatically"
 echo ""
 echo "🔧 Hammerspoon Commands:"
 echo "   Reload config:  Cmd+Option+Ctrl+R (or menu bar)"
 echo "   Open console:   From Hammerspoon menu bar"
-echo ""
-echo "🔄 To restore old config (if backed up):"
-echo "   rm ~/.hammerspoon"
-echo "   mv ~/.hammerspoon.backup.* ~/.hammerspoon"
 echo ""
 echo "Happy automating! 🎉"
