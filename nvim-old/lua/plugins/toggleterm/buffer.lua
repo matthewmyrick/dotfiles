@@ -35,6 +35,43 @@ local function set_terminal_name(name)
     vim.cmd("file " .. vim.fn.fnameescape(full_name))
 end
 
+-- Helper function to check if a terminal should open in vertical split
+local function should_open_in_vertical(name)
+    -- List of terminals that should open in vertical split
+    local vertical_terminals = {
+        "claude",
+        "gemini",
+        "chatgpt",
+    }
+
+    -- Check if the name matches any of the vertical terminals
+    local lower_name = string.lower(name or "")
+    for _, term in ipairs(vertical_terminals) do
+        if string.find(lower_name, term) then
+            return true
+        end
+    end
+    return false
+end
+
+-- Helper function to open terminal with appropriate split
+local function open_terminal_with_split(cmd, name)
+    if should_open_in_vertical(name) then
+        -- Open in vertical split
+        vim.cmd("vsplit")
+        vim.cmd("wincmd l") -- Move to the new split
+        vim.cmd("terminal " .. cmd)
+    else
+        -- Open normally in current buffer
+        vim.cmd("enew")
+        vim.cmd("terminal " .. cmd)
+    end
+
+    vim.schedule(function()
+        set_terminal_name(name)
+    end)
+end
+
 -- Helper function to setup terminal buffer autocmds
 local function setup_terminal_autocmds()
     local augroup = vim.api.nvim_create_augroup("BufferTerminalNaming", { clear = true })
@@ -133,6 +170,43 @@ function M.setup()
         end)
     end, { nargs = 0, desc = "Open Claude in Vertical Split" })
 
+    -- Gemini Vertical Split Terminal
+    vim.api.nvim_create_user_command("GeminiBufferTerm", function()
+        open_terminal_with_split("gemini", "gemini")
+    end, { nargs = 0, desc = "Open Gemini in Vertical Split" })
+
+    -- Kubernetes (k9s) Buffer Terminal
+    vim.api.nvim_create_user_command("KubernetesBufferTerm", function()
+        vim.cmd("terminal k9s")
+        vim.schedule(function()
+            set_terminal_name("k9s")
+        end)
+    end, { nargs = 0, desc = "Open Kubernetes (k9s) in Current Buffer" })
+
+    -- Yazi Buffer Terminal
+    vim.api.nvim_create_user_command("YaziBufferTerm", function()
+        vim.cmd("terminal yazi")
+        vim.schedule(function()
+            set_terminal_name("yazi")
+        end)
+    end, { nargs = 0, desc = "Open Yazi in Current Buffer" })
+
+    -- Bluetooth Buffer Terminal
+    vim.api.nvim_create_user_command("BluetoothBufferTerm", function()
+        vim.cmd("terminal bluetooth-tui")
+        vim.schedule(function()
+            set_terminal_name("bluetooth-tui")
+        end)
+    end, { nargs = 0, desc = "Open Bluetooth TUI in Current Buffer" })
+
+    -- Azure Searcher Buffer Terminal
+    vim.api.nvim_create_user_command("AzureSearcherBufferTerm", function()
+        vim.cmd("terminal azure-searcher")
+        vim.schedule(function()
+            set_terminal_name("azure-searcher")
+        end)
+    end, { nargs = 0, desc = "Open Azure Searcher in Current Buffer" })
+
     -- Enhanced Buffer Terminal (replaces BufferTerm for <leader>tt)
     vim.api.nvim_create_user_command("EnhancedBufferTerm", function()
         -- Simple terminal buffer
@@ -156,18 +230,52 @@ function M.setup()
             file_dir = vim.fn.getcwd()
         end
 
-        -- Open terminal in new buffer
-        vim.cmd("enew")
-        vim.cmd("terminal " .. vim.o.shell)
+        -- Open terminal and change to the file's directory
+        open_terminal_with_split(vim.o.shell, name)
 
+        -- Change directory after the terminal opens
         vim.schedule(function()
-            set_terminal_name(name)
-            -- Change directory after the terminal opens
             if vim.b.terminal_job_id then
                 vim.api.nvim_chan_send(vim.b.terminal_job_id, "cd " .. vim.fn.shellescape(file_dir) .. "\r")
             end
         end)
     end, { nargs = 0, desc = "Open Terminal in current file's directory" })
+
+    -- General Buffer Terminal with Python venv detection
+    vim.api.nvim_create_user_command("BufferTerm", function()
+        -- Prompt for terminal name first
+        local name = vim.fn.input("Terminal name (empty for default): ")
+
+        -- Check if this is a Python-related terminal
+        local python_utils = require("plugins.toggleterm.python-utils")
+        local is_python = python_utils.is_python_name(name)
+
+        if is_python then
+            -- Look for virtual environments using enhanced detection
+            local venv_list = python_utils.find_all_venvs()
+
+            python_utils.select_venv_with_telescope(venv_list, function(selected_venv)
+                local terminal_cmd
+                if selected_venv then
+                    terminal_cmd = python_utils.create_python_terminal_cmd(selected_venv)
+                else
+                    terminal_cmd = vim.o.shell
+                end
+
+                -- Create terminal with custom command
+                vim.cmd("terminal " .. terminal_cmd)
+                vim.schedule(function()
+                    set_terminal_name(name)
+                end)
+            end)
+        else
+            -- Not a Python terminal, proceed normally
+            vim.cmd("terminal")
+            vim.schedule(function()
+                set_terminal_name(name)
+            end)
+        end
+    end, { nargs = 0, desc = "Open Terminal in Current Buffer" })
 
     -- Terminal rename command
     vim.api.nvim_create_user_command("TerminalRename", function()
@@ -197,8 +305,11 @@ function M.keymaps()
         { "<leader>tt", "<cmd>EnhancedBufferTerm<CR>", desc = "Terminal (simple buffer)" },
         { "<leader>td", "<cmd>TerminalInFileDir<CR>", desc = "Terminal in current file's directory" },
         { "<leader>tc", "<cmd>ClaudeVerticalTerm<CR>", desc = "Claude (vertical split)" },
+        { "<leader>tb", "<cmd>BluetoothBufferTerm<CR>", desc = "Open Bluetooth in Current Buffer" },
+        { "<leader>ta", "<cmd>AzureSearcherBufferTerm<CR>", desc = "Open Azure Searcher in Current Buffer" },
         { "<leader>tr", "<cmd>TerminalRename<CR>", desc = "Rename Terminal Buffer" },
     }
 end
 
 return M
+

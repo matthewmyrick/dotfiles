@@ -47,9 +47,3 @@ macos-icon = custom-style
 confirm-close-surface = true
 clipboard-paste-protection = false
 clipboard-trim-trailing-spaces = true
-
-# WINDOW CONFIGURATIONS
-# Home Server window configuration
-window-class[home-server] = "Ghostty-HomeServer"
-window-title[home-server] = "Home Server 🏠"
-theme[home-server] = Catppuccin Mocha
