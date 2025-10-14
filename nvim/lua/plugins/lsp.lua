@@ -83,7 +83,6 @@ return {
         "yamlls",
         "jsonls",
         "helm_ls",
-        "sqlls",
       },
       automatic_installation = true,
     },
@@ -236,12 +235,6 @@ return {
 
       -- Helm
       lspconfig.helm_ls.setup({
-        on_attach = on_attach,
-        capabilities = capabilities,
-      })
-
-      -- SQL
-      lspconfig.sqlls.setup({
         on_attach = on_attach,
         capabilities = capabilities,
       })

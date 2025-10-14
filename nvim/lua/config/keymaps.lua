@@ -343,6 +343,34 @@ vim.api.nvim_create_autocmd("FileType", {
     end,
 })
 
+-- Window boilerplate - open terminal and Claude
+vim.keymap.set("n", "<leader>wb", function()
+    -- Ensure toggleterm is loaded
+    local ok, _ = pcall(require, "toggleterm")
+    if ok then
+        -- Load the buffer module to ensure commands are available
+        require("plugins.toggleterm.buffer").setup()
+    end
+    
+    -- Check if commands exist before running them
+    if vim.fn.exists(":EnhancedBufferTerm") == 2 then
+        vim.cmd("EnhancedBufferTerm")
+        vim.schedule(function()
+            if vim.fn.exists(":ClaudeVerticalTerm") == 2 then
+                vim.cmd("ClaudeVerticalTerm")
+            else
+                vim.notify("Claude command not available", vim.log.levels.WARN)
+            end
+        end)
+    else
+        -- Fallback to basic terminal commands
+        vim.cmd("terminal")
+        vim.schedule(function()
+            vim.cmd("vsplit | terminal claude")
+        end)
+    end
+end, { desc = "Window boilerplate (terminal + Claude)" })
+
 -- Fuzzy search lines in current buffer using telescope (backslash key)
 vim.keymap.set('n', '\\', function()
     local builtin = require('telescope.builtin')
