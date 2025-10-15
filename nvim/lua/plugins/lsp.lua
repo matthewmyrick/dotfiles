@@ -147,13 +147,14 @@ return {
       -- Get capabilities from blink.cmp
       local capabilities = require('blink.cmp').get_lsp_capabilities()
 
-      -- Setup language servers
-      local lspconfig = require("lspconfig")
-
-      -- Lua
-      lspconfig.lua_ls.setup({
+      -- Setup language servers using new vim.lsp.config API
+      local default_config = {
         on_attach = on_attach,
         capabilities = capabilities,
+      }
+
+      -- Lua
+      vim.lsp.config.lua_ls = vim.tbl_extend("force", default_config, {
         settings = {
           Lua = {
             runtime = { version = "LuaJIT" },
@@ -168,9 +169,7 @@ return {
       })
 
       -- Go
-      lspconfig.gopls.setup({
-        on_attach = on_attach,
-        capabilities = capabilities,
+      vim.lsp.config.gopls = vim.tbl_extend("force", default_config, {
         settings = {
           gopls = {
             analyses = {
@@ -182,21 +181,31 @@ return {
       })
 
       -- Python
-      lspconfig.pyright.setup({
-        on_attach = on_attach,
-        capabilities = capabilities,
+      vim.lsp.config.pyright = vim.tbl_extend("force", default_config, {
+        settings = {
+          python = {
+            pythonPath = vim.fn.exepath("python3") or vim.fn.exepath("python") or "python3",
+            analysis = {
+              autoSearchPaths = true,
+              useLibraryCodeForTypes = true,
+              diagnosticMode = "workspace",
+            },
+          },
+        },
+        on_init = function(client)
+          -- Allow dynamic Python path updates
+          client.server_capabilities.workspace = client.server_capabilities.workspace or {}
+          client.server_capabilities.workspace.didChangeConfiguration = {
+            dynamicRegistration = true,
+          }
+        end,
       })
 
       -- TypeScript
-      lspconfig.ts_ls.setup({
-        on_attach = on_attach,
-        capabilities = capabilities,
-      })
+      vim.lsp.config.ts_ls = default_config
 
       -- Rust
-      lspconfig.rust_analyzer.setup({
-        on_attach = on_attach,
-        capabilities = capabilities,
+      vim.lsp.config.rust_analyzer = vim.tbl_extend("force", default_config, {
         settings = {
           ["rust-analyzer"] = {
             checkOnSave = {
@@ -207,9 +216,7 @@ return {
       })
 
       -- YAML with schemastore
-      lspconfig.yamlls.setup({
-        on_attach = on_attach,
-        capabilities = capabilities,
+      vim.lsp.config.yamlls = vim.tbl_extend("force", default_config, {
         settings = {
           yaml = {
             schemaStore = {
@@ -222,9 +229,7 @@ return {
       })
 
       -- JSON with schemastore
-      lspconfig.jsonls.setup({
-        on_attach = on_attach,
-        capabilities = capabilities,
+      vim.lsp.config.jsonls = vim.tbl_extend("force", default_config, {
         settings = {
           json = {
             schemas = require("schemastore").json.schemas(),
@@ -234,10 +239,7 @@ return {
       })
 
       -- Helm
-      lspconfig.helm_ls.setup({
-        on_attach = on_attach,
-        capabilities = capabilities,
-      })
+      vim.lsp.config.helm_ls = default_config
     end,
   },
 }

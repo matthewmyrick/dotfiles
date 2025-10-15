@@ -47,18 +47,20 @@ if [ -L "$HOME/.config/nvim" ]; then
         rm "$HOME/.config/nvim"
     fi
 elif [ -d "$HOME/.config/nvim" ]; then
-    echo "📁 Found existing Neovim directory (not symlinked)"
+    echo "📁 Found existing Neovim configuration"
+    echo "   ⏭️  Keeping existing configuration (no symlink created)"
     echo ""
-    read -p "🔄 Replace with symlink to dotfiles? [y/N]: " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        timestamp=$(date +%Y%m%d_%H%M%S)
-        mv "$HOME/.config/nvim" "$HOME/.config/nvim.backup.$timestamp"
-        echo "   📦 Backup saved to: ~/.config/nvim.backup.$timestamp"
-    else
-        echo "   ⏭️  Keeping existing configuration"
-        exit 0
-    fi
+    echo "✅ Neovim configuration installed successfully!"
+    echo ""
+    echo "════════════════════════════════════════════════════════════════"
+    echo "🎉 Neovim installation completed!"
+    echo "════════════════════════════════════════════════════════════════"
+    echo ""
+    echo "📋 Next Steps:"
+    echo "  - Open Neovim and run :Lazy sync to install plugins"
+    echo "  - Configuration is located at ~/GitHub/matthewmyrick/dotfiles/nvim"
+    echo ""
+    exit 0
 fi
 
 # Create the config directory if it doesn't exist
