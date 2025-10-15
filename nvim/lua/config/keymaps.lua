@@ -37,8 +37,49 @@ local function cycle_windows()
     end
 end
 
--- Override Ctrl+H to cycle through ALL windows in order
-vim.keymap.set("n", "<C-h>", cycle_windows, { desc = "Cycle through all windows" })
+-- Simple circular window navigation backward (skip explorer)
+local function cycle_windows_backward()
+    local current_win = vim.api.nvim_get_current_win()
+    local wins = vim.api.nvim_list_wins()
+    local normal_wins = {}
+    
+    -- Get all non-floating, non-explorer windows
+    for _, win in ipairs(wins) do
+        local config = vim.api.nvim_win_get_config(win)
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_buf_get_option(buf, "filetype")
+        
+        -- Skip floating windows and explorer
+        if config.relative == "" and ft ~= "snacks_explorer" then
+            table.insert(normal_wins, win)
+        end
+    end
+    
+    -- If we have multiple windows, cycle through them backward
+    if #normal_wins > 1 then
+        -- Find current window index
+        local current_idx = 1
+        for i, win in ipairs(normal_wins) do
+            if win == current_win then
+                current_idx = i
+                break
+            end
+        end
+        
+        -- Move to previous window (with wrapping)
+        local prev_idx = current_idx - 1
+        if prev_idx < 1 then
+            prev_idx = #normal_wins
+        end
+        vim.api.nvim_set_current_win(normal_wins[prev_idx])
+    end
+end
+
+-- Override Ctrl+H to cycle through ALL windows in order (forward)
+vim.keymap.set("n", "<C-h>", cycle_windows, { desc = "Cycle through all windows (forward)" })
+
+-- Override Ctrl+G to cycle through ALL windows in reverse order (backward)
+vim.keymap.set("n", "<C-g>", cycle_windows_backward, { desc = "Cycle through all windows (backward)" })
 
 -- Alternative: Use standard vim directional navigation but with fallback
 vim.keymap.set("n", "<C-l>", function()
