@@ -31,6 +31,7 @@ while [[ $# -gt 0 ]]; do
       echo "                            ghostty     - Ghostty terminal configuration"
       echo "                            scripts     - Shell scripts and modules"
       echo "                            hammerspoon - Hammerspoon configuration"
+      echo "                            claude      - Claude commands"
       echo ""
       echo "  -h, --help              Show this help message"
       echo ""
@@ -52,12 +53,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|sketchybar|ghostty|scripts|hammerspoon)
+    brew|nvim|sketchybar|ghostty|scripts|hammerspoon|claude)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, sketchybar, ghostty, scripts, hammerspoon"
+      echo "Valid targets: brew, nvim, sketchybar, ghostty, scripts, hammerspoon, claude"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -110,18 +111,34 @@ function installBrewOnly() {
   fi
   
   # Then install brew packages
-  if [ -f "$INSTALL_DIR/install/dependencies/brew.sh" ]; then
+  if [ -f "$INSTALL_DIR/install/dependencies/brew-packages.sh" ]; then
     echo ""
     echo "═══════════════════════════════════════════════════════════════"
     echo "🔄 Installing Homebrew packages..."
     echo "═══════════════════════════════════════════════════════════════"
-    bash "$INSTALL_DIR/install/dependencies/brew.sh" || {
+    bash "$INSTALL_DIR/install/dependencies/brew-packages.sh" || {
       echo "❌ Error installing Homebrew packages"
       return 1
     }
     echo "✅ Homebrew packages installed successfully!"
   else
-    echo "⚠️  Brew packages script not found at $INSTALL_DIR/install/dependencies/brew.sh"
+    echo "⚠️  Brew packages script not found at $INSTALL_DIR/install/dependencies/brew-packages.sh"
+    return 1
+  fi
+
+  # Then install brew casks
+  if [ -f "$INSTALL_DIR/install/dependencies/brew-casks.sh" ]; then
+    echo ""
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing Homebrew casks..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dependencies/brew-casks.sh" || {
+      echo "❌ Error installing Homebrew casks"
+      return 1
+    }
+    echo "✅ Homebrew casks installed successfully!"
+  else
+    echo "⚠️  Brew casks script not found at $INSTALL_DIR/install/dependencies/brew-casks.sh"
     return 1
   fi
   
@@ -247,13 +264,141 @@ function installHammerspoonOnly() {
   echo ""
 }
 
+function installClaudeCommandsOnly() {
+  echo "🚀 Starting Claude commands installation..."
+  echo ""
+  
+  if [ -f "$INSTALL_DIR/install/ai/claude-commands.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing Claude commands..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/ai/claude-commands.sh" || {
+      echo "❌ Error installing Claude commands"
+      return 1
+    }
+    echo "✅ Claude commands installed successfully!"
+  else
+    echo "⚠️  Claude commands installation script not found"
+    return 1
+  fi
+  
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Claude commands installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Commands installed to ~/.claude/commands"
+  echo "  - Use /update-context in Claude Code to update CLAUDE.md"
+  echo ""
+}
+
+function installCoreTools() {
+  echo "🔧 Installing Core Development Tools for Fresh Machine..."
+  echo ""
+  echo "════════════════════════════════════════════════════════════════"
+  echo "📋 Installation Order:"
+  echo "  1. Homebrew (package manager)"
+  echo "  2. Python (latest)"
+  echo "  3. Go (latest)"
+  echo "  4. Node.js/npm (latest)"
+  echo "  5. Terraform (latest)"
+  echo "  6. Global gitignore setup"
+  echo "  7. Homebrew packages"
+  echo "════════════════════════════════════════════════════════════════"
+  echo ""
+
+  # 1. Install Homebrew first
+  if [ -f "$INSTALL_DIR/install/dependencies/homebrew.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🍺 Step 1/7: Installing Homebrew..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dependencies/homebrew.sh" || {
+      echo "❌ Error installing Homebrew"
+      return 1
+    }
+    echo "✅ Homebrew installed successfully!"
+    echo ""
+  else
+    echo "⚠️  Homebrew installation script not found"
+    return 1
+  fi
+
+  # Create core directory if it doesn't exist
+  mkdir -p "$INSTALL_DIR/install/core"
+
+  # 2-5. Install core development tools
+  local CORE_TOOLS=("python" "golang" "node" "terraform")
+  local step=2
+  
+  for tool in "${CORE_TOOLS[@]}"; do
+    if [ -f "$INSTALL_DIR/install/core/$tool.sh" ]; then
+      echo "═══════════════════════════════════════════════════════════════"
+      echo "🚀 Step $step/7: Installing $tool..."
+      echo "═══════════════════════════════════════════════════════════════"
+      bash "$INSTALL_DIR/install/core/$tool.sh" || {
+        echo "⚠️  Warning: Error installing $tool"
+      }
+      echo ""
+    else
+      echo "⚠️  $tool installation script not found, skipping..."
+    fi
+    ((step++))
+  done
+  
+  # 6. Setup global gitignore
+  if [ -f "$INSTALL_DIR/install/core/gitignore.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔧 Step 6/7: Setting up global gitignore..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/core/gitignore.sh" || {
+      echo "⚠️  Warning: Error setting up global gitignore"
+    }
+    echo ""
+  else
+    echo "⚠️  Global gitignore script not found, skipping..."
+  fi
+
+  # 7. Install Homebrew packages
+  if [ -f "$INSTALL_DIR/install/dependencies/brew-packages.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "📦 Step 7/7: Installing Homebrew packages..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dependencies/brew-packages.sh" || {
+      echo "⚠️  Warning: Error installing Homebrew packages"
+    }
+    echo "✅ Homebrew packages installed successfully!"
+  else
+    echo "⚠️  Homebrew packages script not found"
+  fi
+
+  echo ""
+  echo "════════════════════════════════════════════════════════════════"
+  echo "🎉 Core tools installation completed!"
+  echo "════════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Installed:"
+  echo "  ✅ Homebrew (package manager)"
+  echo "  ✅ Python (latest via Homebrew)"
+  echo "  ✅ Go (latest via Homebrew)"
+  echo "  ✅ Node.js/npm (latest via Homebrew)"
+  echo "  ✅ Terraform (latest via Homebrew)"
+  echo "  ✅ Global gitignore configuration"
+  echo "  ✅ All Homebrew development packages"
+  echo ""
+  echo "🔄 You may need to restart your shell or source your profile"
+  echo "   to ensure all PATH changes take effect."
+  echo ""
+}
+
 function installDotfiles() {
   echo "🚀 Starting modular dotfiles installation..."
   echo ""
 
+  # Install core tools first for fresh machine setup
+  installCoreTools
+
   # Define the order of installation
   local INSTALL_ORDER=(
-    "dependencies"
     "dotfiles"
     "sdks"
     "clis"
@@ -431,7 +576,23 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
+  claude)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                   CLAUDE COMMANDS INSTALLER                  ║"
+    echo "║                                                               ║"
+    echo "║  This will install Claude commands to ~/.claude/commands     ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installClaudeCommandsOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
 esac
 
 # Cleanup
-unset installDotfiles installNvimOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly
+unset installDotfiles installNvimOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly

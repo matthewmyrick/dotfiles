@@ -2,6 +2,10 @@
 
 echo "📦 Installing Homebrew packages..."
 
+# Add taps for special packages
+echo "🔗 Adding Homebrew taps..."
+brew tap xo/xo
+
 # List of required packages
 BREW_PACKAGES=(
   git eza fd fzf zoxide
@@ -12,7 +16,8 @@ BREW_PACKAGES=(
   btop lnav ripgrep nvm libpq
   go node pipx task bandwhich htop watch
   grc nmap iproute2mac hyperfine gdu dua-cli
-  xplr shpotify wireshark usql imagemagick
+  xplr shpotify wireshark imagemagick
+  xo/xo/usql pg_activity
 )
 
 

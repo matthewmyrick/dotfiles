@@ -120,18 +120,118 @@ function M.setup()
         local node_version = vim.fn.system("source " .. nvm_dir .. "/nvm.sh && nvm current"):gsub("%s+", "")
         local claude_path = nvm_dir .. "/versions/node/" .. node_version .. "/bin/claude"
 
-        -- Check if claude exists at this path
+    -- Helper function to create Claude terminal
+    local function create_claude_terminal(use_continue, is_half_split)
+        -- Get the current Node version from NVM
+        local nvm_dir = vim.fn.expand("$HOME/.nvm")
+        local node_version = vim.fn.system("source " .. nvm_dir .. "/nvm.sh && nvm current"):gsub("%s+", "")
+        local claude_path = nvm_dir .. "/versions/node/" .. node_version .. "/bin/claude"
+
+        -- Determine command to run
+        local claude_cmd
         if vim.fn.filereadable(claude_path) == 1 then
-            vim.cmd("terminal " .. claude_path .. " --continue")
+            claude_cmd = claude_path .. (use_continue and " --continue" or "")
         else
-            -- Fallback to trying claude directly
-            vim.cmd("terminal claude --continue")
+            claude_cmd = "claude" .. (use_continue and " --continue" or "")
         end
 
+        -- Create the terminal
+        vim.cmd("terminal " .. claude_cmd)
+
+        -- Set terminal name
         vim.schedule(function()
             set_terminal_name("claude")
         end)
-    end, { nargs = 0, desc = "Open Claude in Vertical Split" })
+
+        -- If using --continue, monitor for "No conversation found" and restart without --continue
+        if use_continue then
+            vim.schedule(function()
+                local buf = vim.api.nvim_get_current_buf()
+                -- Set up an autocmd to monitor the terminal output
+                vim.api.nvim_create_autocmd("TermClose", {
+                    buffer = buf,
+                    once = true,
+                    callback = function()
+                        -- Check if the terminal closed immediately (likely due to no conversation)
+                        vim.schedule(function()
+                            -- Read the terminal output to check for "No conversation found"
+                            local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+                            for _, line in ipairs(lines) do
+                                if line:match("No conversation found") then
+                                    -- Restart Claude without --continue
+                                    vim.cmd("terminal " .. (vim.fn.filereadable(claude_path) == 1 and claude_path or "claude"))
+                                    vim.schedule(function()
+                                        set_terminal_name("claude")
+                                    end)
+                                    vim.notify("No previous conversation found, started new Claude session", vim.log.levels.INFO)
+                                    return
+                                end
+                            end
+                        end)
+                    end
+                })
+            end)
+        end
+    end
+
+    -- Helper function to find existing Claude buffer
+    local function find_claude_buffer()
+        for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+            if vim.api.nvim_buf_is_valid(buf) then
+                local buf_name = vim.api.nvim_buf_get_name(buf)
+                if buf_name ~= "" then
+                    local filename = vim.fn.fnamemodify(buf_name, ":t")
+                    if filename == "$ claude" then
+                        return buf
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    vim.api.nvim_create_user_command("ClaudeVerticalTerm", function()
+        local claude_buf = find_claude_buffer()
+
+        -- If Claude terminal exists, open it in a 50% vertical split
+        if claude_buf then
+            local claude_win = nil
+            for _, win in ipairs(vim.api.nvim_list_wins()) do
+                if vim.api.nvim_win_get_buf(win) == claude_buf then
+                    claude_win = win
+                    break
+                end
+            end
+
+            if claude_win then
+                -- Focus the existing Claude window
+                vim.api.nvim_set_current_win(claude_win)
+                vim.notify("Focused existing Claude terminal", vim.log.levels.INFO)
+                return
+            else
+                -- Claude buffer exists but no window is showing it, open it in a 50% vertical split
+                vim.cmd("vsplit")
+                vim.cmd("wincmd l")
+                -- Resize to 50% of current window width
+                local current_width = vim.api.nvim_win_get_width(0)
+                local half_width = math.floor(current_width / 2)
+                vim.cmd("vertical resize " .. half_width)
+                vim.api.nvim_set_current_buf(claude_buf)
+                vim.notify("Reopened existing Claude terminal", vim.log.levels.INFO)
+                return
+            end
+        end
+
+        -- No existing Claude terminal, create a new one in 50% vertical split
+        vim.cmd("vsplit")
+        vim.cmd("wincmd l")
+        -- Resize to 50% of current window width
+        local current_width = vim.api.nvim_win_get_width(0)
+        local half_width = math.floor(current_width / 2)
+        vim.cmd("vertical resize " .. half_width)
+        create_claude_terminal(true, false)
+    end, { nargs = 0, desc = "Open Claude in 50% Vertical Split" })
+
 
     -- Enhanced Buffer Terminal (replaces BufferTerm for <leader>tt)
     vim.api.nvim_create_user_command("EnhancedBufferTerm", function()
@@ -196,7 +296,7 @@ function M.keymaps()
     return {
         { "<leader>tt", "<cmd>EnhancedBufferTerm<CR>", desc = "Terminal (simple buffer)" },
         { "<leader>td", "<cmd>TerminalInFileDir<CR>", desc = "Terminal in current file's directory" },
-        { "<leader>tc", "<cmd>ClaudeVerticalTerm<CR>", desc = "Claude (vertical split)" },
+        { "<leader>tc", "<cmd>ClaudeVerticalTerm<CR>", desc = "Claude (50% vertical split)" },
         { "<leader>tr", "<cmd>TerminalRename<CR>", desc = "Rename Terminal Buffer" },
     }
 end

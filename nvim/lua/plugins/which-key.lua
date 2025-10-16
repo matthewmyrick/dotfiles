@@ -60,6 +60,8 @@ return {
       { "<leader>gh", group = "hunks" },
       { "<leader>l", group = "lsp" },
       { "<leader>lp", group = "python" },
+      { "<leader>m", group = "manage config" },
+      { "<leader>mc", group = "claude" },
       { "<leader>q", group = "quit/session" },
       { "<leader>s", group = "search" },
       { "<leader>t", group = "terminal" },
