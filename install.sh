@@ -32,6 +32,7 @@ while [[ $# -gt 0 ]]; do
       echo "                            scripts     - Shell scripts and modules"
       echo "                            hammerspoon - Hammerspoon configuration"
       echo "                            claude      - Claude commands"
+      echo "                            prompt      - Terminal prompt configuration"
       echo ""
       echo "  -h, --help              Show this help message"
       echo ""
@@ -53,12 +54,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|sketchybar|ghostty|scripts|hammerspoon|claude)
+    brew|nvim|sketchybar|ghostty|scripts|hammerspoon|claude|prompt)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, sketchybar, ghostty, scripts, hammerspoon, claude"
+      echo "Valid targets: brew, nvim, sketchybar, ghostty, scripts, hammerspoon, claude, prompt"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -289,6 +290,38 @@ function installClaudeCommandsOnly() {
   echo ""
   echo "📋 Commands installed to ~/.claude/commands"
   echo "  - Use /update-context in Claude Code to update CLAUDE.md"
+  echo ""
+}
+
+function installPromptOnly() {
+  echo "🚀 Starting terminal prompt installation..."
+  echo ""
+  
+  if [ -f "$INSTALL_DIR/install/dotfiles/prompt.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing terminal prompt configuration..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/prompt.sh" || {
+      echo "❌ Error installing prompt configuration"
+      return 1
+    }
+    echo "✅ Prompt configuration installed successfully!"
+  else
+    echo "⚠️  Prompt installation script not found"
+    return 1
+  fi
+  
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Prompt installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Cool two-line prompt with:"
+  echo "  • Icons for user, folder, and git"
+  echo "  • Git branch and status display"
+  echo "  • Colorful modern design"
+  echo ""
+  echo "🔄 Run 'source ~/.zshrc' to apply changes"
   echo ""
 }
 
@@ -592,7 +625,23 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
+  prompt)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                  PROMPT CONFIGURATION INSTALLER              ║"
+    echo "║                                                               ║"
+    echo "║  This will install the cool terminal prompt configuration    ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installPromptOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
 esac
 
 # Cleanup
-unset installDotfiles installNvimOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly
+unset installDotfiles installNvimOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly
