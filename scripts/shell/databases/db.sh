@@ -91,6 +91,13 @@ get_connection_names() {
     jq -r '.connections | keys[]' "$DB_CONFIG_FILE" 2>/dev/null
 }
 
+# Helper function for fzf preview
+_db_preview() {
+    local conn_name="$1"
+    echo "Connection: $conn_name"
+    echo "URL: $(jq -r ".connections.\"$conn_name\".url // \"Not found\"" "$DB_CONFIG_FILE")"
+}
+
 # Get formatted list for fuzzy finder (name + description)
 get_connections_for_fzf() {
     if [[ ! -f "$DB_CONFIG_FILE" ]]; then
@@ -194,8 +201,8 @@ db() {
                     --border=rounded \
                     --header="🗄️  Select a database connection" \
                     --delimiter=' | ' \
-                    --preview='echo "URL: $(jq -r ".connections.\"{1}\".url" "$HOME/.db_connections.json" 2>/dev/null || echo "Not found")"' \
-                    --preview-window=up:2 \
+                    --preview='echo "Connection: {1}" && echo "URL:" && jq -r ".connections.\"{1}\".url" "$HOME/.db_connections.json"' \
+                    --preview-window=up:3 \
                     --prompt="DB ❯ " \
                     --pointer="▶" \
                     --marker="✓")
