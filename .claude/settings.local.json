@@ -4,7 +4,8 @@
       "Bash(source:*)",
       "Bash(apps:*)",
       "Bash(apps chrome)",
-      "Read(//Users/z954179/.local/share/nvim/lazy/snacks.nvim/**)"
+      "Read(//Users/z954179/.local/share/nvim/lazy/snacks.nvim/**)",
+      "Bash(exec zsh)"
     ],
     "deny": [],
     "ask": [],

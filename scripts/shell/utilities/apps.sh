@@ -127,5 +127,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     apps_main "$@"
 else
     # When sourced, make apps_main available as 'apps'
+    # Remove any existing apps alias first
+    unalias apps 2>/dev/null || true
     alias apps=apps_main
 fi

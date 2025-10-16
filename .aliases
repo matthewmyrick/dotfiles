@@ -83,3 +83,4 @@ alias sp='spotify prev'
 alias ss='spotify status'
 alias svu='spotify vol up'
 alias svd='spotify vol down'
+
