@@ -122,10 +122,10 @@ function M.setup()
 
         -- Check if claude exists at this path
         if vim.fn.filereadable(claude_path) == 1 then
-            vim.cmd("terminal " .. claude_path)
+            vim.cmd("terminal " .. claude_path .. " --continue")
         else
             -- Fallback to trying claude directly
-            vim.cmd("terminal claude")
+            vim.cmd("terminal claude --continue")
         end
 
         vim.schedule(function()
