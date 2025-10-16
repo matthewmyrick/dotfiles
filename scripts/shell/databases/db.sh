@@ -117,6 +117,29 @@ get_connections_for_fzf() {
     done
 }
 
+# URL encode special characters in passwords
+url_encode_password() {
+    local url="$1"
+    
+    # Extract password part (between : and @)
+    if [[ "$url" =~ ://[^:]+:([^@]+)@ ]]; then
+        local password="${BASH_REMATCH[1]}"
+        local encoded_password="$password"
+        
+        # Replace common special characters that break URLs
+        encoded_password="${encoded_password//#/%23}"    # hash
+        encoded_password="${encoded_password//@/%40}"    # at symbol
+        encoded_password="${encoded_password//&/%26}"    # ampersand
+        encoded_password="${encoded_password//\?/%3F}"   # question mark
+        encoded_password="${encoded_password// /%20}"    # space
+        
+        # Replace the password in the original URL
+        url="${url//:$password@/:$encoded_password@}"
+    fi
+    
+    echo "$url"
+}
+
 # Save a new connection
 save_connection() {
     local name="$1"
@@ -127,6 +150,9 @@ save_connection() {
         echo "❌ Usage: db save <name> <connection_string> [description]"
         return 1
     fi
+    
+    # Auto-encode special characters in the URL
+    url=$(url_encode_password "$url")
     
     init_config
     
