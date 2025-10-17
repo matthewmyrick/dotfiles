@@ -17,7 +17,7 @@ BREW_PACKAGES=(
   go node pipx task bandwhich htop watch
   grc nmap iproute2mac hyperfine gdu dua-cli
   xplr shpotify wireshark imagemagick
-  xo/xo/usql pg_activity
+  xo/xo/usql
 )
 
 

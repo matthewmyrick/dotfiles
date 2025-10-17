@@ -8,9 +8,10 @@ if ! command -v brew &> /dev/null; then
     exit 1
 fi
 
-# Install Terraform
-echo "  📦 Installing terraform..."
-brew install terraform
+# Install Terraform from hashicorp tap (official source)
+echo "  📦 Installing terraform from hashicorp/tap..."
+brew tap hashicorp/tap 2>/dev/null || true  # Add tap if not already present
+brew install hashicorp/tap/terraform
 
 # Install Terraform docs (optional but useful)
 echo "  📦 Installing terraform-docs..."

@@ -41,8 +41,20 @@ prompt_header() {
     header+='%F{241} @ %f'; # @ in gray
     header+='%B%F{216}%m%f%b'; # hostname in soft orange
     
+    # Python virtual environment (if active)
+    if [[ -n "$VIRTUAL_ENV" ]]; then
+        local venv_name="${VIRTUAL_ENV##*/}"  # Get just the venv name
+        header+=' %F{241}•%f '; # separator dot before venv
+        header+='🐍 '; # Python snake emoji
+        header+="%F{22}(${venv_name})%f"; # venv name in darker green (less bright)
+    fi
+    
     # Directory with icon
-    header+=' %F{241}•%f '; # separator dot
+    if [[ -z "$VIRTUAL_ENV" ]]; then
+        header+=' %F{241}•%f '; # separator dot only if no venv
+    else
+        header+=' '; # just space if venv is shown
+    fi
     header+='%F{cyan}%f'; # folder icon in cyan
     header+='%B%F{blue}%~%f%b'; # working directory in blue
     

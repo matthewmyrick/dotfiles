@@ -21,6 +21,20 @@ else
   if command -v pipx &>/dev/null; then
     pipx install rich-cli 2>/dev/null || true
   fi
+fi
+
+# Install pg_activity for PostgreSQL monitoring
+echo "  📦 Installing pg_activity..."
+if command -v pipx &>/dev/null; then
+  pipx install "pg_activity[psycopg]" 2>/dev/null || {
+    echo "    ⚠️  Could not install pg_activity with pipx"
+    echo "    Try: pipx install 'pg_activity[psycopg]'"
+  }
+else
+  python3 -m pip install --user --break-system-packages "pg_activity[psycopg]" 2>/dev/null || {
+    echo "    ⚠️  Could not install pg_activity automatically"
+    echo "    Try: python3 -m pip install --user --break-system-packages 'pg_activity[psycopg]'"
+  }
 
   # If rich still not available, use pip with break-system-packages flag
   if ! python3 -c "import rich" 2>/dev/null; then
