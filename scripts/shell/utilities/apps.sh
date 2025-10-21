@@ -127,5 +127,6 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     apps_main "$@"
 else
     # When sourced, make apps_main available as 'apps'
-    alias apps=apps_main
+    # Use a function wrapper instead of alias to avoid conflicts
+    apps() { apps_main "$@"; }
 fi
