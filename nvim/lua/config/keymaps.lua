@@ -37,8 +37,49 @@ local function cycle_windows()
     end
 end
 
--- Override Ctrl+H to cycle through ALL windows in order
-vim.keymap.set("n", "<C-h>", cycle_windows, { desc = "Cycle through all windows" })
+-- Simple circular window navigation backward (skip explorer)
+local function cycle_windows_backward()
+    local current_win = vim.api.nvim_get_current_win()
+    local wins = vim.api.nvim_list_wins()
+    local normal_wins = {}
+    
+    -- Get all non-floating, non-explorer windows
+    for _, win in ipairs(wins) do
+        local config = vim.api.nvim_win_get_config(win)
+        local buf = vim.api.nvim_win_get_buf(win)
+        local ft = vim.api.nvim_buf_get_option(buf, "filetype")
+        
+        -- Skip floating windows and explorer
+        if config.relative == "" and ft ~= "snacks_explorer" then
+            table.insert(normal_wins, win)
+        end
+    end
+    
+    -- If we have multiple windows, cycle through them backward
+    if #normal_wins > 1 then
+        -- Find current window index
+        local current_idx = 1
+        for i, win in ipairs(normal_wins) do
+            if win == current_win then
+                current_idx = i
+                break
+            end
+        end
+        
+        -- Move to previous window (with wrapping)
+        local prev_idx = current_idx - 1
+        if prev_idx < 1 then
+            prev_idx = #normal_wins
+        end
+        vim.api.nvim_set_current_win(normal_wins[prev_idx])
+    end
+end
+
+-- Override Ctrl+H to cycle through ALL windows in order (forward)
+vim.keymap.set("n", "<C-h>", cycle_windows, { desc = "Cycle through all windows (forward)" })
+
+-- Override Ctrl+G to cycle through ALL windows in reverse order (backward)
+vim.keymap.set("n", "<C-g>", cycle_windows_backward, { desc = "Cycle through all windows (backward)" })
 
 -- Alternative: Use standard vim directional navigation but with fallback
 vim.keymap.set("n", "<C-l>", function()
@@ -224,27 +265,18 @@ vim.keymap.set("n", "<leader>bd", function()
         return
     end
 
-    -- Check if this is a Claude terminal and ask for confirmation
+    -- Check if this is a Claude terminal and delete without confirmation
     if is_claude_terminal(buf) then
-        vim.ui.input({
-            prompt = "Delete Claude terminal? (y/N): ",
-            default = "N",
-        }, function(input)
-            if input and string.lower(input) == "y" then
-                -- Try to switch to alternate buffer or previous buffer before deleting
-                if #wins > 0 then
-                    for _, win in ipairs(wins) do
-                        vim.api.nvim_set_current_win(win)
-                        vim.cmd("bprevious")
-                    end
-                end
-                -- Force delete for terminals
-                vim.api.nvim_buf_delete(buf, { force = true })
-                vim.notify("Claude terminal deleted", vim.log.levels.INFO)
-            else
-                vim.notify("Delete cancelled", vim.log.levels.INFO)
+        -- Try to switch to alternate buffer or previous buffer before deleting
+        if #wins > 0 then
+            for _, win in ipairs(wins) do
+                vim.api.nvim_set_current_win(win)
+                vim.cmd("bprevious")
             end
-        end)
+        end
+        -- Force delete for terminals
+        vim.api.nvim_buf_delete(buf, { force = true })
+        vim.notify("Claude terminal deleted", vim.log.levels.INFO)
         return
     end
 
@@ -342,6 +374,204 @@ vim.api.nvim_create_autocmd("FileType", {
         vim.keymap.set("n", "<leader>gv", "<cmd>GoVet<cr>", { buffer = true, desc = "Go Vet" })
     end,
 })
+
+-- Python interpreter picker function
+local function python_interpreter_picker()
+  local telescope = require("telescope")
+  local pickers = require("telescope.pickers")
+  local finders = require("telescope.finders")
+  local conf = require("telescope.config").values
+  local actions = require("telescope.actions")
+  local action_state = require("telescope.actions.state")
+
+  -- Function to get Python version from interpreter
+  local function get_python_version(python_path)
+    local handle = io.popen(python_path .. ' --version 2>&1')
+    if handle then
+      local result = handle:read("*a")
+      handle:close()
+      return result:match("Python ([%d%.]+)") or "Unknown"
+    end
+    return "Unknown"
+  end
+
+  -- Function to find Python interpreters (focused scope)
+  local function find_python_interpreters()
+    local interpreters = {}
+    local cwd = vim.fn.getcwd()
+    
+    -- 1. Homebrew Python installations (python@3.x versions)
+    local homebrew_pattern = "/opt/homebrew/Cellar/python@*/*/bin/python3.*"
+    local homebrew_matches = vim.fn.glob(homebrew_pattern, false, true)
+    for _, path in ipairs(homebrew_matches) do
+      -- Skip config files, only actual python executables
+      if vim.fn.executable(path) == 1 and not path:match("config$") then
+        local version = get_python_version(path)
+        local python_version = path:match("python@([^/]+)")
+        table.insert(interpreters, {
+          path = path,
+          version = version,
+          env_name = "homebrew-" .. python_version,
+          display = string.format("Homebrew Python %s (%s) - %s", python_version, version, path),
+        })
+      end
+    end
+    
+    -- 2. Virtual environments in current working directory (prefer specific python3.x version)
+    local venv_dirs = { "venv", ".venv", "env", ".env" }
+    
+    for _, venv_dir in ipairs(venv_dirs) do
+      local venv_path = cwd .. "/" .. venv_dir
+      if vim.fn.isdirectory(venv_path .. "/bin") == 1 then
+        -- Look for specific python3.x versions first
+        local python_pattern = venv_path .. "/bin/python3.*"
+        local python_matches = vim.fn.glob(python_pattern, false, true)
+        
+        local best_python = nil
+        -- Find the most specific python version (e.g., python3.13 over python3)
+        for _, path in ipairs(python_matches) do
+          if vim.fn.executable(path) == 1 and not path:match("config$") then
+            if not best_python or #path > #best_python then
+              best_python = path
+            end
+          end
+        end
+        
+        -- Fallback to generic python if no specific version found
+        if not best_python then
+          local generic_python = venv_path .. "/bin/python"
+          if vim.fn.executable(generic_python) == 1 then
+            best_python = generic_python
+          end
+        end
+        
+        if best_python then
+          local version = get_python_version(best_python)
+          table.insert(interpreters, {
+            path = best_python,
+            version = version,
+            env_name = venv_dir,
+            display = string.format("%s (Python %s) - %s", venv_dir, version, best_python),
+          })
+        end
+      end
+    end
+    
+    -- Remove duplicates based on resolved path and sort
+    local seen = {}
+    local unique_interpreters = {}
+    for _, interp in ipairs(interpreters) do
+      -- Get the resolved path to avoid duplicates from symlinks
+      local resolved_path = vim.fn.resolve(interp.path)
+      local key = resolved_path .. "|" .. interp.env_name
+      if not seen[key] then
+        seen[key] = true
+        table.insert(unique_interpreters, interp)
+      end
+    end
+    
+    table.sort(unique_interpreters, function(a, b)
+      -- Homebrew versions first, then virtual environments
+      if a.env_name:match("^homebrew") and not b.env_name:match("^homebrew") then
+        return true
+      elseif not a.env_name:match("^homebrew") and b.env_name:match("^homebrew") then
+        return false
+      else
+        return a.env_name < b.env_name
+      end
+    end)
+    
+    return unique_interpreters
+  end
+
+  -- Function to set Python interpreter for LSP
+  local function set_python_interpreter(python_path)
+    -- Update Pyright settings
+    local clients = vim.lsp.get_clients({ name = "pyright" })
+    for _, client in ipairs(clients) do
+      if client.config.settings then
+        client.config.settings.python = client.config.settings.python or {}
+        client.config.settings.python.pythonPath = python_path
+        client.notify("workspace/didChangeConfiguration", { settings = client.config.settings })
+      end
+    end
+    
+    -- Update global LSP config for future clients
+    if vim.lsp.config and vim.lsp.config.pyright then
+      vim.lsp.config.pyright.settings = vim.lsp.config.pyright.settings or {}
+      vim.lsp.config.pyright.settings.python = vim.lsp.config.pyright.settings.python or {}
+      vim.lsp.config.pyright.settings.python.pythonPath = python_path
+    end
+    
+    vim.notify("Python interpreter set to: " .. python_path, vim.log.levels.INFO)
+  end
+
+  local interpreters = find_python_interpreters()
+  
+  if #interpreters == 0 then
+    vim.notify("No Python interpreters found", vim.log.levels.WARN)
+    return
+  end
+  
+  pickers.new({}, {
+    prompt_title = "Select Python Interpreter",
+    finder = finders.new_table({
+      results = interpreters,
+      entry_maker = function(entry)
+        return {
+          value = entry,
+          display = entry.display,
+          ordinal = entry.display,
+        }
+      end,
+    }),
+    sorter = conf.generic_sorter({}),
+    attach_mappings = function(prompt_bufnr, map)
+      actions.select_default:replace(function()
+        actions.close(prompt_bufnr)
+        local selection = action_state.get_selected_entry()
+        if selection then
+          set_python_interpreter(selection.value.path)
+        end
+      end)
+      return true
+    end,
+  }):find()
+end
+
+-- Python interpreter picker keybinding
+vim.keymap.set("n", "<leader>lpp", python_interpreter_picker, { desc = "Pick Python Interpreter" })
+
+-- Previous buffer keybinding
+vim.keymap.set("n", "<leader>bb", "<cmd>b#<CR>", { desc = "Go to previous buffer" })
+
+-- Window boilerplate - open terminal and Claude
+vim.keymap.set("n", "<leader>wb", function()
+    -- Ensure toggleterm is loaded
+    local ok, _ = pcall(require, "toggleterm")
+    if ok then
+        -- Load the buffer module to ensure commands are available
+        require("plugins.toggleterm.buffer").setup()
+    end
+    
+    -- Check if commands exist before running them
+    if vim.fn.exists(":EnhancedBufferTerm") == 2 then
+        vim.cmd("EnhancedBufferTerm")
+        vim.schedule(function()
+            if vim.fn.exists(":ClaudeVerticalTerm") == 2 then
+                vim.cmd("ClaudeVerticalTerm")
+            else
+                vim.notify("Claude command not available", vim.log.levels.WARN)
+            end
+        end)
+    else
+        -- Fallback to basic terminal commands
+        vim.cmd("terminal")
+        vim.schedule(function()
+            vim.cmd("vsplit | terminal claude")
+        end)
+    end
+end, { desc = "Window boilerplate (terminal + Claude)" })
 
 -- Fuzzy search lines in current buffer using telescope (backslash key)
 vim.keymap.set('n', '\\', function()

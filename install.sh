@@ -6,91 +6,801 @@
 # Get the directory where this script is located
 INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-function installDotfiles() {
-  echo "🚀 Starting modular dotfiles installation..."
+# Parse command line arguments
+INSTALL_TARGET=""
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -i|--install)
+      if [[ -z "$2" || "$2" == -* ]]; then
+        echo "Error: --install requires a target"
+        echo "Run '$0 --help' for usage information"
+        exit 1
+      fi
+      INSTALL_TARGET="$2"
+      shift 2
+      ;;
+    --help|-h)
+      echo "Usage: $0 [OPTIONS]"
+      echo ""
+      echo "Options:"
+      echo "  -i, --install <target>  Install specific component"
+      echo "                          Available targets:"
+      echo "                            brew        - Homebrew and packages"
+      echo "                            nvim        - Neovim configuration"
+      echo "                            sketchybar  - SketchyBar configuration"
+      echo "                            ghostty     - Ghostty terminal configuration"
+      echo "                            scripts     - Shell scripts and modules"
+      echo "                            hammerspoon - Hammerspoon configuration"
+      echo "                            claude      - Claude commands"
+      echo "                            prompt      - Terminal prompt configuration"
+      echo ""
+      echo "  -h, --help              Show this help message"
+      echo ""
+      echo "Examples:"
+      echo "  $0 --install nvim       # Install only Neovim configuration"
+      echo "  $0 --install brew       # Install only Homebrew packages"
+      echo "  $0                      # Run full installation (all components)"
+      echo ""
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Run '$0 --help' for usage information"
+      exit 1
+      ;;
+  esac
+done
+
+# Validate install target if provided
+if [[ -n "$INSTALL_TARGET" ]]; then
+  case "$INSTALL_TARGET" in
+    brew|nvim|sketchybar|ghostty|scripts|hammerspoon|claude|prompt)
+      # Valid target
+      ;;
+    *)
+      echo "Error: Invalid install target '$INSTALL_TARGET'"
+      echo "Valid targets: brew, nvim, sketchybar, ghostty, scripts, hammerspoon, claude, prompt"
+      echo "Run '$0 --help' for usage information"
+      exit 1
+      ;;
+  esac
+fi
+
+function installNvimOnly() {
+  echo "🚀 Starting Neovim configuration installation..."
   echo ""
+  
+  # Run only nvim-related scripts
+  if [ -f "$INSTALL_DIR/install/dotfiles/nvim.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing Neovim configuration..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/nvim.sh" || {
+      echo "❌ Error installing Neovim configuration"
+      return 1
+    }
+    echo "✅ Neovim configuration installed successfully!"
+  else
+    echo "⚠️  Neovim installation script not found at $INSTALL_DIR/install/dotfiles/nvim.sh"
+    return 1
+  fi
+  
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Neovim installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Next Steps:"
+  echo "  - Open Neovim and run :Lazy sync to install plugins"
+  echo "  - Configuration is located at ~/GitHub/matthewmyrick/dotfiles/nvim"
+  echo ""
+}
 
-  # Define the order of installation
-  local INSTALL_ORDER=(
-    "dependencies"
-    "dotfiles"
-    "sdks"
-    "clis"
-    "development"
-    "macos"
-  )
+function installBrewOnly() {
+  echo "🚀 Starting Homebrew packages installation..."
+  echo ""
+  
+  # First ensure Homebrew is installed
+  if [ -f "$INSTALL_DIR/install/dependencies/homebrew.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Checking/Installing Homebrew..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dependencies/homebrew.sh" || {
+      echo "❌ Error with Homebrew setup"
+      return 1
+    }
+  fi
+  
+  # Then install brew packages
+  if [ -f "$INSTALL_DIR/install/dependencies/brew-packages.sh" ]; then
+    echo ""
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing Homebrew packages..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dependencies/brew-packages.sh" || {
+      echo "❌ Error installing Homebrew packages"
+      return 1
+    }
+    echo "✅ Homebrew packages installed successfully!"
+  else
+    echo "⚠️  Brew packages script not found at $INSTALL_DIR/install/dependencies/brew-packages.sh"
+    return 1
+  fi
 
-  # Function to run all scripts in a directory
-  run_scripts_in_dir() {
-    local dir="$1"
-    local full_path="$INSTALL_DIR/install/$dir"
+  # Then install brew casks
+  if [ -f "$INSTALL_DIR/install/dependencies/brew-casks.sh" ]; then
+    echo ""
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing Homebrew casks..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dependencies/brew-casks.sh" || {
+      echo "❌ Error installing Homebrew casks"
+      return 1
+    }
+    echo "✅ Homebrew casks installed successfully!"
+  else
+    echo "⚠️  Brew casks script not found at $INSTALL_DIR/install/dependencies/brew-casks.sh"
+    return 1
+  fi
+  
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Homebrew installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Installed packages can be viewed with: brew list"
+  echo ""
+}
 
-    if [ -d "$full_path" ]; then
+function installSketchybarOnly() {
+  echo "🚀 Starting SketchyBar configuration installation..."
+  echo ""
+  
+  if [ -f "$INSTALL_DIR/install/dotfiles/sketchybar.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing SketchyBar configuration..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/sketchybar.sh" || {
+      echo "❌ Error installing SketchyBar configuration"
+      return 1
+    }
+    echo "✅ SketchyBar configuration installed successfully!"
+  else
+    echo "⚠️  SketchyBar installation script not found"
+    return 1
+  fi
+  
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 SketchyBar installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Configuration located at ~/.config/sketchybar"
+  echo "  - Run 'brew services restart sketchybar' to apply changes"
+  echo ""
+}
+
+function installGhosttyOnly() {
+  echo "🚀 Starting Ghostty terminal configuration installation..."
+  echo ""
+  
+  if [ -f "$INSTALL_DIR/install/dotfiles/ghostty.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing Ghostty configuration..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/ghostty.sh" || {
+      echo "❌ Error installing Ghostty configuration"
+      return 1
+    }
+    echo "✅ Ghostty configuration installed successfully!"
+  else
+    echo "⚠️  Ghostty installation script not found"
+    return 1
+  fi
+  
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Ghostty installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Configuration located at ~/.config/ghostty"
+  echo ""
+}
+
+function installScriptsOnly() {
+  echo "🚀 Starting shell scripts and modules installation..."
+  echo ""
+  
+  # Run all script-related installations
+  local script_dirs=("scripts" "shell")
+  for dir in "${script_dirs[@]}"; do
+    if [ -f "$INSTALL_DIR/install/dotfiles/$dir.sh" ]; then
       echo "═══════════════════════════════════════════════════════════════"
-      echo "🔄 Running $dir scripts..."
+      echo "🔄 Installing $dir..."
       echo "═══════════════════════════════════════════════════════════════"
-
-      # Find all .sh files in the directory and run them
-      find "$full_path" -name "*.sh" -type f | sort | while read -r script; do
-        if [ -x "$script" ] || chmod +x "$script" 2>/dev/null; then
-          echo ""
-          echo "▶️  Running $(basename "$script")..."
-          bash "$script" || {
-            echo "❌ Error running $script"
-            return 1
-          }
-        else
-          echo "⚠️  Skipping $script (not executable)"
-        fi
-      done
-      echo ""
-      echo "✅ $dir scripts completed"
-      echo ""
-    else
-      echo "⚠️  Directory $full_path not found, skipping..."
+      bash "$INSTALL_DIR/install/dotfiles/$dir.sh" || {
+        echo "⚠️  Warning: Error installing $dir"
+      }
     fi
-  }
-
-  # Run scripts in the defined order
-  for category in "${INSTALL_ORDER[@]}"; do
-    run_scripts_in_dir "$category"
   done
-
+  
+  echo "✅ Shell scripts and modules installed successfully!"
+  echo ""
   echo "═══════════════════════════════════════════════════════════════"
-  echo "🎉 Dotfiles installation completed successfully!"
+  echo "🎉 Scripts installation completed!"
   echo "═══════════════════════════════════════════════════════════════"
   echo ""
-  echo "ℹ️  Shell Module System:"
-  echo "  - Modular functions installed to ~/GitHub/matthewmyrick/dotfiles/scripts/shell/"
-  echo "  - Functions use lazy loading for optimal performance"
+  echo "📋 Shell Module System:"
+  echo "  - Modules installed to ~/GitHub/matthewmyrick/dotfiles/scripts/shell/"
   echo "  - Run 'shell_modules' to see available modules"
   echo "  - Run 'shell_loaded' to see what's currently loaded"
   echo ""
-  echo "📋 Next Steps:"
-  echo "  - Restart your shell or source the appropriate file:"
-  echo "    • ~/.bash_profile"
-  echo "    • ~/.zshrc"
-  echo "  - .gitconfig - Manual setup required"
+}
+
+function installHammerspoonOnly() {
+  echo "🚀 Starting Hammerspoon configuration installation..."
+  echo ""
+  
+  if [ -f "$INSTALL_DIR/install/dotfiles/hammerspoon.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing Hammerspoon configuration..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/hammerspoon.sh" || {
+      echo "❌ Error installing Hammerspoon configuration"
+      return 1
+    }
+    echo "✅ Hammerspoon configuration installed successfully!"
+  else
+    echo "⚠️  Hammerspoon installation script not found"
+    return 1
+  fi
+  
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Hammerspoon installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Configuration located at ~/.hammerspoon"
+  echo "  - Reload Hammerspoon config to apply changes"
+  echo ""
+}
+
+function installClaudeCommandsOnly() {
+  echo "🚀 Starting Claude commands installation..."
+  echo ""
+  
+  if [ -f "$INSTALL_DIR/install/ai/claude-commands.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing Claude commands..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/ai/claude-commands.sh" || {
+      echo "❌ Error installing Claude commands"
+      return 1
+    }
+    echo "✅ Claude commands installed successfully!"
+  else
+    echo "⚠️  Claude commands installation script not found"
+    return 1
+  fi
+  
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Claude commands installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Commands installed to ~/.claude/commands"
+  echo "  - Use /update-context in Claude Code to update CLAUDE.md"
+  echo ""
+}
+
+function installPromptOnly() {
+  echo "🚀 Starting terminal prompt installation..."
+  echo ""
+  
+  if [ -f "$INSTALL_DIR/install/dotfiles/prompt.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing terminal prompt configuration..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/prompt.sh" || {
+      echo "❌ Error installing prompt configuration"
+      return 1
+    }
+    echo "✅ Prompt configuration installed successfully!"
+  else
+    echo "⚠️  Prompt installation script not found"
+    return 1
+  fi
+  
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Prompt installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Cool two-line prompt with:"
+  echo "  • Icons for user, folder, and git"
+  echo "  • Git branch and status display"
+  echo "  • Colorful modern design"
+  echo ""
+  echo "🔄 Run 'source ~/.zshrc' to apply changes"
+  echo ""
+}
+
+function installDotfiles() {
+  echo "🚀 Starting complete dotfiles installation..."
+  echo ""
+  echo "════════════════════════════════════════════════════════════════"
+  echo "📋 Installation Plan (20 Steps):"
+  echo ""
+  echo "PHASE 1: Core Dependencies (Steps 1-10)"
+  echo "  1. Homebrew (package manager)"
+  echo "  2. Python"
+  echo "  3. Go"
+  echo "  4. Node.js/npm"
+  echo "  5. Terraform"
+  echo "  6. Zoxide"
+  echo "  7. Global gitignore"
+  echo "  8. Homebrew packages"
+  echo "  9. CLI tools (AWS, Claude)"
+  echo "  10. Custom tools"
+  echo ""
+  echo "PHASE 2: SDKs & Config (Steps 11-15)"
+  echo "  11. SDKs (Node, Python, Rust)"
+  echo "  12. macOS settings"
+  echo "  13. AI/Claude commands"
+  echo "  14. Brew casks (GUI apps)"
+  echo "  15. Shell scripts & modules"
+  echo ""
+  echo "PHASE 3: Applications (Steps 16-20)"
+  echo "  16. Neovim"
+  echo "  17. Ghostty terminal"
+  echo "  18. Hammerspoon"
+  echo "  19. Karabiner (keyboard)"
+  echo "  20. SketchyBar"
+  echo "════════════════════════════════════════════════════════════════"
+  echo ""
+
+  local total_steps=20
+  local current_step=0
+
+  # PHASE 1: Core Dependencies
+  echo ""
+  echo "╔════════════════════════════════════════════════════════════╗"
+  echo "║              PHASE 1: Core Dependencies                   ║"
+  echo "╚════════════════════════════════════════════════════════════╝"
+  echo ""
+
+  # Step 1: Homebrew
+  ((current_step++))
+  if [ -f "$INSTALL_DIR/install/dependencies/homebrew.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🍺 Step $current_step/$total_steps: Installing Homebrew..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dependencies/homebrew.sh" || {
+      echo "❌ Error installing Homebrew"
+      return 1
+    }
+    echo "✅ Homebrew installed successfully!"
+    echo ""
+  fi
+
+  # Steps 2-6: Core development tools
+  local CORE_TOOLS=("python" "golang" "node" "terraform" "zoxide")
+  for tool in "${CORE_TOOLS[@]}"; do
+    ((current_step++))
+    if [ -f "$INSTALL_DIR/install/core/$tool.sh" ]; then
+      echo "═══════════════════════════════════════════════════════════════"
+      echo "🚀 Step $current_step/$total_steps: Installing $tool..."
+      echo "═══════════════════════════════════════════════════════════════"
+      bash "$INSTALL_DIR/install/core/$tool.sh" || {
+        echo "⚠️  Warning: Error installing $tool"
+      }
+      echo ""
+    fi
+  done
+
+  # Step 7: Global gitignore
+  ((current_step++))
+  if [ -f "$INSTALL_DIR/install/core/gitignore.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔧 Step $current_step/$total_steps: Setting up global gitignore..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/core/gitignore.sh" || {
+      echo "⚠️  Warning: Error setting up global gitignore"
+    }
+    echo ""
+  fi
+
+  # Step 8: Homebrew packages
+  ((current_step++))
+  if [ -f "$INSTALL_DIR/install/dependencies/brew-packages.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "📦 Step $current_step/$total_steps: Installing Homebrew packages..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dependencies/brew-packages.sh" || {
+      echo "⚠️  Warning: Error installing Homebrew packages"
+    }
+    echo ""
+  fi
+
+  # Step 9: CLI tools
+  ((current_step++))
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🖥️  Step $current_step/$total_steps: Installing CLI tools..."
+  echo "═══════════════════════════════════════════════════════════════"
+  if [ -d "$INSTALL_DIR/install/clis" ]; then
+    for cli_script in "$INSTALL_DIR/install/clis"/*.sh; do
+      if [ -f "$cli_script" ]; then
+        echo "  Installing $(basename "$cli_script" .sh)..."
+        bash "$cli_script" || {
+          echo "  ⚠️  Warning: Error installing $(basename "$cli_script")"
+        }
+      fi
+    done
+  fi
+  echo ""
+
+  # Step 10: Custom development tools
+  ((current_step++))
+  if [ -f "$INSTALL_DIR/install/development/custom-tools.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🛠️  Step $current_step/$total_steps: Installing custom development tools..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/development/custom-tools.sh" || {
+      echo "⚠️  Warning: Error installing custom development tools"
+    }
+    echo ""
+  fi
+
+  # PHASE 2: SDKs & Configuration
+  echo ""
+  echo "╔════════════════════════════════════════════════════════════╗"
+  echo "║              PHASE 2: SDKs & Configuration                ║"
+  echo "╚════════════════════════════════════════════════════════════╝"
+  echo ""
+
+  # Step 11: SDKs
+  ((current_step++))
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "📚 Step $current_step/$total_steps: Installing SDKs..."
+  echo "═══════════════════════════════════════════════════════════════"
+  if [ -d "$INSTALL_DIR/install/sdks" ]; then
+    for sdk_script in "$INSTALL_DIR/install/sdks"/*.sh; do
+      if [ -f "$sdk_script" ]; then
+        echo "  Installing $(basename "$sdk_script" .sh) SDK..."
+        bash "$sdk_script" || {
+          echo "  ⚠️  Warning: Error installing $(basename "$sdk_script")"
+        }
+      fi
+    done
+  fi
+  echo ""
+
+  # Step 12: macOS settings
+  ((current_step++))
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🍎 Step $current_step/$total_steps: Configuring macOS settings..."
+  echo "═══════════════════════════════════════════════════════════════"
+  if [ -d "$INSTALL_DIR/install/macos" ]; then
+    for macos_script in "$INSTALL_DIR/install/macos"/*.sh; do
+      if [ -f "$macos_script" ]; then
+        echo "  Configuring $(basename "$macos_script" .sh)..."
+        bash "$macos_script" || {
+          echo "  ⚠️  Warning: Error configuring $(basename "$macos_script")"
+        }
+      fi
+    done
+  fi
+  echo ""
+
+  # Step 13: AI/Claude commands
+  ((current_step++))
+  if [ -f "$INSTALL_DIR/install/ai/claude-commands.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🤖 Step $current_step/$total_steps: Installing AI/Claude commands..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/ai/claude-commands.sh" || {
+      echo "⚠️  Warning: Error installing Claude commands"
+    }
+    echo ""
+  fi
+
+  # Step 14: Brew casks
+  ((current_step++))
+  if [ -f "$INSTALL_DIR/install/dependencies/brew-casks.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🖥️  Step $current_step/$total_steps: Installing GUI applications (Brew casks)..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dependencies/brew-casks.sh" || {
+      echo "⚠️  Warning: Error installing Brew casks"
+    }
+    echo ""
+  fi
+
+  # Step 15: Shell scripts and modules
+  ((current_step++))
+  if [ -f "$INSTALL_DIR/install/dotfiles/scripts.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "📜 Step $current_step/$total_steps: Installing shell scripts & modules..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/scripts.sh" || {
+      echo "⚠️  Warning: Error installing shell scripts"
+    }
+    echo ""
+  fi
+
+  # Also install prompt configuration here
+  if [ -f "$INSTALL_DIR/install/dotfiles/prompt.sh" ]; then
+    echo "  Installing terminal prompt configuration..."
+    bash "$INSTALL_DIR/install/dotfiles/prompt.sh" || {
+      echo "  ⚠️  Warning: Error installing prompt"
+    }
+  fi
+
+  # PHASE 3: Applications
+  echo ""
+  echo "╔════════════════════════════════════════════════════════════╗"
+  echo "║              PHASE 3: Applications                        ║"
+  echo "╚════════════════════════════════════════════════════════════╝"
+  echo ""
+
+  # Step 16: Neovim
+  ((current_step++))
+  if [ -f "$INSTALL_DIR/install/dotfiles/nvim.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "📝 Step $current_step/$total_steps: Installing Neovim configuration..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/nvim.sh" || {
+      echo "⚠️  Warning: Error installing Neovim"
+    }
+    echo ""
+  fi
+
+  # Step 17: Ghostty
+  ((current_step++))
+  if [ -f "$INSTALL_DIR/install/dotfiles/ghostty.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "👻 Step $current_step/$total_steps: Installing Ghostty terminal..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/ghostty.sh" || {
+      echo "⚠️  Warning: Error installing Ghostty"
+    }
+    echo ""
+  fi
+
+  # Step 18: Hammerspoon
+  ((current_step++))
+  if [ -f "$INSTALL_DIR/install/dotfiles/hammerspoon.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔨 Step $current_step/$total_steps: Installing Hammerspoon..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/hammerspoon.sh" || {
+      echo "⚠️  Warning: Error installing Hammerspoon"
+    }
+    echo ""
+  fi
+
+  # Step 19: Karabiner
+  ((current_step++))
+  if [ -f "$INSTALL_DIR/install/dotfiles/karabiner.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "⌨️  Step $current_step/$total_steps: Installing Karabiner keyboard configuration..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/karabiner.sh" || {
+      echo "⚠️  Warning: Error installing Karabiner"
+    }
+    echo ""
+  fi
+
+  # Step 20: SketchyBar
+  ((current_step++))
+  if [ -f "$INSTALL_DIR/install/dotfiles/sketchybar.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "📊 Step $current_step/$total_steps: Installing SketchyBar..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/sketchybar.sh" || {
+      echo "⚠️  Warning: Error installing SketchyBar"
+    }
+    echo ""
+  fi
+
+  # Any additional config files
+  if [ -f "$INSTALL_DIR/install/dotfiles/config-files.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "📁 Installing additional configuration files..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/config-files.sh" || {
+      echo "⚠️  Warning: Error installing config files"
+    }
+    echo ""
+  fi
+
+  echo ""
+  echo "════════════════════════════════════════════════════════════════"
+  echo "🎉 DOTFILES INSTALLATION COMPLETED!"
+  echo "════════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Installation Summary:"
+  echo ""
+  echo "✅ PHASE 1: Core Dependencies"
+  echo "  • Homebrew & packages"
+  echo "  • Python, Go, Node.js, Terraform"
+  echo "  • Zoxide, CLI tools, Custom tools"
+  echo ""
+  echo "✅ PHASE 2: SDKs & Configuration"
+  echo "  • Node, Python, Rust SDKs"
+  echo "  • macOS settings"
+  echo "  • Claude AI commands"
+  echo "  • GUI applications"
+  echo "  • Shell scripts & modules"
+  echo ""
+  echo "✅ PHASE 3: Applications"
+  echo "  • Neovim"
+  echo "  • Ghostty terminal"
+  echo "  • Hammerspoon"
+  echo "  • Karabiner keyboard"
+  echo "  • SketchyBar"
+  echo ""
+  echo "🔄 Next Steps:"
+  echo "  1. Restart your shell or run: source ~/.zshrc"
+  echo "  2. Open Neovim and run: :Lazy sync"
+  echo "  3. Restart any GUI applications that were updated"
+  echo ""
+  echo "📚 Documentation:"
+  echo "  • Shell modules: Run 'shell_modules' to see available modules"
+  echo "  • Claude commands: Use /update-context in Claude Code"
+  echo "  • README files in each configuration directory"
   echo ""
 }
 
 # Main execution
-echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║                     DOTFILES INSTALLER                       ║"
-echo "║                                                               ║"
-echo "║  This will install/update all dotfiles and dependencies      ║"
-echo "║  This is a one-way, destructive process for some configs     ║"
-echo "╚═══════════════════════════════════════════════════════════════╝"
-echo ""
-
-read -p "Are you sure you want to proceed? (y/n) " -n 1
-echo ""
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-  installDotfiles
-else
-  echo "Installation cancelled."
-  exit 0
-fi
+case "$INSTALL_TARGET" in
+  nvim)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                   NEOVIM INSTALLER                           ║"
+    echo "║                                                               ║"
+    echo "║  This will install/update Neovim configuration               ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installNvimOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
+  brew)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                   HOMEBREW INSTALLER                         ║"
+    echo "║                                                               ║"
+    echo "║  This will install Homebrew and configured packages          ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installBrewOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
+  sketchybar)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                  SKETCHYBAR INSTALLER                        ║"
+    echo "║                                                               ║"
+    echo "║  This will install/update SketchyBar configuration           ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installSketchybarOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
+  ghostty)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                   GHOSTTY INSTALLER                          ║"
+    echo "║                                                               ║"
+    echo "║  This will install/update Ghostty terminal configuration     ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installGhosttyOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
+  scripts)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                   SCRIPTS INSTALLER                          ║"
+    echo "║                                                               ║"
+    echo "║  This will install shell scripts and modules                 ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installScriptsOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
+  hammerspoon)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                 HAMMERSPOON INSTALLER                        ║"
+    echo "║                                                               ║"
+    echo "║  This will install/update Hammerspoon configuration          ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installHammerspoonOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
+  "")
+    # No target specified, run full installation
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                     DOTFILES INSTALLER                       ║"
+    echo "║                                                               ║"
+    echo "║  This will install/update all dotfiles and dependencies      ║"
+    echo "║  This is a one-way, destructive process for some configs     ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installDotfiles
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
+  claude)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                   CLAUDE COMMANDS INSTALLER                  ║"
+    echo "║                                                               ║"
+    echo "║  This will install Claude commands to ~/.claude/commands     ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installClaudeCommandsOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
+  prompt)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                  PROMPT CONFIGURATION INSTALLER              ║"
+    echo "║                                                               ║"
+    echo "║  This will install the cool terminal prompt configuration    ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installPromptOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
+esac
 
 # Cleanup
-unset installDotfiles
+unset installDotfiles installNvimOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly

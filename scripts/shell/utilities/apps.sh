@@ -129,4 +129,7 @@ else
     # When sourced, make apps_main available as 'apps'
     # Use a function wrapper instead of alias to avoid conflicts
     apps() { apps_main "$@"; }
+    # Remove any existing apps alias first
+    unalias apps 2>/dev/null || true
+    alias apps=apps_main
 fi

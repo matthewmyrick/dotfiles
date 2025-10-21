@@ -1553,16 +1553,16 @@ ghprc() {
 # FIXED: Use different variable name to avoid conflict with zsh's read-only 'status'
 git_status() {
     local git_status_info=""
-    # Check for uncommitted changes
-    if ! git diff --quiet 2>/dev/null; then
+    # Check for uncommitted changes (redirect all output to prevent display)
+    if ! git diff --quiet --exit-code >/dev/null 2>&1; then
         git_status_info+="*"
     fi
     # Check for untracked files
     if [[ -n $(git ls-files --others --exclude-standard 2>/dev/null) ]]; then
         git_status_info+="?"
     fi
-    # Check for staged changes
-    if ! git diff --cached --quiet 2>/dev/null; then
+    # Check for staged changes (redirect all output to prevent display)
+    if ! git diff --cached --quiet --exit-code >/dev/null 2>&1; then
         git_status_info+="+"
     fi
     [[ -n "$git_status_info" ]] && echo " [$git_status_info]"

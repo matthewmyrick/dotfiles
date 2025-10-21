@@ -16,4 +16,18 @@ if ! command -v brew &>/dev/null; then
   echo "  ✓ Homebrew installed successfully!"
 else
   echo "  ✓ Homebrew is already installed."
+  
+  # Check for updates
+  echo "  📦 Checking for Homebrew updates..."
+  brew update
+  
+  # Check if Homebrew itself needs upgrading
+  if brew outdated --formula | grep -q "homebrew"; then
+    echo "  📦 Upgrading Homebrew..."
+    brew upgrade homebrew
+  else
+    echo "  ✓ Homebrew is up to date."
+  fi
 fi
+
+echo "✓ Homebrew setup completed!"

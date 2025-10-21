@@ -6,18 +6,61 @@ local SKETCHYBAR_HEIGHT = 32
 local EXTRA_PADDING = 5
 
 -- List of applications that should be maximized when opened
+-- Set to true to resize ALL apps, or add specific apps to the list
+local RESIZE_ALL_APPS = true  -- Change this to false to only resize specific apps
+
 local appsToMaximize = {
+    -- Microsoft Apps
     "Microsoft Teams",
-    "Teams",
-    "Slack",
-    "Discord",
-    "Code",
-    "Visual Studio Code",
+    "Microsoft Excel",
+    "Microsoft OneNote",
+    "Microsoft Outlook",
+    "Skype for Business",
+    
+    -- Browsers
+    "Google Chrome",
     "Chrome",
     "Safari",
     "Firefox",
+    
+    -- Development
+    "Visual Studio Code",
+    "Code",
+    "Ghostty",
+    "Terminal",
+    "iTerm2",
+    "Warp",
+    "Lens",
+    "Rancher Desktop",
+    "VirtualBox",
+    
+    -- Productivity
+    "Slack",
+    "Discord",
     "Notion",
-    "Obsidian"
+    "Obsidian",
+    "Spotify",
+    "zoom.us",
+    "OneDrive",
+    "Keeper Password Manager",
+    "Keeper Commander",
+    
+    -- Work/Enterprise
+    "Citrix Workspace",
+    "Company Portal",
+    "Enterprise Connect",
+    "Netskope Client",
+    "VIP Access",
+    "TeamViewerHost",
+    "Tailscale",
+    "RabbitSync",
+    "Self Service",
+    
+    -- Window Management (might not need resizing)
+    "Rectangle",
+    "Hammerspoon",
+    "Karabiner-Elements",
+    "Karabiner-EventViewer"
 }
 
 -- Function to check if screen is the built-in laptop display
@@ -77,7 +120,7 @@ function fixWindowIfNeeded(window)
 end
 
 -- Function to resize a window (respects menu bar and sketchybar)
-function resizeWindow(window)
+function resizeWindow(window, showNotification)
     if window then
         local screen = window:screen()
         local safeFrame = getSafeFrame(screen)
@@ -89,13 +132,21 @@ function resizeWindow(window)
         -- Set the window frame to safe area (not covering sketchybar)
         window:setFrame(safeFrame)
 
-        -- Show alert for debugging
-        hs.alert.show("Resized (respecting SketchyBar): " .. (window:title() or "Window"), 1)
+        -- Show notification only when explicitly requested (for new windows)
+        if showNotification then
+            hs.alert.show("Window auto-sized: " .. (window:title() or "Window"), 1)
+        end
     end
 end
 
 -- Function to check if app should be auto-resized
 function shouldResize(appName)
+    -- If RESIZE_ALL_APPS is true, resize everything
+    if RESIZE_ALL_APPS then
+        return true
+    end
+    
+    -- Otherwise check if it's in our list
     for _, name in ipairs(appsToMaximize) do
         if string.find(string.lower(appName), string.lower(name)) then
             return true
@@ -113,7 +164,7 @@ windowFilter:subscribe(hs.window.filter.windowCreated, function(window, appName,
         -- Delay to let window settle
         hs.timer.doAfter(0.5, function()
             if window and window:isVisible() then
-                resizeWindow(window)
+                resizeWindow(window, true)  -- Show notification for new windows
             else
                 print("Window not visible, skipping resize")
             end
@@ -128,7 +179,7 @@ appWatcher = hs.application.watcher.new(function(appName, eventType, appObject)
             local windows = appObject:allWindows()
             for _, window in ipairs(windows) do
                 if window:isStandard() then
-                    resizeWindow(window)
+                    resizeWindow(window, true)  -- Show notification for new app launches
                 end
             end
         end)
@@ -138,16 +189,15 @@ end)
 appWatcher:start()
 
 -- Watch for window focus/activation to resize every time you switch to an app
+-- This will trigger EVERY time you click on an app, even if it's already open
 windowFocusFilter = hs.window.filter.new()
 windowFocusFilter:subscribe(hs.window.filter.windowFocused, function(window, appName, event)
     if window and shouldResize(appName) then
         print("Window focused: " .. appName .. " - " .. (window:title() or "Unknown"))
-        -- Small delay to let focus settle
-        hs.timer.doAfter(0.2, function()
-            if window and window:isVisible() and window:isStandard() then
-                resizeWindow(window)
-            end
-        end)
+        -- Immediate resize on focus (no delay needed for focus events)
+        if window:isVisible() and window:isStandard() then
+            resizeWindow(window, false)  -- No notification for focus events
+        end
     end
 end)
 
@@ -155,7 +205,7 @@ end)
 hs.hotkey.bind({"cmd", "alt"}, "m", function()
     local window = hs.window.focusedWindow()
     if window then
-        resizeWindow(window)
+        resizeWindow(window, false)  -- No notification for manual resize
         hs.alert.show("Window resized")
     end
 end)
@@ -219,5 +269,5 @@ hs.timer.doAfter(0.5, function()
     print("Checked all existing windows for sketchybar overlap")
 end)
 
--- Show notification when Hammerspoon loads
-hs.alert.show("Hammerspoon loaded - SketchyBar compatible")
+-- Hammerspoon loaded (silent)
+-- hs.alert.show("Hammerspoon loaded - SketchyBar compatible")

@@ -26,6 +26,9 @@ setopt prompt_subst
 # Set terminal type to xterm-256color for better color support
 export TERM=xterm-256color
 
+# Disable virtualenv's default prompt modification (we handle it in our custom prompt)
+export VIRTUAL_ENV_DISABLE_PROMPT=1
+
 # --- HOMEBREW CONFIGURATION ---
 # Detect Homebrew prefix (Intel -> /usr/local, Apple Silicon -> /opt/homebrew)
 : ${HOMEBREW_PREFIX:=/opt/homebrew}

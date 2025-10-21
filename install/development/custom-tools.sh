@@ -3,7 +3,7 @@
 echo "🔧 Installing custom development tools..."
 
 echo "  Installing Rust tools..."
-cargo install --git https://github.com/MatthewMyrick/quill
+# Quill installation removed
 
 echo "  Installing Go tools..."
 go install github.com/MatthewMyrick/bluetooth-tui@latest

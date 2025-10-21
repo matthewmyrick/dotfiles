@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source:*)",
+      "Bash(apps:*)",
+      "Bash(apps chrome)",
+      "Read(//Users/z954179/.local/share/nvim/lazy/snacks.nvim/**)",
+      "Bash(exec zsh)"
+    ],
+    "deny": [],
+    "ask": [],
+    "additionalDirectories": [
+      "/Users/z954179/.config/nvim"
+    ]
+  }
+}

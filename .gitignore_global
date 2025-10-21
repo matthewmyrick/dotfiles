@@ -1,0 +1,13 @@
+# AI 
+CLAUDE.md
+.claude/
+
+# macOS system files
+.DS_Store
+
+# Editor/IDE directories
+.vscode/
+.idea/
+
+# Local environment files
+.env
