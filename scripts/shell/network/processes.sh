@@ -1,10 +1,10 @@
 #!/usr/bin/env zsh
-# Network and API Functions
-# Functions for working with APIs and network requests
+# Network Process Functions
+# Functions for managing network processes
 
 # Lazy load guard
-[[ -n "${_NETWORK_API_LOADED}" ]] && return
-_NETWORK_API_LOADED=1
+[[ -n "${_NETWORK_PROCESSES_LOADED}" ]] && return
+_NETWORK_PROCESSES_LOADED=1
 
 lports() {
   command -v fzf >/dev/null || {
