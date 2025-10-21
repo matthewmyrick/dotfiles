@@ -83,3 +83,8 @@ alias sp='spotify prev'
 alias ss='spotify status'
 alias svu='spotify vol up'
 alias svd='spotify vol down'
+
+# api
+alias curlj='curl_with_jqp'
+alias curlv='curl_with_wireshark'
+
