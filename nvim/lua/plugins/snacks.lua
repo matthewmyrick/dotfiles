@@ -284,7 +284,23 @@ fi
 
     -- Snacks Picker
     { "<leader><leader>", function() Snacks.picker.files() end,            desc = "Find Files" },
-    { "<leader>fb",       function() Snacks.picker.buffers() end,          desc = "Find Buffers" },
+    { "<leader>fb",
+      function()
+        -- Simple buffer picker that always replaces current buffer
+        local current_win = vim.api.nvim_get_current_win()
+        Snacks.picker.buffers({
+          confirm = function(picker, item)
+            picker:close()
+            vim.schedule(function()
+              -- Force replace current buffer, even if it's a terminal
+              vim.api.nvim_set_current_win(current_win)
+              vim.cmd("buffer " .. item.buf)
+            end)
+          end
+        })
+      end,
+      desc = "Find Buffers"
+    },
     { "<leader>fr",       function() Snacks.picker.recent() end,           desc = "Recent Files" },
     { "<leader>fc",       function() Snacks.picker.commands() end,         desc = "Commands" },
     { "<leader>fk",       function() Snacks.picker.keymaps() end,          desc = "Keymaps" },

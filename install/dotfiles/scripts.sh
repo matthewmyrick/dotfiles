@@ -8,7 +8,6 @@ DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # Create necessary directories
 echo "  Creating script directories..."
 mkdir -p ~/.local/bin
-mkdir -p ~/GitHub/matthewmyrick/dotfiles/scripts
 
 # Copy Python scripts to ~/.local/bin (if they're executables)
 if [ -d "$DOTFILES_DIR/scripts/python" ] && [ "$(ls -A "$DOTFILES_DIR"/scripts/python/*.py 2>/dev/null)" ]; then
@@ -20,16 +19,12 @@ if [ -d "$DOTFILES_DIR/scripts/python" ] && [ "$(ls -A "$DOTFILES_DIR"/scripts/p
   done
 fi
 
-# Copy the entire scripts directory structure for shell modules
-echo "  Shell modules to ~/GitHub/matthewmyrick/dotfiles/scripts"
+# Scripts are already in the dotfiles directory - no need to copy
+echo "  Shell modules available at $DOTFILES_DIR/scripts"
 if [ -d "$DOTFILES_DIR/scripts" ]; then
-  # Ensure the destination exists
-  mkdir -p ~/GitHub/matthewmyrick/dotfiles
-  # Copy the entire scripts directory structure
-  cp -R "$DOTFILES_DIR/scripts" ~/GitHub/matthewmyrick/dotfiles/
-  echo "    ✓ Copied modular shell functions"
-  echo "    ✓ Copied shell module loader"
-  echo "    ✓ Preserved directory structure for lazy loading"
+  echo "    ✓ Modular shell functions available"
+  echo "    ✓ Shell module loader ready"
+  echo "    ✓ Directory structure preserved for lazy loading"
 fi
 
 # Handle telemetry formatter separately if needed

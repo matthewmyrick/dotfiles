@@ -42,6 +42,23 @@ return {
           },
           { "filetype", icon_only = true, separator = "", padding = { left = 1, right = 0 } },
           { "filename", path = 3, symbols = { modified = "  ", readonly = "", unnamed = "" } },
+          -- Python interpreter path
+          {
+            function()
+              -- Get Python interpreter from Pyright LSP
+              local clients = vim.lsp.get_clients({ name = "pyright", bufnr = 0 })
+              for _, client in ipairs(clients) do
+                if client.config.settings and client.config.settings.python and client.config.settings.python.pythonPath then
+                  return "  " .. client.config.settings.python.pythonPath
+                end
+              end
+              return ""
+            end,
+            cond = function()
+              return vim.bo.filetype == "python"
+            end,
+            color = { fg = "#89b4fa" }, -- Blue color for Python
+          },
         },
         lualine_x = {
           {

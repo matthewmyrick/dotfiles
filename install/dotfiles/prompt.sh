@@ -6,7 +6,7 @@ echo "🎨 Setting up custom prompt configuration..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PROMPT_SOURCE="$DOTFILES_DIR/scripts/shell/prompt"
-PROMPT_TARGET="$HOME/GitHub/matthewmyrick/dotfiles/scripts/shell/prompt"
+PROMPT_TARGET="$DOTFILES_DIR/scripts/shell/prompt"
 
 # Check if source directory exists
 if [ ! -d "$PROMPT_SOURCE" ]; then
@@ -37,7 +37,7 @@ if ! grep -q "scripts/shell/prompt/config.sh" ~/.zshrc 2>/dev/null; then
     echo ""
     echo "  📝 To activate the prompt, add this line to your ~/.zshrc:"
     echo ""
-    echo "     source \"\$HOME/GitHub/matthewmyrick/dotfiles/scripts/shell/prompt/config.sh\""
+    echo "     source \"$PROMPT_TARGET/config.sh\""
     echo ""
     echo "  Or if using the shell module system, it should load automatically."
 else
@@ -54,4 +54,4 @@ echo "  • Colorful and modern design"
 echo "  • Username, hostname, and directory info"
 echo ""
 echo "🔄 To apply changes, run: source ~/.zshrc"
-echo "💡 To customize, edit: ~/GitHub/matthewmyrick/dotfiles/scripts/shell/prompt/config.sh"
+echo "💡 To customize, edit: $PROMPT_TARGET/config.sh"

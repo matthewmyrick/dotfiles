@@ -58,7 +58,7 @@ elif [ -d "$HOME/.config/nvim" ]; then
     echo ""
     echo "📋 Next Steps:"
     echo "  - Open Neovim and run :Lazy sync to install plugins"
-    echo "  - Configuration is located at ~/GitHub/matthewmyrick/dotfiles/nvim"
+    echo "  - Configuration is located at $NVIM_DIR"
     echo ""
     exit 0
 fi
