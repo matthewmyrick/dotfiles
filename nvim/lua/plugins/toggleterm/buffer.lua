@@ -69,57 +69,6 @@ function M.setup()
     -- Setup autocmds for terminal naming
     setup_terminal_autocmds()
 
-    -- Claude Vertical Split Terminal
-    vim.api.nvim_create_user_command("ClaudeVerticalTerm", function()
-        -- Check if Claude terminal already exists
-        local claude_buf = nil
-        for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-            if vim.api.nvim_buf_is_valid(buf) then
-                local buf_name = vim.api.nvim_buf_get_name(buf)
-                if buf_name ~= "" then
-                    local filename = vim.fn.fnamemodify(buf_name, ":t")
-                    if filename == "$ claude" then
-                        claude_buf = buf
-                        break
-                    end
-                end
-            end
-        end
-
-        -- If Claude terminal exists, find and focus its window
-        if claude_buf then
-            local claude_win = nil
-            for _, win in ipairs(vim.api.nvim_list_wins()) do
-                if vim.api.nvim_win_get_buf(win) == claude_buf then
-                    claude_win = win
-                    break
-                end
-            end
-
-            if claude_win then
-                -- Focus the existing Claude window
-                vim.api.nvim_set_current_win(claude_win)
-                vim.notify("Focused existing Claude terminal", vim.log.levels.INFO)
-                return
-            else
-                -- Claude buffer exists but no window is showing it, open it in a new split
-                vim.cmd("vsplit")
-                vim.cmd("wincmd l")
-                vim.api.nvim_set_current_buf(claude_buf)
-                vim.notify("Reopened existing Claude terminal", vim.log.levels.INFO)
-                return
-            end
-        end
-
-        -- No existing Claude terminal, create a new one
-        vim.cmd("vsplit")
-        vim.cmd("wincmd l") -- Move to the new split
-
-        -- Get the current Node version from NVM
-        local nvm_dir = vim.fn.expand("$HOME/.nvm")
-        local node_version = vim.fn.system("source " .. nvm_dir .. "/nvm.sh && nvm current"):gsub("%s+", "")
-        local claude_path = nvm_dir .. "/versions/node/" .. node_version .. "/bin/claude"
-
     -- Helper function to create Claude terminal
     local function create_claude_terminal(use_continue, is_half_split)
         -- Get the current Node version from NVM
@@ -193,7 +142,7 @@ function M.setup()
     vim.api.nvim_create_user_command("ClaudeVerticalTerm", function()
         local claude_buf = find_claude_buffer()
 
-        -- If Claude terminal exists, open it in a 50% vertical split
+        -- If Claude terminal exists, open it in a 33% vertical split
         if claude_buf then
             local claude_win = nil
             for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -209,32 +158,36 @@ function M.setup()
                 vim.notify("Focused existing Claude terminal", vim.log.levels.INFO)
                 return
             else
-                -- Claude buffer exists but no window is showing it, open it in a 50% vertical split
+                -- Claude buffer exists but no window is showing it, open it in a 33% vertical split
+                -- Get width BEFORE splitting
+                local original_width = vim.api.nvim_win_get_width(0)
                 vim.cmd("vsplit")
                 vim.cmd("wincmd l")
-                -- Resize to 50% of current window width
-                local current_width = vim.api.nvim_win_get_width(0)
-                local half_width = math.floor(current_width / 2)
-                vim.cmd("vertical resize " .. half_width)
+                -- Resize to 33% of original window width
+                local third_width = math.floor(original_width / 3)
+                vim.cmd("vertical resize " .. third_width)
                 vim.api.nvim_set_current_buf(claude_buf)
                 vim.notify("Reopened existing Claude terminal", vim.log.levels.INFO)
                 return
             end
         end
 
-        -- No existing Claude terminal, create a new one in 50% vertical split
+        -- No existing Claude terminal, create a new one in 33% vertical split
+        -- Get width BEFORE splitting
+        local original_width = vim.api.nvim_win_get_width(0)
         vim.cmd("vsplit")
         vim.cmd("wincmd l")
-        -- Resize to 50% of current window width
-        local current_width = vim.api.nvim_win_get_width(0)
-        local half_width = math.floor(current_width / 2)
-        vim.cmd("vertical resize " .. half_width)
+        -- Resize to 33% of original window width
+        local third_width = math.floor(original_width / 3)
+        vim.cmd("vertical resize " .. third_width)
         create_claude_terminal(true, false)
-    end, { nargs = 0, desc = "Open Claude in 50% Vertical Split" })
+    end, { nargs = 0, desc = "Open Claude in 33% Vertical Split" })
 
 
     -- Enhanced Buffer Terminal (replaces BufferTerm for <leader>tt)
     vim.api.nvim_create_user_command("EnhancedBufferTerm", function()
+        -- Create new buffer first to avoid "requires unmodified buffer" error
+        vim.cmd("enew")
         -- Simple terminal buffer
         vim.cmd("terminal")
         vim.schedule(function()
@@ -296,7 +249,7 @@ function M.keymaps()
     return {
         { "<leader>tt", "<cmd>EnhancedBufferTerm<CR>", desc = "Terminal (simple buffer)" },
         { "<leader>td", "<cmd>TerminalInFileDir<CR>", desc = "Terminal in current file's directory" },
-        { "<leader>tc", "<cmd>ClaudeVerticalTerm<CR>", desc = "Claude (50% vertical split)" },
+        { "<leader>tc", "<cmd>ClaudeVerticalTerm<CR>", desc = "Claude (33% vertical split)" },
         { "<leader>tr", "<cmd>TerminalRename<CR>", desc = "Rename Terminal Buffer" },
     }
 end
