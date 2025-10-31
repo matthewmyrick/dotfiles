@@ -5,6 +5,11 @@ local SKETCHYBAR_HEIGHT = 32
 -- Add extra padding to ensure no overlap
 local EXTRA_PADDING = 5
 
+-- List of applications that should NEVER be resized (always excluded)
+local appsToIgnore = {
+    "Raycast",
+}
+
 -- List of applications that should be maximized when opened
 -- Set to true to resize ALL apps, or add specific apps to the list
 local RESIZE_ALL_APPS = true  -- Change this to false to only resize specific apps
@@ -140,12 +145,38 @@ function resizeWindow(window, showNotification)
 end
 
 -- Function to check if app should be auto-resized
-function shouldResize(appName)
-    -- If RESIZE_ALL_APPS is true, resize everything
+function shouldResize(appName, window)
+    -- First, check if app is in the ignore list (always skip these)
+    for _, name in ipairs(appsToIgnore) do
+        if string.find(string.lower(appName), string.lower(name)) then
+            print("Ignoring app (in ignore list): " .. appName)
+            return false
+        end
+    end
+
+    -- Special check for Raycast - it has specific window characteristics
+    if window then
+        local windowTitle = window:title() or ""
+        local windowRole = window:role() or ""
+
+        -- Raycast's search window is usually very small and has specific properties
+        if string.find(string.lower(appName), "raycast") then
+            print("Raycast window detected - IGNORING")
+            return false
+        end
+
+        -- Also ignore windows that look like floating panels/popups
+        if not window:isStandard() then
+            print("Non-standard window, ignoring: " .. appName)
+            return false
+        end
+    end
+
+    -- If RESIZE_ALL_APPS is true, resize everything (except ignored apps)
     if RESIZE_ALL_APPS then
         return true
     end
-    
+
     -- Otherwise check if it's in our list
     for _, name in ipairs(appsToMaximize) do
         if string.find(string.lower(appName), string.lower(name)) then
@@ -159,7 +190,7 @@ end
 windowFilter = hs.window.filter.new()
 windowFilter:subscribe(hs.window.filter.windowCreated, function(window, appName, event)
     print("Window created: " .. appName .. " - " .. (window:title() or "Unknown"))
-    if shouldResize(appName) then
+    if shouldResize(appName, window) then
         print("Should resize: " .. appName)
         -- Delay to let window settle
         hs.timer.doAfter(0.5, function()
@@ -174,11 +205,11 @@ end)
 
 -- Watch for application launch events (backup method)
 appWatcher = hs.application.watcher.new(function(appName, eventType, appObject)
-    if eventType == hs.application.watcher.launched and shouldResize(appName) then
+    if eventType == hs.application.watcher.launched then
         hs.timer.doAfter(0.5, function()
             local windows = appObject:allWindows()
             for _, window in ipairs(windows) do
-                if window:isStandard() then
+                if window:isStandard() and shouldResize(appName, window) then
                     resizeWindow(window, true)  -- Show notification for new app launches
                 end
             end
@@ -192,7 +223,7 @@ appWatcher:start()
 -- This will trigger EVERY time you click on an app, even if it's already open
 windowFocusFilter = hs.window.filter.new()
 windowFocusFilter:subscribe(hs.window.filter.windowFocused, function(window, appName, event)
-    if window and shouldResize(appName) then
+    if window and shouldResize(appName, window) then
         print("Window focused: " .. appName .. " - " .. (window:title() or "Unknown"))
         -- Immediate resize on focus (no delay needed for focus events)
         if window:isVisible() and window:isStandard() then

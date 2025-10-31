@@ -103,6 +103,10 @@ function M.setup()
                     callback = function()
                         -- Check if the terminal closed immediately (likely due to no conversation)
                         vim.schedule(function()
+                            -- Check if buffer is still valid before reading
+                            if not vim.api.nvim_buf_is_valid(buf) then
+                                return
+                            end
                             -- Read the terminal output to check for "No conversation found"
                             local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
                             for _, line in ipairs(lines) do
