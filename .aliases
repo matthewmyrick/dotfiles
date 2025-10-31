@@ -7,10 +7,10 @@ alias root='cd /'
 alias notif="printf ''"
 
 # zoxide shortcuts
-alias zi='zi'  # Interactive directory picker
-alias za='zoxide add'  # Manually add directory to database
-alias zq='zoxide query'  # Query directory database
-alias zr='zoxide remove'  # Remove directory from database
+alias zi='zi'
+alias za='zoxide add'
+alias zq='zoxide query'
+alias zr='zoxide remove'
 
 # ls
 alias lst='eza --icons --git --color=always --group-directories-first --tree --level=2 --no-permissions --no-user --no-time --all'
