@@ -137,17 +137,27 @@ vim.keymap.set("n", "<leader>we", "<cmd>wincmd =<CR>", { desc = "Equalize window
 -- Quit Neovim entirely with <leader>qq
 vim.keymap.set("n", "<leader>qq", "<cmd>qa<CR>", { desc = "Quit Neovim" })
 
--- Split current window vertically with file picker
+-- Split current window vertically with buffer picker (includes files and terminal buffers)
 vim.keymap.set("n", "<leader>wv", function()
     vim.cmd("vsplit")
     vim.schedule(function()
         if Snacks and Snacks.picker then
-            Snacks.picker.files()
+            -- Use buffer picker which shows all buffers including terminals
+            local current_win = vim.api.nvim_get_current_win()
+            Snacks.picker.buffers({
+                confirm = function(picker, item)
+                    picker:close()
+                    vim.schedule(function()
+                        vim.api.nvim_set_current_win(current_win)
+                        vim.cmd("buffer " .. item.buf)
+                    end)
+                end
+            })
         else
-            vim.notify("No file picker available", vim.log.levels.WARN)
+            vim.notify("No picker available", vim.log.levels.WARN)
         end
     end)
-end, { desc = "Split window vertically with picker" })
+end, { desc = "Split window vertically with picker (buffers + terminals)" })
 
 -- Split current window horizontally with file picker
 vim.keymap.set("n", "<leader>wh", function()
@@ -192,7 +202,17 @@ vim.keymap.set("n", "yag", "ggyG", { desc = "Yank entire buffer" })
 -- Override <leader>sg to use current window for live grep
 vim.keymap.set("n", "<leader>sg", function()
     if Snacks and Snacks.picker then
-        Snacks.picker.grep()
+        local current_win = vim.api.nvim_get_current_win()
+        Snacks.picker.grep({
+            confirm = function(picker, item)
+                picker:close()
+                vim.schedule(function()
+                    vim.api.nvim_set_current_win(current_win)
+                    vim.cmd("edit " .. vim.fn.fnameescape(item.file))
+                    vim.api.nvim_win_set_cursor(0, {item.lnum or 1, (item.col or 1) - 1})
+                end)
+            end
+        })
     else
         vim.notify("No grep picker available", vim.log.levels.WARN)
     end
@@ -201,7 +221,17 @@ end, { desc = "Grep (current window)" })
 -- Override <leader>sG to use current window for grep string
 vim.keymap.set("n", "<leader>sG", function()
     if Snacks and Snacks.picker then
-        Snacks.picker.grep_word()
+        local current_win = vim.api.nvim_get_current_win()
+        Snacks.picker.grep_word({
+            confirm = function(picker, item)
+                picker:close()
+                vim.schedule(function()
+                    vim.api.nvim_set_current_win(current_win)
+                    vim.cmd("edit " .. vim.fn.fnameescape(item.file))
+                    vim.api.nvim_win_set_cursor(0, {item.lnum or 1, (item.col or 1) - 1})
+                end)
+            end
+        })
     else
         vim.notify("No grep string picker available", vim.log.levels.WARN)
     end

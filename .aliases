@@ -48,7 +48,7 @@ alias tfs="terraform show"
 alias tfv="terraform validate"
 alias tfc="terraform console"
 
-# terragrunt 
+# terragrunt
 alias tg="terragrunt"
 alias tga="terragrunt apply"
 alias tgi="terragrunt init"
@@ -88,3 +88,6 @@ alias svd='spotify vol down'
 alias curlj='curl_with_jqp'
 alias curlv='curl_with_wireshark'
 
+# python
+alias py='python'
+alias py3='python3'
