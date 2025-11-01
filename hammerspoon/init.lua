@@ -154,10 +154,12 @@ function shouldResize(appName, window)
         end
     end
 
-    -- Special check for Raycast - it has specific window characteristics
+    -- Check window properties to detect notifications, pop-ups, and panels
     if window then
         local windowTitle = window:title() or ""
         local windowRole = window:role() or ""
+        local windowSubrole = window:subrole() or ""
+        local windowFrame = window:frame()
 
         -- Raycast's search window is usually very small and has specific properties
         if string.find(string.lower(appName), "raycast") then
@@ -165,10 +167,43 @@ function shouldResize(appName, window)
             return false
         end
 
-        -- Also ignore windows that look like floating panels/popups
+        -- Ignore non-standard windows (pop-ups, panels, etc.)
         if not window:isStandard() then
             print("Non-standard window, ignoring: " .. appName)
             return false
+        end
+
+        -- Ignore windows with specific roles that indicate notifications/pop-ups
+        local ignoreRoles = {
+            "AXSystemDialog",
+            "AXSheet",
+            "AXDrawer",
+            "AXPopover",
+            "AXFloatingWindow",
+            "AXDialog",
+            "AXSystemFloatingWindow"
+        }
+        for _, role in ipairs(ignoreRoles) do
+            if windowRole == role or windowSubrole == role then
+                print("Ignoring " .. role .. " window: " .. appName)
+                return false
+            end
+        end
+
+        -- Ignore very small windows (likely notifications or pop-ups)
+        -- Windows smaller than 400x300 are probably not main application windows
+        if windowFrame.w < 400 or windowFrame.h < 300 then
+            print("Ignoring small window (" .. windowFrame.w .. "x" .. windowFrame.h .. "): " .. appName)
+            return false
+        end
+
+        -- Ignore windows that are clearly notifications or alerts by title
+        local notificationKeywords = {"notification", "alert", "banner", "popup", "pop-up"}
+        for _, keyword in ipairs(notificationKeywords) do
+            if string.find(string.lower(windowTitle), keyword) then
+                print("Ignoring notification/alert window: " .. appName)
+                return false
+            end
         end
     end
 
