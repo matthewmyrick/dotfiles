@@ -8,7 +8,7 @@
 # Optional parameters:
 # @raycast.icon 🤖
 # @raycast.alias gemini
-# @raycast.packageName BrowserGemini
+# @raycast.packageName ChromeGemini
 
 # Documentation:
 # @raycast.description Uses chrome-cli to focus or open a Gemini tab.
