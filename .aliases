@@ -75,6 +75,9 @@ alias a="az"
 alias azs="azure-searcher"
 alias azi="az interactive"
 
+# aws
+alias aap="aws-auto-prompt"
+
 # spotify
 alias spl='spotify play'
 alias spa='spotify pause'
