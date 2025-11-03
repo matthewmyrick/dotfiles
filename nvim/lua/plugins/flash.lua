@@ -8,7 +8,7 @@ return {
 
     -- Search settings
     search = {
-      multi_window = true,
+      multi_window = false,  -- Only search in current buffer
       forward = true,
       wrap = true,
       mode = "exact",
@@ -44,7 +44,7 @@ return {
     -- Modes configuration
     modes = {
       search = {
-        enabled = true,
+        enabled = false,  -- Disable flash integration with / search
       },
       char = {
         enabled = true,
@@ -56,14 +56,16 @@ return {
     },
   },
   keys = {
-    -- Main flash search - press 's' to activate
+    -- Main flash search - press 's' to activate (current buffer only)
     {
       "s",
       mode = { "n", "x", "o" },
       function()
-        require("flash").jump()
+        require("flash").jump({
+          search = { multi_window = false },
+        })
       end,
-      desc = "Flash",
+      desc = "Flash (current buffer)",
     },
 
     -- Flash treesitter - search by treesitter nodes

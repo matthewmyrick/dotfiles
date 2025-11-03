@@ -51,7 +51,7 @@ shell_modules() {
     echo "  observability - Datadog and monitoring tools (ddsl, ddsl-config)"
     echo "  prompt        - Prompt configuration (always loaded)"
     echo "  azure         - Azure tools (azv - Key Vault fuzzy finder)"
-    echo "  aws           - AWS tools (apr - resource finder, aws-auto-prompt - continuous auto-prompt)"
+    echo "  aws           - AWS tools (apr, aws-auto-prompt, awsh - shell mode with pipes/redirects)"
     echo "  pokemon       - Pokemon catching system (catch, pokemon_status, pokemon_help)"
     echo ""
     echo "All modules are now loaded automatically at shell startup."
@@ -79,7 +79,7 @@ shell_loaded() {
     command -v ttn >/dev/null && echo "  ✓ utilities/terminal-tabs (ttn, tatn)"
     command -v ddsl >/dev/null && echo "  ✓ observability/datadog (ddsl, ddc, ddsl-config)"
     command -v azv >/dev/null && echo "  ✓ azure/keyvault (azv - Azure Key Vault fuzzy finder)"
-    command -v apr >/dev/null && echo "  ✓ aws (apr - resource finder, aws-auto-prompt - continuous auto-prompt)"
+    command -v apr >/dev/null && echo "  ✓ aws (apr, aws-auto-prompt, awsh - shell mode)"
     command -v catch >/dev/null && echo "  ✓ pokemon/functions (catch, pokemon_status, pokemon_help)"
     
     echo ""
