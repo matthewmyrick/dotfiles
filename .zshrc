@@ -26,6 +26,9 @@ setopt prompt_subst
 # Set terminal type to xterm-256color for better color support
 export TERM=xterm-256color
 
+# hadrius sso configuration
+export AWS_PROFILE=hadrius-dev
+
 # Disable virtualenv's default prompt modification (we handle it in our custom prompt)
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 
