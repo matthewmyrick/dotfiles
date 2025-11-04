@@ -1,0 +1,7 @@
+name: LazySql
+windows:
+  - tabs:
+      - layout:
+          cwd: ~
+          commands:
+            - exec: lazysql
