@@ -415,7 +415,6 @@ ghpr() {
 
 # ghpra (Git Pull Request Approve) - Auto-approve a GitHub PR with LGTM comment
 ghpra() {
-  # --- 1. Validate Input ---
   if [ -z "$1" ]; then
     echo "Usage: ghpra <pr_url_or_number> [repo]"
     echo "Example: ghpra https://github.com/org/repo/pull/123"
@@ -428,20 +427,15 @@ ghpra() {
   local pr_number
   local pr_repo
 
-  # --- 2. Parse Input ---
-  # Check if input is a URL or just a number
   if [[ "$input" =~ ^https://github\.com/.+/pull/[0-9]+.*$ ]]; then
-    # It's a full URL - extract repo and PR number using sed
     pr_repo=$(echo "$input" | sed -E 's|https://github\.com/([^/]+/[^/]+)/pull/([0-9]+).*|\1|')
     pr_number=$(echo "$input" | sed -E 's|https://github\.com/([^/]+/[^/]+)/pull/([0-9]+).*|\2|')
     
-    # Validate extraction worked
     if [ -z "$pr_repo" ] || [ -z "$pr_number" ]; then
       echo "Error: Failed to parse GitHub URL: $input"
       return 1
     fi
   elif [[ "$input" =~ ^[0-9]+$ ]]; then
-    # It's just a PR number
     if [ -z "$repo" ]; then
       echo "Error: When providing just a PR number, you must also provide the repository."
       echo "Usage: ghpra <pr_number> <org/repo>"
@@ -455,10 +449,8 @@ ghpra() {
     return 1
   fi
 
-  # --- 3. Approve the PR ---
   echo "Approving PR #$pr_number in $pr_repo..."
   
-  # Add LGTM comment and approve
   if gh pr review "$pr_number" --repo "$pr_repo" --approve --body "LGTM"; then
     echo "✅ Successfully approved PR #$pr_number with LGTM comment!"
     echo "🔗 View PR: https://github.com/$pr_repo/pull/$pr_number"
