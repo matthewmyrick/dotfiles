@@ -17,7 +17,7 @@ BREW_PACKAGES=(
   go node pipx task bandwhich htop watch
   grc nmap iproute2mac hyperfine gdu dua-cli
   xplr shpotify wireshark imagemagick otree
-  xo/xo/usql chrome-cli
+  xo/xo/usql chrome-cli terminal-notifier
 )
 
 

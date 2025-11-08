@@ -1559,3 +1559,62 @@ git_status() {
     fi
     [[ -n "$git_status_info" ]] && echo " [$git_status_info]"
 }
+
+# grw - GitHub Run Watch with notification
+# Watches a GitHub Actions run and sends a notification when it completes
+grw() {
+    # Get the run ID (either passed as argument or latest run)
+    local run_id="$1"
+    if [[ -z "$run_id" ]]; then
+        # Get the latest run ID
+        run_id=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+    fi
+
+    # Get the run URL before watching
+    local run_url=$(gh run view "$run_id" --json url --jq '.url' 2>/dev/null)
+
+    # Run gh run watch and capture the exit code
+    gh run watch "$run_id"
+    local exit_code=$?
+
+    # Determine the status based on exit code
+    local status
+    local sound
+    local subtitle
+    if [[ $exit_code -eq 0 ]]; then
+        status="✅ GitHub Action Completed Successfully"
+        sound="Glass"
+        subtitle="Click to view the run in GitHub"
+    else
+        status="❌ GitHub Action Failed"
+        sound="Basso"
+        subtitle="Click to view the failed run in GitHub"
+    fi
+
+    # Send macOS notification with GitHub Actions logo
+    local logo_path="$HOME/GitHub/matthewmyrick/dotfiles/static/images/github-actions-logo.png"
+
+    if command -v terminal-notifier &>/dev/null && [[ -n "$run_url" ]]; then
+        # Use terminal-notifier for clickable notification with logo
+        if [[ -f "$logo_path" ]]; then
+            terminal-notifier -title "$status" \
+                             -message "$subtitle" \
+                             -sound "$sound" \
+                             -open "$run_url" \
+                             -contentImage "$logo_path"
+        else
+            terminal-notifier -title "$status" \
+                             -message "$subtitle" \
+                             -sound "$sound" \
+                             -open "$run_url"
+        fi
+    elif [[ -n "$run_url" ]]; then
+        # Fallback to osascript (not clickable, but shows URL)
+        osascript -e "display notification \"$subtitle\n$run_url\" with title \"$status\" sound name \"$sound\""
+    else
+        # No URL available, show basic notification
+        osascript -e "display notification \"The workflow has finished running.\" with title \"$status\" sound name \"$sound\""
+    fi
+
+    return $exit_code
+}
