@@ -135,7 +135,34 @@ vim.keymap.set("n", "<leader>wq", "<cmd>q<CR>", { desc = "Close window" })
 vim.keymap.set("n", "<leader>we", "<cmd>wincmd =<CR>", { desc = "Equalize window sizes" })
 
 -- Quit Neovim entirely with <leader>qq
-vim.keymap.set("n", "<leader>qq", "<cmd>qa<CR>", { desc = "Quit Neovim" })
+vim.keymap.set("n", "<leader>qq", function()
+  -- Check if there are any modified buffers
+  local modified_buffers = vim.tbl_filter(function(buf)
+    return vim.api.nvim_buf_get_option(buf, "modified")
+  end, vim.api.nvim_list_bufs())
+
+  if #modified_buffers > 0 then
+    -- Ask user what to do
+    local choice = vim.fn.confirm(
+      "You have unsaved changes. What would you like to do?",
+      "&Save all and quit\n&Discard changes and quit\n&Cancel",
+      1
+    )
+
+    if choice == 1 then
+      -- Save all and quit
+      vim.cmd("wa")
+      vim.cmd("qa")
+    elseif choice == 2 then
+      -- Force quit without saving
+      vim.cmd("qa!")
+    end
+    -- If choice == 3 or 0 (canceled), do nothing
+  else
+    -- No modified buffers, quit normally
+    vim.cmd("qa")
+  end
+end, { desc = "Quit Neovim" })
 
 -- Split current window vertically with buffer picker (includes files and terminal buffers)
 vim.keymap.set("n", "<leader>wv", function()
@@ -208,8 +235,16 @@ vim.keymap.set("n", "<leader>sg", function()
                 picker:close()
                 vim.schedule(function()
                     vim.api.nvim_set_current_win(current_win)
-                    vim.cmd("edit " .. vim.fn.fnameescape(item.file))
-                    vim.api.nvim_win_set_cursor(0, {item.lnum or 1, (item.col or 1) - 1})
+                    -- Use item.pos if available (standard Snacks picker format)
+                    if item.pos then
+                        vim.cmd("edit +" .. item.pos[1] .. " " .. vim.fn.fnameescape(item.file))
+                    else
+                        vim.cmd("edit " .. vim.fn.fnameescape(item.file))
+                        -- Try multiple field name possibilities
+                        local line = item.lnum or item.line or item.pos and item.pos[1] or 1
+                        local col = (item.col or item.column or item.pos and item.pos[2] or 1) - 1
+                        vim.api.nvim_win_set_cursor(0, {line, col})
+                    end
                 end)
             end
         })
@@ -217,25 +252,6 @@ vim.keymap.set("n", "<leader>sg", function()
         vim.notify("No grep picker available", vim.log.levels.WARN)
     end
 end, { desc = "Grep (current window)" })
-
--- Override <leader>sG to use current window for grep string
-vim.keymap.set("n", "<leader>sG", function()
-    if Snacks and Snacks.picker then
-        local current_win = vim.api.nvim_get_current_win()
-        Snacks.picker.grep_word({
-            confirm = function(picker, item)
-                picker:close()
-                vim.schedule(function()
-                    vim.api.nvim_set_current_win(current_win)
-                    vim.cmd("edit " .. vim.fn.fnameescape(item.file))
-                    vim.api.nvim_win_set_cursor(0, {item.lnum or 1, (item.col or 1) - 1})
-                end)
-            end
-        })
-    else
-        vim.notify("No grep string picker available", vim.log.levels.WARN)
-    end
-end, { desc = "Grep string (current window)" })
 
 -- Diagnostic keymaps
 vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, { desc = "Go to previous diagnostic" })

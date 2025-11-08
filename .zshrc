@@ -67,6 +67,9 @@ if command -v go &>/dev/null; then
     _add_to_path_if_exists "$(go env GOPATH)/bin"
 fi
 
+# Rust/Cargo binaries
+_add_to_path_if_exists "$HOME/.cargo/bin"
+
 # --- Node.js Configuration ---
 # Use Homebrew Node.js by default (it's already in PATH via brew)
 # NVM is available if needed with explicit nvm commands
