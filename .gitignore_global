@@ -1,4 +1,4 @@
-# AI 
+# AI
 CLAUDE.md
 .claude/
 
@@ -11,3 +11,6 @@ CLAUDE.md
 
 # Local environment files
 .env
+
+# GitHub wiki (cloned locally for viewing)
+.wiki/

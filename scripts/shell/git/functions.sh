@@ -1618,3 +1618,138 @@ grw() {
 
     return $exit_code
 }
+
+# wiki - Manage GitHub wiki locally
+# Usage:
+#   wiki pull  - Clone (if needed) or pull latest changes
+#   wiki push  - Pull latest, check for conflicts, then push
+wiki() {
+    local action="$1"
+
+    if [[ -z "$action" ]]; then
+        echo "❌ Please specify an action: pull or push"
+        echo "Usage: wiki pull | wiki push"
+        return 1
+    fi
+
+    # Check if we're in a git repository
+    if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+        echo "❌ Not in a git repository"
+        return 1
+    fi
+
+    # Get the repository root and remote URL
+    local repo_root=$(git rev-parse --show-toplevel)
+    local remote_url=$(git config --get remote.origin.url)
+
+    if [[ -z "$remote_url" ]]; then
+        echo "❌ No remote origin found"
+        return 1
+    fi
+
+    # Convert remote URL to wiki URL
+    # Support both SSH and HTTPS formats
+    local wiki_url
+    local org
+    local repo
+
+    # Use sed for more reliable parsing in zsh
+    if [[ "$remote_url" =~ ^git@github\.com:(.+)/(.+)\.git$ ]]; then
+        # SSH format: git@github.com:org/repo.git
+        org=$(echo "$remote_url" | sed -E 's|git@github\.com:([^/]+)/.*|\1|')
+        repo=$(echo "$remote_url" | sed -E 's|git@github\.com:[^/]+/(.+)\.git|\1|')
+        wiki_url="git@github.com:$org/$repo.wiki.git"
+    elif [[ "$remote_url" =~ ^https://github\.com/ ]]; then
+        # HTTPS format: https://github.com/org/repo.git or https://github.com/org/repo
+        org=$(echo "$remote_url" | sed -E 's|https://github\.com/([^/]+)/.*|\1|')
+        repo=$(echo "$remote_url" | sed -E 's|https://github\.com/[^/]+/([^/\.]+).*|\1|')
+        wiki_url="https://github.com/$org/$repo.wiki.git"
+    else
+        echo "❌ Could not parse GitHub URL from remote: $remote_url"
+        return 1
+    fi
+
+    local wiki_dir="$repo_root/.wiki"
+
+    # Handle different actions
+    case "$action" in
+        pull)
+            if [[ ! -d "$wiki_dir" ]]; then
+                echo "📚 Cloning wiki from $wiki_url..."
+                git clone "$wiki_url" "$wiki_dir"
+
+                if [[ $? -ne 0 ]]; then
+                    echo "❌ Failed to clone wiki. The repository might not have a wiki enabled."
+                    return 1
+                fi
+
+                echo "✅ Wiki cloned to $wiki_dir"
+            else
+                echo "🔄 Pulling latest wiki changes..."
+                (cd "$wiki_dir" && git pull)
+                echo "✅ Wiki updated"
+            fi
+            ;;
+        push)
+            if [[ ! -d "$wiki_dir" ]]; then
+                echo "❌ Wiki not cloned yet. Run 'wiki pull' first."
+                return 1
+            fi
+
+            # Check if there are local changes to push
+            if (cd "$wiki_dir" && git diff-index --quiet HEAD --); then
+                echo "⚠️  No local changes to push"
+                return 0
+            fi
+
+            # First, pull latest changes to check for conflicts
+            echo "🔄 Pulling latest changes before push..."
+            (cd "$wiki_dir" && git pull)
+            local pull_exit=$?
+
+            if [[ $pull_exit -ne 0 ]]; then
+                echo "❌ Pull failed! There may be merge conflicts."
+                echo "📍 Wiki location: $wiki_dir"
+                echo "🔧 Please resolve conflicts manually:"
+                echo "   cd $wiki_dir"
+                echo "   git status"
+                echo "   # Resolve conflicts, then:"
+                echo "   git add ."
+                echo "   git commit"
+                echo "   wiki push"
+                return 1
+            fi
+
+            # Check if merge created conflicts
+            if (cd "$wiki_dir" && git diff --name-only --diff-filter=U | grep -q .); then
+                echo "❌ Merge conflicts detected!"
+                echo "📍 Conflicting files:"
+                (cd "$wiki_dir" && git diff --name-only --diff-filter=U)
+                echo ""
+                echo "🔧 Please resolve conflicts manually:"
+                echo "   cd $wiki_dir"
+                echo "   # Edit conflicting files, then:"
+                echo "   git add ."
+                echo "   git commit"
+                echo "   wiki push"
+                return 1
+            fi
+
+            # All clear, push changes
+            echo "📤 Pushing wiki changes..."
+            (cd "$wiki_dir" && git push)
+
+            if [[ $? -eq 0 ]]; then
+                echo "✅ Wiki pushed to GitHub successfully"
+            else
+                echo "❌ Failed to push wiki changes"
+                return 1
+            fi
+            ;;
+        *)
+            echo "❌ Unknown action: $action"
+            echo "Usage: wiki pull | wiki push"
+            return 1
+            ;;
+    esac
+}
