@@ -258,6 +258,11 @@ fi
           },
         },
       },
+      sources = {
+        grep = {
+          hidden = true, -- Include hidden files and folders like .github
+        },
+      },
     },
     -- Lazygit integration
     lazygit = { enabled = true },
@@ -316,6 +321,17 @@ fi
     { "<leader>gf",       function() Snacks.lazygit.log_file() end,        desc = "Lazygit Current File History" },
     { "<leader>gg",       function() Snacks.lazygit() end,                 desc = "Lazygit" },
     { "<leader>gl",       function() Snacks.lazygit.log() end,             desc = "Lazygit Log (cwd)" },
+
+    -- Docker
+    { "<leader>dd",       function()
+      Snacks.terminal.open("lazydocker", {
+        win = {
+          position = "float",
+          width = 0.9,
+          height = 0.9,
+        }
+      })
+    end, desc = "Lazydocker" },
 
     -- Misc
     { "<leader>un",       function() Snacks.notifier.hide() end,           desc = "Dismiss All Notifications" },
