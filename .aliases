@@ -30,15 +30,18 @@ alias grv='gh run view'
 # grw is now a function in scripts/shell/git/functions.sh (with notification support)
 alias gtl="git tag --sort=-v:refname | head -n 1"
 
-# programs
+# lazy
 alias lg='lazygit'
 alias ld='lazydocker'
+alias sql='lazysql'
 
+# kubernets
 alias k="kubectl"
 alias ka="kubectl apply -f . -R"
 alias kctx="kubectx"
 alias kns="kubens"
 
+# terraform
 alias tf="terraform"
 alias tfa="terraform apply"
 alias tfi="terraform init"
