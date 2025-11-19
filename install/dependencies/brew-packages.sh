@@ -36,4 +36,8 @@ done
 
 brew link --force libpq
 
+# Ensure pipx path is configured
+echo "🔧 Configuring pipx path..."
+pipx ensurepath
+
 echo "✓ Homebrew packages ready."

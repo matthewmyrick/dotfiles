@@ -29,6 +29,13 @@ export TERM=xterm-256color
 # hadrius sso configuration
 export AWS_PROFILE=hadrius-dev
 
+# hadrius terraform configuration
+export US_EAST_2_VARS=/Users/matthewmyrick/Github/1Quantbase/hadrius_backend/infra/terraform/us-east-2/region.tfvars
+export US_EAST_2_CLIENT_VARS=/Users/matthewmyrick/Github/1Quantbase/hadrius_backend/infra/terraform/us-east-2/shared/client.tfvars
+
+# Python interactive startup script (used by ptpython)
+export PYTHONSTARTUP="$HOME/.ptpython/startup.py"
+
 # Disable virtualenv's default prompt modification (we handle it in our custom prompt)
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 

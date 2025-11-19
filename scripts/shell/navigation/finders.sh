@@ -180,9 +180,9 @@ fft() {
     local tf_dirs
     # Use fd if available (much faster), otherwise fall back to find
     if command -v fd &>/dev/null; then
-        tf_dirs=$(fd -t f -e tf --max-depth 6 --exclude node_modules --exclude .git --exclude .terraform . "$search_path" 2>/dev/null | xargs -n1 dirname | sort -u)
+        tf_dirs=$(fd -e tf -t f --hidden --exclude node_modules --exclude .git --exclude .terraform "$search_path" 2>/dev/null | xargs -n1 dirname | sort -u)
     else
-        tf_dirs=$(find "$search_path" -maxdepth 6 -name "node_modules" -prune -o -name ".git" -prune -o -name ".terraform" -prune -o -name "*.tf" -type f -exec dirname {} \; 2>/dev/null | sort -u)
+        tf_dirs=$(find "$search_path" -name "node_modules" -prune -o -name ".git" -prune -o -name ".terraform" -prune -o -name "*.tf" -type f -exec dirname {} \; 2>/dev/null | sort -u)
     fi
     
     # Check if any Terraform directories were found

@@ -53,4 +53,8 @@ else
   osascript -e 'tell application "System Events" to tell process "Hammerspoon" to click menu item "Reload Config" of menu "Hammerspoon" of menu bar item "Hammerspoon" of menu bar 1' 2>/dev/null || echo "    Note: Could not reload config automatically"
 fi
 
+echo "  Installing ptpython config..."
+mkdir -p ~/.ptpython
+cp "$DOTFILES_DIR/ptpython/"* ~/.ptpython/
+
 echo "✓ Dotfiles installed successfully!"

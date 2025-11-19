@@ -35,6 +35,9 @@ alias lg='lazygit'
 alias ld='lazydocker'
 alias sql='lazysql'
 
+# python
+alias ptpy='ptpython'
+
 # kubernets
 alias k="kubectl"
 alias ka="kubectl apply -f . -R"
