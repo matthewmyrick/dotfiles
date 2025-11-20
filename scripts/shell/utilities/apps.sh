@@ -3,7 +3,7 @@
 # apps - Fuzzy search and launch applications
 # Usage: apps [search_term]
 
-apps() {
+_apps_launch() {
     local search_term="$1"
     local app_dirs=(
         "/Applications"
@@ -117,7 +117,7 @@ apps_main() {
             ;;
         *)
             # Default behavior - launch apps
-            apps "$@"
+            _apps_launch "$@"
             ;;
     esac
 }
