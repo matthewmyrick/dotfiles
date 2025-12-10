@@ -98,6 +98,11 @@ export TLDR_CACHE_DIR="$HOME/.cache/tldr"
 # Load aliases from separate file
 [[ -f "$HOME/.aliases" ]] && source "$HOME/.aliases"
 
+# --- CLEANUP SCRIPTS ---
+# Clean up old Claude Code context folders (older than 2 weeks)
+[[ -f "$HOME/GitHub/matthewmyrick/dotfiles/scripts/shell/cleanup/claude-context.sh" ]] && \
+  source "$HOME/GitHub/matthewmyrick/dotfiles/scripts/shell/cleanup/claude-context.sh"
+
 # --- MODULAR SHELL FUNCTIONS ---
 # Load the shell module system with lazy loading
 # Functions are only loaded when first called, optimizing startup time

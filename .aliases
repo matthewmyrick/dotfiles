@@ -38,6 +38,9 @@ alias sql='lazysql'
 # python
 alias ptpy='ptpython'
 
+# database
+alias pg='NVIM_APPNAME=nvim-postgres nvim'
+
 # kubernets
 alias k="kubectl"
 alias ka="kubectl apply -f . -R"

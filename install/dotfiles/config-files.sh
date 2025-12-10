@@ -20,6 +20,12 @@ echo "  Installing Neovim config..."
 rm -rf ~/.config/nvim
 cp -R "$DOTFILES_DIR/nvim" ~/.config/
 
+# Install nvim-postgres config (PostgreSQL client)
+echo "  Installing nvim-postgres config..."
+rm -rf ~/.config/nvim-postgres
+cp -R "$DOTFILES_DIR/nvim-postgres" ~/.config/
+mkdir -p ~/.config/nvim-postgres/sql
+
 # yazi removed - no longer needed
 
 echo "  Installing ghostty config..."

@@ -48,25 +48,19 @@ prompt_header() {
         header+='🐍 '; # Python snake emoji
         header+="%F{22}(${venv_name})%f"; # venv name in darker green (less bright)
     fi
-    
-    # Directory with icon
-    if [[ -z "$VIRTUAL_ENV" ]]; then
-        header+=' %F{241}•%f '; # separator dot only if no venv
-    else
-        header+=' '; # just space if venv is shown
-    fi
-    header+='%F{cyan}%f'; # folder icon in cyan
-    header+='%B%F{blue}%~%f%b'; # working directory in blue
-    
-    # Git info on same line if in repo
+
+    # Git branch (before directory, only if in a repo)
     if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         local branch=$(git_branch 2>/dev/null)
-        # Removed git_status call - just show branch
         header+=' %F{241}•%f '; # separator
         header+='%F{magenta}%f'; # git icon in magenta
         header+="%B%F{183}${branch}%f%b"; # branch in soft light purple
-        # Removed status display
     fi
+
+    # Directory with icon
+    header+=' %F{241}•%f '; # separator dot
+    header+='%F{cyan}%f'; # folder icon in cyan
+    header+='%B%F{blue}%~%f%b'; # working directory in blue
     
     # Add NYC weather (if we can get it)
     # This will be populated by a background job to avoid slowing prompt

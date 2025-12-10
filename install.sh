@@ -27,6 +27,7 @@ while [[ $# -gt 0 ]]; do
       echo "                          Available targets:"
       echo "                            brew        - Homebrew and packages"
       echo "                            nvim        - Neovim configuration"
+      echo "                            nvim-dbee   - Database client (nvim-dbee)"
       echo "                            sketchybar  - SketchyBar configuration"
       echo "                            ghostty     - Ghostty terminal configuration"
       echo "                            scripts     - Shell scripts and modules"
@@ -54,12 +55,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|sketchybar|ghostty|scripts|hammerspoon|claude|prompt)
+    brew|nvim|nvim-dbee|sketchybar|ghostty|scripts|hammerspoon|claude|prompt)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, sketchybar, ghostty, scripts, hammerspoon, claude, prompt"
+      echo "Valid targets: brew, nvim, nvim-dbee, sketchybar, ghostty, scripts, hammerspoon, claude, prompt"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -69,7 +70,7 @@ fi
 function installNvimOnly() {
   echo "🚀 Starting Neovim configuration installation..."
   echo ""
-  
+
   # Run only nvim-related scripts
   if [ -f "$INSTALL_DIR/install/dotfiles/nvim.sh" ]; then
     echo "═══════════════════════════════════════════════════════════════"
@@ -84,7 +85,7 @@ function installNvimOnly() {
     echo "⚠️  Neovim installation script not found at $INSTALL_DIR/install/dotfiles/nvim.sh"
     return 1
   fi
-  
+
   echo ""
   echo "═══════════════════════════════════════════════════════════════"
   echo "🎉 Neovim installation completed!"
@@ -93,6 +94,33 @@ function installNvimOnly() {
   echo "📋 Next Steps:"
   echo "  - Open Neovim and run :Lazy sync to install plugins"
   echo "  - Configuration is located at ~/GitHub/matthewmyrick/dotfiles/nvim"
+  echo ""
+}
+
+function installNvimDbeeOnly() {
+  echo "🚀 Starting nvim-dbee (database client) installation..."
+  echo ""
+
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🔄 Installing nvim-dbee configuration..."
+  echo "═══════════════════════════════════════════════════════════════"
+
+  # Install nvim-dbee config
+  rm -rf ~/.config/nvim-dbee
+  cp -R "$INSTALL_DIR/nvim-dbee" ~/.config/
+
+  echo "✅ nvim-dbee configuration installed successfully!"
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 nvim-dbee installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Usage:"
+  echo "  - Run 'dbc' to open the database client"
+  echo "  - First run will install plugins and compile Go backend"
+  echo "  - Use <leader>db to toggle database explorer"
+  echo "  - Configuration at ~/.config/nvim-dbee"
   echo ""
 }
 
@@ -665,6 +693,22 @@ case "$INSTALL_TARGET" in
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
       installNvimOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
+  nvim-dbee)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                   NVIM-DBEE INSTALLER                        ║"
+    echo "║                                                               ║"
+    echo "║  This will install the database client (nvim-dbee)           ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installNvimDbeeOnly
     else
       echo "Installation cancelled."
       exit 0
