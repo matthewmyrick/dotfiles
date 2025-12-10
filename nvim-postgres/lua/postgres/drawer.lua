@@ -335,6 +335,42 @@ local function setup_keymaps(bufnr)
     vim.notify("Refreshed", vim.log.levels.INFO)
   end, opts)
 
+  -- Disconnect/deactivate connection
+  vim.keymap.set("n", "x", function()
+    local line = vim.api.nvim_win_get_cursor(0)[1]
+    local data = get_line_data(bufnr, line)
+    if not data then
+      return
+    end
+
+    -- Get the connection id from the current line (works for connection, schema, or table)
+    local conn_id = nil
+    if data.type == "connection" then
+      conn_id = data.id
+    elseif data.type == "schema" or data.type == "table" then
+      conn_id = data.conn_id
+    end
+
+    if conn_id then
+      local active_id = connections.get_active_id()
+      if active_id == conn_id then
+        -- Collapse the connection (clear expanded state)
+        state.expanded[conn_id] = nil
+        -- Also collapse all schemas under this connection
+        for key, _ in pairs(state.expanded) do
+          if key:match("^" .. conn_id .. ":") then
+            state.expanded[key] = nil
+          end
+        end
+        -- Deactivate
+        connections.set_active(nil)
+        local conn = connections.get(conn_id)
+        vim.notify("Disconnected from " .. (conn and conn.name or "connection"), vim.log.levels.INFO)
+        M.refresh()
+      end
+    end
+  end, opts)
+
   -- Close drawer (can reopen with <leader>po)
   vim.keymap.set("n", "q", function()
     M.close()
@@ -593,6 +629,7 @@ function M.show_help()
     "  a            Add new connection",
     "  e            Edit connection",
     "  dd           Delete connection",
+    "  x            Disconnect (deactivate)",
     "  r            Refresh (clear cache)",
     "",
     " Search (global)",
