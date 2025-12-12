@@ -44,6 +44,9 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 : ${HOMEBREW_PREFIX:=/opt/homebrew}
 [[ -x /usr/local/bin/brew ]] && HOMEBREW_PREFIX=/usr/local
 
+# Ensure Homebrew bin is in PATH early (fixes "command not found" issues)
+[[ -d "$HOMEBREW_PREFIX/bin" ]] && export PATH="$HOMEBREW_PREFIX/bin:$PATH"
+
 # --- ZSH PLUGINS (Minimal, Fast Loading) ---
 # zsh-autosuggestions (load before syntax-highlighting)
 if [ -f "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]; then
@@ -84,7 +87,6 @@ _add_to_path_if_exists "$HOME/.cargo/bin"
 export NVM_DIR="$HOME/.nvm"
 # Load nvm only when explicitly called
 nvm() { unset -f nvm; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; nvm "$@"; }
-_add_to_path_if_exists "$(brew --prefix 2>/dev/null)/bin"
 
 # Rancher Desktop (if installed)
 _add_to_path_if_exists "$HOME/.rd/bin"
