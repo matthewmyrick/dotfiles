@@ -603,6 +603,12 @@ interactive_select() {
     connect_by_index "$index" "$name"
 }
 
+# Set terminal title (works with Ghostty, iTerm2, etc.)
+set_terminal_title() {
+    local title="$1"
+    printf '\e]2;%s\e\\' "$title"
+}
+
 # Connect by index
 connect_by_index() {
     local index="$1"
@@ -615,6 +621,26 @@ connect_by_index() {
     local user=$(yq ".connections[$index].user" "$SSM_CONFIG_FILE")
     local port=$(yq ".connections[$index].port // 22" "$SSM_CONFIG_FILE")
     local key=$(yq ".connections[$index].key // \"\"" "$SSM_CONFIG_FILE")
+
+    # Get region for terminal title
+    local region=""
+    case "$cloud" in
+        aws)
+            region=$(yq ".connections[$index].aws_region // \"\"" "$SSM_CONFIG_FILE")
+            ;;
+        azure)
+            region=$(yq ".connections[$index].azure_region // \"\"" "$SSM_CONFIG_FILE")
+            ;;
+        static)
+            region="static"
+            ;;
+    esac
+    [ "$region" == "null" ] && region=""
+
+    # Set terminal title: <name>-<region>
+    local title="$name"
+    [ -n "$region" ] && title="$name-$region"
+    set_terminal_title "$title"
 
     # Get IP
     print_info "Fetching IP address..."
