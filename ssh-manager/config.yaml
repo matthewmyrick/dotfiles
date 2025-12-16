@@ -1,0 +1,40 @@
+# SSH Manager Configuration
+#
+# Display format: <name> | <region> | <id> | <cloud_name> | <provider> | <tags>
+#
+# AWS Connection (instance_id is REQUIRED):
+#   - name: friendly-name
+#     cloud: aws
+#     instance_id: i-1234567890     # AWS instance ID (REQUIRED)
+#     instance_name: my-server      # AWS Name tag (optional, for display)
+#     aws_profile: default          # AWS profile to use
+#     aws_region: us-east-2         # AWS region
+#     user: ubuntu                  # SSH user
+#     key: my-key.pem               # Key filename (in keys directory)
+#     port: 22                      # SSH port (optional, default 22)
+#     tags:
+#       env: production
+#       team: platform
+#
+# Azure Connection (instance_id is REQUIRED):
+#   - name: my-azure-vm
+#     cloud: azure
+#     instance_id: /subscriptions/.../resourceGroups/.../providers/Microsoft.Compute/virtualMachines/my-vm
+#     instance_name: my-vm          # Azure VM name (optional, for display)
+#     azure_subscription: default   # Azure subscription
+#     azure_region: eastus          # Azure region
+#     user: azureuser
+#     key: azure-key.pem
+#     tags:
+#       env: staging
+#
+# Static IP (no cloud lookup):
+#   - name: my-static-server
+#     cloud: static
+#     ip: 192.168.1.100
+#     user: admin
+#     key: static-key.pem
+#     tags:
+#       env: dev
+
+connections: []

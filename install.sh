@@ -34,6 +34,7 @@ while [[ $# -gt 0 ]]; do
       echo "                            hammerspoon - Hammerspoon configuration"
       echo "                            claude      - Claude commands"
       echo "                            prompt      - Terminal prompt configuration"
+      echo "                            ssm         - SSH Manager (interactive SSH)"
       echo ""
       echo "  -h, --help              Show this help message"
       echo ""
@@ -55,12 +56,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|nvim-dbee|sketchybar|ghostty|scripts|hammerspoon|claude|prompt)
+    brew|nvim|nvim-dbee|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, nvim-dbee, sketchybar, ghostty, scripts, hammerspoon, claude, prompt"
+      echo "Valid targets: brew, nvim, nvim-dbee, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -324,7 +325,7 @@ function installClaudeCommandsOnly() {
 function installPromptOnly() {
   echo "🚀 Starting terminal prompt installation..."
   echo ""
-  
+
   if [ -f "$INSTALL_DIR/install/dotfiles/prompt.sh" ]; then
     echo "═══════════════════════════════════════════════════════════════"
     echo "🔄 Installing terminal prompt configuration..."
@@ -338,7 +339,7 @@ function installPromptOnly() {
     echo "⚠️  Prompt installation script not found"
     return 1
   fi
-  
+
   echo ""
   echo "═══════════════════════════════════════════════════════════════"
   echo "🎉 Prompt installation completed!"
@@ -350,6 +351,49 @@ function installPromptOnly() {
   echo "  • Colorful modern design"
   echo ""
   echo "🔄 Run 'source ~/.zshrc' to apply changes"
+  echo ""
+}
+
+function installSsmOnly() {
+  echo "🚀 Starting SSH Manager (ssm) installation..."
+  echo ""
+
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🔄 Installing SSH Manager..."
+  echo "═══════════════════════════════════════════════════════════════"
+
+  # Create directories
+  mkdir -p ~/.config/ssh-manager/keys
+
+  # Copy ssm script
+  cp "$INSTALL_DIR/ssh-manager/ssm" ~/.config/ssh-manager/
+  chmod +x ~/.config/ssh-manager/ssm
+
+  # Only copy config if it doesn't exist (preserve user's connections)
+  if [ ! -f ~/.config/ssh-manager/config.yaml ]; then
+    cp "$INSTALL_DIR/ssh-manager/config.yaml" ~/.config/ssh-manager/
+    echo "  Created default config.yaml"
+  else
+    echo "  Preserved existing config.yaml"
+  fi
+
+  echo "✅ SSH Manager installed successfully!"
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 SSH Manager installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Usage:"
+  echo "  • ssm              - Interactive SSH connection picker"
+  echo "  • ssm --add        - Add a new connection"
+  echo "  • ssm --list       - List all connections"
+  echo "  • ssm --keys       - List available PEM keys"
+  echo "  • ssm --add-key    - Add a new PEM key"
+  echo ""
+  echo "📁 Configuration:"
+  echo "  • Config: ~/.config/ssh-manager/config.yaml"
+  echo "  • Keys:   ~/.config/ssh-manager/keys/"
   echo ""
 }
 
@@ -844,7 +888,23 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
+  ssm)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                   SSH MANAGER INSTALLER                       ║"
+    echo "║                                                               ║"
+    echo "║  This will install the SSH Manager (ssm) tool                ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installSsmOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
 esac
 
 # Cleanup
-unset installDotfiles installNvimOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly
+unset installDotfiles installNvimOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly

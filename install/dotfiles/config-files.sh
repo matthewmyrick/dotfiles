@@ -63,4 +63,20 @@ echo "  Installing ptpython config..."
 mkdir -p ~/.ptpython
 cp "$DOTFILES_DIR/ptpython/"* ~/.ptpython/
 
+echo "  Installing sre-agent..."
+mkdir -p ~/.config/sre-agent/services
+mkdir -p ~/.config/sre-agent/analysis
+cp "$DOTFILES_DIR/sre-agent/sre" ~/.config/sre-agent/
+chmod +x ~/.config/sre-agent/sre
+cp "$DOTFILES_DIR/sre-agent/services/"* ~/.config/sre-agent/services/ 2>/dev/null || true
+
+echo "  Installing ssh-manager..."
+mkdir -p ~/.config/ssh-manager/keys
+cp "$DOTFILES_DIR/ssh-manager/ssm" ~/.config/ssh-manager/
+chmod +x ~/.config/ssh-manager/ssm
+# Only copy config if it doesn't exist (preserve user's connections)
+if [ ! -f ~/.config/ssh-manager/config.yaml ]; then
+    cp "$DOTFILES_DIR/ssh-manager/config.yaml" ~/.config/ssh-manager/
+fi
+
 echo "✓ Dotfiles installed successfully!"

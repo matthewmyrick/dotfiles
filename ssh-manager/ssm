@@ -1,0 +1,698 @@
+#!/bin/bash
+
+# SSH Manager (ssm) - Interactive SSH connection manager with cloud provider support
+# Usage:
+#   ssm                    # Interactive fuzzy select
+#   ssm --add              # Add new connection
+#   ssm --list             # List all connections
+#   ssm --edit             # Edit config file
+#   ssm --keys             # List available keys
+#   ssm --add-key          # Add a new key file
+
+set -e
+
+# Configuration
+SSM_CONFIG_DIR="$HOME/.config/ssh-manager"
+SSM_CONFIG_FILE="$SSM_CONFIG_DIR/config.yaml"
+SSM_KEYS_DIR="$SSM_CONFIG_DIR/keys"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Print functions
+print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+# Show usage
+usage() {
+    cat << EOF
+SSH Manager (ssm) - Interactive SSH connection manager
+
+USAGE:
+    ssm                    Interactive fuzzy select and connect
+    ssm --add              Add new connection
+    ssm --list             List all connections
+    ssm --edit             Edit config file in \$EDITOR
+    ssm --keys             List available key files
+    ssm --add-key <file>   Copy a key file to the keys directory
+    ssm --help             Show this help message
+
+EXAMPLES:
+    ssm                    # Select from all connections
+    ssm --add              # Add a new SSH connection
+    ssm --add-key ~/Downloads/my-key.pem
+
+CONFIG:
+    Config file: $SSM_CONFIG_FILE
+    Keys dir:    $SSM_KEYS_DIR
+
+EOF
+    exit 0
+}
+
+# Ensure config directory exists
+ensure_config() {
+    mkdir -p "$SSM_CONFIG_DIR"
+    mkdir -p "$SSM_KEYS_DIR"
+
+    if [ ! -f "$SSM_CONFIG_FILE" ]; then
+        cat > "$SSM_CONFIG_FILE" << 'YAML'
+# SSH Manager Configuration
+#
+# Display format: <name> | <region> | <id> | <cloud_name> | <provider> | <tags>
+#
+# AWS Connection (instance_id is REQUIRED):
+#   - name: friendly-name
+#     cloud: aws
+#     instance_id: i-1234567890     # AWS instance ID (REQUIRED)
+#     instance_name: my-server      # AWS Name tag (optional, for display)
+#     aws_profile: default          # AWS profile to use
+#     aws_region: us-east-2         # AWS region
+#     user: ubuntu                  # SSH user
+#     key: my-key.pem               # Key filename (in keys directory)
+#     port: 22                      # SSH port (optional, default 22)
+#     tags:
+#       env: production
+#       team: platform
+#
+# Azure Connection (instance_id is REQUIRED):
+#   - name: my-azure-vm
+#     cloud: azure
+#     instance_id: /subscriptions/.../resourceGroups/.../providers/Microsoft.Compute/virtualMachines/my-vm
+#     instance_name: my-vm          # Azure VM name (optional, for display)
+#     azure_subscription: default   # Azure subscription
+#     azure_region: eastus          # Azure region
+#     user: azureuser
+#     key: azure-key.pem
+#     tags:
+#       env: staging
+#
+# Static IP (no cloud lookup):
+#   - name: my-static-server
+#     cloud: static
+#     ip: 192.168.1.100
+#     user: admin
+#     key: static-key.pem
+#     tags:
+#       env: dev
+
+connections: []
+YAML
+        print_info "Created default config at $SSM_CONFIG_FILE"
+    fi
+}
+
+# Check dependencies
+check_deps() {
+    local missing=()
+
+    if ! command -v yq &>/dev/null; then
+        missing+=("yq")
+    fi
+
+    if ! command -v fzf &>/dev/null; then
+        missing+=("fzf")
+    fi
+
+    if ! command -v jq &>/dev/null; then
+        missing+=("jq")
+    fi
+
+    if [ ${#missing[@]} -gt 0 ]; then
+        print_error "Missing dependencies: ${missing[*]}"
+        print_info "Install with: brew install ${missing[*]}"
+        exit 1
+    fi
+}
+
+# Get AWS private IP by instance ID
+get_aws_ip_by_id() {
+    local instance_id="$1"
+    local profile="$2"
+    local region="$3"
+
+    aws ec2 describe-instances \
+        --instance-ids "$instance_id" \
+        --profile "$profile" \
+        --region "$region" \
+        --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+        --output text 2>/dev/null
+}
+
+# Get AWS private IP by Name tag
+get_aws_ip_by_name() {
+    local name="$1"
+    local profile="$2"
+    local region="$3"
+
+    aws ec2 describe-instances \
+        --filters "Name=tag:Name,Values=$name" "Name=instance-state-name,Values=running" \
+        --profile "$profile" \
+        --region "$region" \
+        --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+        --output text 2>/dev/null
+}
+
+# Get IP for a connection
+get_connection_ip() {
+    local index="$1"
+    local cloud=$(yq ".connections[$index].cloud" "$SSM_CONFIG_FILE")
+
+    case "$cloud" in
+        aws)
+            local instance_id=$(yq ".connections[$index].instance_id // \"\"" "$SSM_CONFIG_FILE")
+            local instance_name=$(yq ".connections[$index].instance_name // \"\"" "$SSM_CONFIG_FILE")
+            local profile=$(yq ".connections[$index].aws_profile // \"default\"" "$SSM_CONFIG_FILE")
+            local region=$(yq ".connections[$index].aws_region // \"us-east-2\"" "$SSM_CONFIG_FILE")
+
+            local ip=""
+
+            # Try instance ID first
+            if [ -n "$instance_id" ] && [ "$instance_id" != "null" ]; then
+                ip=$(get_aws_ip_by_id "$instance_id" "$profile" "$region")
+            fi
+
+            # Fallback to Name tag
+            if [ -z "$ip" ] || [ "$ip" == "None" ] || [ "$ip" == "null" ]; then
+                if [ -n "$instance_name" ] && [ "$instance_name" != "null" ]; then
+                    ip=$(get_aws_ip_by_name "$instance_name" "$profile" "$region")
+                fi
+            fi
+
+            echo "$ip"
+            ;;
+        azure)
+            # TODO: Add Azure support
+            print_warning "Azure support not yet implemented"
+            echo ""
+            ;;
+        static)
+            yq ".connections[$index].ip" "$SSM_CONFIG_FILE"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
+}
+
+# List available keys
+list_keys() {
+    print_info "Available SSH keys in $SSM_KEYS_DIR:"
+    echo ""
+
+    if [ -d "$SSM_KEYS_DIR" ]; then
+        local count=0
+        shopt -s nullglob
+        for key in "$SSM_KEYS_DIR"/*.pem "$SSM_KEYS_DIR"/*.key; do
+            if [ -f "$key" ]; then
+                local keyname=$(basename "$key")
+                echo "  - $keyname"
+                count=$((count + 1))
+            fi
+        done
+        shopt -u nullglob
+
+        if [ $count -eq 0 ]; then
+            print_warning "No keys found. Add keys with: ssm --add-key <file>"
+        fi
+    else
+        print_warning "Keys directory not found"
+    fi
+    echo ""
+}
+
+# Add a key file
+add_key() {
+    local source_file="$1"
+
+    if [ -z "$source_file" ]; then
+        print_error "Please specify a key file to add"
+        echo "Usage: ssm --add-key <file>"
+        exit 1
+    fi
+
+    if [ ! -f "$source_file" ]; then
+        print_error "File not found: $source_file"
+        exit 1
+    fi
+
+    local keyname=$(basename "$source_file")
+    local dest="$SSM_KEYS_DIR/$keyname"
+
+    cp "$source_file" "$dest"
+    chmod 600 "$dest"
+
+    print_success "Added key: $keyname"
+    print_info "Location: $dest"
+}
+
+# Select key with fzf
+select_key() {
+    local keys=()
+
+    shopt -s nullglob
+    for key in "$SSM_KEYS_DIR"/*.pem "$SSM_KEYS_DIR"/*.key; do
+        if [ -f "$key" ]; then
+            keys+=("$(basename "$key")")
+        fi
+    done
+    shopt -u nullglob
+
+    if [ ${#keys[@]} -eq 0 ]; then
+        echo ""
+        return
+    fi
+
+    printf '%s\n' "${keys[@]}" | fzf --prompt="Select key (or ESC for none): " --height=40% --reverse || echo ""
+}
+
+# Add new connection
+add_connection() {
+    print_info "Adding new SSH connection"
+    echo ""
+
+    # Name
+    read -p "Connection name: " name
+    if [ -z "$name" ]; then
+        print_error "Name is required"
+        exit 1
+    fi
+
+    # Cloud provider
+    echo ""
+    echo "Cloud provider:"
+    echo "  1) aws"
+    echo "  2) azure"
+    echo "  3) static (manual IP)"
+    read -p "Select [1-3]: " cloud_choice
+
+    case "$cloud_choice" in
+        1) cloud="aws" ;;
+        2) cloud="azure" ;;
+        3) cloud="static" ;;
+        *) cloud="aws" ;;
+    esac
+
+    # Cloud-specific options
+    local instance_id=""
+    local instance_name=""
+    local aws_profile=""
+    local aws_region=""
+    local azure_subscription=""
+    local azure_region=""
+    local static_ip=""
+
+    if [ "$cloud" == "aws" ]; then
+        echo ""
+        # Instance ID is required for AWS
+        while [ -z "$instance_id" ]; do
+            read -p "AWS Instance ID (e.g., i-1234567890) [REQUIRED]: " instance_id
+            if [ -z "$instance_id" ]; then
+                print_error "Instance ID is required for AWS connections"
+            fi
+        done
+        read -p "AWS Instance Name (optional, for display): " instance_name
+        read -p "AWS Profile [hadrius-dev]: " aws_profile
+        aws_profile=${aws_profile:-hadrius-dev}
+        read -p "AWS Region [us-east-2]: " aws_region
+        aws_region=${aws_region:-us-east-2}
+    elif [ "$cloud" == "azure" ]; then
+        echo ""
+        # Resource ID is required for Azure
+        while [ -z "$instance_id" ]; do
+            read -p "Azure Resource ID [REQUIRED]: " instance_id
+            if [ -z "$instance_id" ]; then
+                print_error "Resource ID is required for Azure connections"
+            fi
+        done
+        read -p "Azure VM Name (optional, for display): " instance_name
+        read -p "Azure Subscription [default]: " azure_subscription
+        azure_subscription=${azure_subscription:-default}
+        read -p "Azure Region [eastus]: " azure_region
+        azure_region=${azure_region:-eastus}
+    elif [ "$cloud" == "static" ]; then
+        echo ""
+        read -p "Static IP address: " static_ip
+    fi
+
+    # SSH user
+    echo ""
+    read -p "SSH User [ubuntu]: " user
+    user=${user:-ubuntu}
+
+    # SSH port
+    read -p "SSH Port [22]: " port
+    port=${port:-22}
+
+    # Select key
+    echo ""
+    print_info "Select SSH key file:"
+    local key=$(select_key)
+    if [ -z "$key" ]; then
+        print_warning "No key selected (will connect without key)"
+    fi
+
+    # Tags
+    echo ""
+    print_info "Add tags (key=value format, comma-separated)"
+    print_info "Example: env=production,team=platform,service=api"
+    read -p "Tags: " tags_input
+
+    # Build YAML for new connection
+    local yaml_entry="  - name: $name
+    cloud: $cloud"
+
+    if [ "$cloud" == "aws" ]; then
+        [ -n "$instance_id" ] && yaml_entry="$yaml_entry
+    instance_id: $instance_id"
+        [ -n "$instance_name" ] && yaml_entry="$yaml_entry
+    instance_name: $instance_name"
+        yaml_entry="$yaml_entry
+    aws_profile: $aws_profile
+    aws_region: $aws_region"
+    elif [ "$cloud" == "static" ]; then
+        yaml_entry="$yaml_entry
+    ip: $static_ip"
+    fi
+
+    yaml_entry="$yaml_entry
+    user: $user
+    port: $port"
+
+    [ -n "$key" ] && yaml_entry="$yaml_entry
+    key: $key"
+
+    # Add tags
+    if [ -n "$tags_input" ]; then
+        yaml_entry="$yaml_entry
+    tags:"
+        IFS=',' read -ra tag_pairs <<< "$tags_input"
+        for tag in "${tag_pairs[@]}"; do
+            local key_part=$(echo "$tag" | cut -d'=' -f1 | xargs)
+            local val_part=$(echo "$tag" | cut -d'=' -f2 | xargs)
+            yaml_entry="$yaml_entry
+      $key_part: $val_part"
+        done
+    fi
+
+    # Append to config
+    # Check if connections array is empty
+    local conn_count=$(yq '.connections | length' "$SSM_CONFIG_FILE")
+
+    if [ "$conn_count" == "0" ]; then
+        # Replace empty array
+        yq -i ".connections = []" "$SSM_CONFIG_FILE"
+    fi
+
+    # Add new connection using yq
+    yq -i ".connections += [{\"name\": \"$name\", \"cloud\": \"$cloud\"}]" "$SSM_CONFIG_FILE"
+    local new_index=$((conn_count))
+
+    if [ "$cloud" == "aws" ]; then
+        yq -i ".connections[$new_index].instance_id = \"$instance_id\"" "$SSM_CONFIG_FILE"
+        [ -n "$instance_name" ] && yq -i ".connections[$new_index].instance_name = \"$instance_name\"" "$SSM_CONFIG_FILE"
+        yq -i ".connections[$new_index].aws_profile = \"$aws_profile\"" "$SSM_CONFIG_FILE"
+        yq -i ".connections[$new_index].aws_region = \"$aws_region\"" "$SSM_CONFIG_FILE"
+    elif [ "$cloud" == "azure" ]; then
+        yq -i ".connections[$new_index].instance_id = \"$instance_id\"" "$SSM_CONFIG_FILE"
+        [ -n "$instance_name" ] && yq -i ".connections[$new_index].instance_name = \"$instance_name\"" "$SSM_CONFIG_FILE"
+        yq -i ".connections[$new_index].azure_subscription = \"$azure_subscription\"" "$SSM_CONFIG_FILE"
+        yq -i ".connections[$new_index].azure_region = \"$azure_region\"" "$SSM_CONFIG_FILE"
+    elif [ "$cloud" == "static" ]; then
+        yq -i ".connections[$new_index].ip = \"$static_ip\"" "$SSM_CONFIG_FILE"
+    fi
+
+    yq -i ".connections[$new_index].user = \"$user\"" "$SSM_CONFIG_FILE"
+    yq -i ".connections[$new_index].port = $port" "$SSM_CONFIG_FILE"
+    [ -n "$key" ] && yq -i ".connections[$new_index].key = \"$key\"" "$SSM_CONFIG_FILE"
+
+    # Add tags
+    if [ -n "$tags_input" ]; then
+        yq -i ".connections[$new_index].tags = {}" "$SSM_CONFIG_FILE"
+        IFS=',' read -ra tag_pairs <<< "$tags_input"
+        for tag in "${tag_pairs[@]}"; do
+            local key_part=$(echo "$tag" | cut -d'=' -f1 | xargs)
+            local val_part=$(echo "$tag" | cut -d'=' -f2 | xargs)
+            yq -i ".connections[$new_index].tags.$key_part = \"$val_part\"" "$SSM_CONFIG_FILE"
+        done
+    fi
+
+    echo ""
+    print_success "Connection '$name' added!"
+    print_info "Connect with: ssm"
+}
+
+# List all connections
+list_connections() {
+    print_info "Configured SSH connections:"
+    echo ""
+    echo -e "  ${CYAN}Format: <name> | <region> | <id> | <cloud_name> | <provider> | <tags>${NC}"
+    echo ""
+
+    local count=$(yq '.connections | length' "$SSM_CONFIG_FILE")
+
+    if [ "$count" == "0" ]; then
+        print_warning "No connections configured"
+        print_info "Add one with: ssm --add"
+        return
+    fi
+
+    for ((i=0; i<count; i++)); do
+        local name=$(yq ".connections[$i].name" "$SSM_CONFIG_FILE")
+        local cloud=$(yq ".connections[$i].cloud" "$SSM_CONFIG_FILE")
+        local instance_id=$(yq ".connections[$i].instance_id // \"\"" "$SSM_CONFIG_FILE")
+        local instance_name=$(yq ".connections[$i].instance_name // \"\"" "$SSM_CONFIG_FILE")
+        local user=$(yq ".connections[$i].user" "$SSM_CONFIG_FILE")
+
+        # Get region based on cloud provider
+        local region=""
+        case "$cloud" in
+            aws)
+                region=$(yq ".connections[$i].aws_region // \"\"" "$SSM_CONFIG_FILE")
+                ;;
+            azure)
+                region=$(yq ".connections[$i].azure_region // \"\"" "$SSM_CONFIG_FILE")
+                ;;
+            static)
+                region=$(yq ".connections[$i].ip // \"\"" "$SSM_CONFIG_FILE")
+                ;;
+        esac
+
+        # Get tags as key=value pairs
+        local tags=$(yq ".connections[$i].tags | to_entries | map(.key + \"=\" + .value) | join(\", \")" "$SSM_CONFIG_FILE" 2>/dev/null || echo "")
+
+        # Clean up null values
+        [ "$instance_id" == "null" ] && instance_id=""
+        [ "$instance_name" == "null" ] && instance_name=""
+        [ "$region" == "null" ] && region=""
+        [ "$tags" == "null" ] && tags=""
+
+        # Build display line
+        local display_line="  $name"
+        display_line+=" | ${region:-N/A}"
+        display_line+=" | ${instance_id:-N/A}"
+
+        if [ -n "$instance_name" ]; then
+            display_line+=" | $instance_name"
+        fi
+
+        display_line+=" | $cloud"
+
+        if [ -n "$tags" ]; then
+            display_line+=" | $tags"
+        fi
+
+        echo -e "${CYAN}$display_line${NC}"
+        echo -e "    User: $user"
+        echo ""
+    done
+}
+
+# Interactive connection selection
+interactive_select() {
+    local count=$(yq '.connections | length' "$SSM_CONFIG_FILE")
+
+    if [ "$count" == "0" ]; then
+        print_warning "No connections configured"
+        print_info "Add one with: ssm --add"
+        exit 1
+    fi
+
+    # Build fzf input: <local_name> | <region> | <id> | <cloud_name> | <provider> | <tags>
+    local fzf_input=""
+
+    for ((i=0; i<count; i++)); do
+        local name=$(yq ".connections[$i].name" "$SSM_CONFIG_FILE")
+        local cloud=$(yq ".connections[$i].cloud" "$SSM_CONFIG_FILE")
+        local instance_id=$(yq ".connections[$i].instance_id // \"\"" "$SSM_CONFIG_FILE")
+        local instance_name=$(yq ".connections[$i].instance_name // \"\"" "$SSM_CONFIG_FILE")
+        local user=$(yq ".connections[$i].user" "$SSM_CONFIG_FILE")
+
+        # Get region based on cloud provider
+        local region=""
+        case "$cloud" in
+            aws)
+                region=$(yq ".connections[$i].aws_region // \"\"" "$SSM_CONFIG_FILE")
+                ;;
+            azure)
+                region=$(yq ".connections[$i].azure_region // \"\"" "$SSM_CONFIG_FILE")
+                ;;
+            static)
+                region=$(yq ".connections[$i].ip // \"\"" "$SSM_CONFIG_FILE")
+                ;;
+        esac
+
+        # Get tags as key=value pairs
+        local tags=$(yq ".connections[$i].tags | to_entries | map(.key + \"=\" + .value) | join(\", \")" "$SSM_CONFIG_FILE" 2>/dev/null || echo "")
+        [ "$tags" == "null" ] && tags=""
+
+        # Clean up null values
+        [ "$instance_id" == "null" ] && instance_id=""
+        [ "$instance_name" == "null" ] && instance_name=""
+        [ "$region" == "null" ] && region=""
+
+        # Build display line: name | region | id | cloud_name | provider | tags
+        local display_line="$name | ${region:-N/A} | ${instance_id:-N/A}"
+
+        # Only add cloud name if it exists
+        if [ -n "$instance_name" ]; then
+            display_line+=" | $instance_name"
+        fi
+
+        display_line+=" | $cloud"
+
+        if [ -n "$tags" ]; then
+            display_line+=" | $tags"
+        fi
+
+        # Format: index<TAB>display_line<TAB>name<TAB>user (use TAB as delimiter)
+        fzf_input+="${i}"$'\t'"${display_line}"$'\t'"${name}"$'\t'"${user}"$'\n'
+    done
+
+    # Remove trailing newline
+    fzf_input=${fzf_input%$'\n'}
+
+    # FZF selection with preview (use TAB as delimiter)
+    local selection=$(echo "$fzf_input" | fzf \
+        --delimiter=$'\t' \
+        --with-nth=2 \
+        --prompt="SSH > " \
+        --header="<name> | <region> | <id> | <cloud_name> | <provider> | <tags>" \
+        --preview="echo 'Name: {3}'; echo 'User: {4}'" \
+        --preview-window=right:40%:wrap \
+        --height=60% \
+        --reverse \
+        --ansi)
+
+    if [ -z "$selection" ]; then
+        print_info "No selection made"
+        exit 0
+    fi
+
+    # Extract index and name (TAB delimited)
+    local index=$(echo "$selection" | cut -d$'\t' -f1)
+    local name=$(echo "$selection" | cut -d$'\t' -f3)
+
+    connect_by_index "$index" "$name"
+}
+
+# Connect by index
+connect_by_index() {
+    local index="$1"
+    local name="$2"
+
+    print_info "Connecting to $name..."
+
+    # Get connection details
+    local cloud=$(yq ".connections[$index].cloud" "$SSM_CONFIG_FILE")
+    local user=$(yq ".connections[$index].user" "$SSM_CONFIG_FILE")
+    local port=$(yq ".connections[$index].port // 22" "$SSM_CONFIG_FILE")
+    local key=$(yq ".connections[$index].key // \"\"" "$SSM_CONFIG_FILE")
+
+    # Get IP
+    print_info "Fetching IP address..."
+    local ip=$(get_connection_ip "$index")
+
+    if [ -z "$ip" ] || [ "$ip" == "None" ] || [ "$ip" == "null" ]; then
+        print_error "Could not determine IP address for $name"
+
+        if [ "$cloud" == "aws" ]; then
+            local profile=$(yq ".connections[$index].aws_profile // \"default\"" "$SSM_CONFIG_FILE")
+            print_info "Check AWS authentication: aws sts get-caller-identity --profile $profile"
+        fi
+
+        exit 1
+    fi
+
+    print_success "IP: $ip"
+
+    # Build SSH command
+    local ssh_cmd="ssh"
+
+    if [ -n "$key" ] && [ "$key" != "null" ]; then
+        local key_path="$SSM_KEYS_DIR/$key"
+        if [ -f "$key_path" ]; then
+            ssh_cmd="$ssh_cmd -i $key_path"
+        else
+            print_warning "Key file not found: $key_path"
+        fi
+    fi
+
+    ssh_cmd="$ssh_cmd -p $port $user@$ip"
+
+    echo ""
+    print_info "Command: $ssh_cmd"
+    echo ""
+
+    # Connect
+    exec $ssh_cmd
+}
+
+# Edit config
+edit_config() {
+    local editor="${EDITOR:-vim}"
+    $editor "$SSM_CONFIG_FILE"
+}
+
+# Main
+main() {
+    ensure_config
+    check_deps
+
+    case "${1:-}" in
+        --help|-h)
+            usage
+            ;;
+        --add)
+            add_connection
+            ;;
+        --list|-l)
+            list_connections
+            ;;
+        --edit|-e)
+            edit_config
+            ;;
+        --keys|-k)
+            list_keys
+            ;;
+        --add-key)
+            add_key "$2"
+            ;;
+        "")
+            interactive_select
+            ;;
+        *)
+            print_error "Unknown option: $1"
+            usage
+            ;;
+    esac
+}
+
+main "$@"

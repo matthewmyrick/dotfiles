@@ -41,6 +41,12 @@ alias ptpy='ptpython'
 # database
 alias pg='NVIM_APPNAME=nvim-postgres nvim'
 
+# sre agent
+alias sre='~/.config/sre-agent/sre'
+
+# ssh manager
+alias ssm='~/.config/ssh-manager/ssm'
+
 # kubernets
 alias k="kubectl"
 alias ka="kubectl apply -f . -R"
