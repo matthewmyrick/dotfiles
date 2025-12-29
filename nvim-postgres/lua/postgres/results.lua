@@ -208,16 +208,19 @@ function M.show()
     state.bufnr = create_buffer()
   end
 
-  -- Find the editor window (rightmost non-drawer window)
+  -- Find the editor window (main buffer only, not side panels or terminals)
   local target_win = nil
   local wins = vim.api.nvim_list_wins()
 
   for _, win in ipairs(wins) do
     local buf = vim.api.nvim_win_get_buf(win)
     local ft = vim.bo[buf].filetype
+    local buftype = vim.bo[buf].buftype
     local buf_name = vim.api.nvim_buf_get_name(buf)
 
-    if ft ~= "neo-tree" and ft ~= "postgres-drawer" and ft ~= "postgres-results" and not buf_name:match("postgres://") then
+    -- Exclude: neo-tree, postgres-drawer, postgres results, terminal buffers (like Claude)
+    if ft ~= "neo-tree" and ft ~= "postgres-drawer" and ft ~= "postgres-results"
+       and buftype ~= "terminal" and not buf_name:match("postgres://") then
       target_win = win
     end
   end

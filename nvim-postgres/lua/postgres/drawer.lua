@@ -589,16 +589,19 @@ function M.open_table_query(table_info)
     vim.fn.writefile({ sql }, filename)
   end
 
-  -- Open in the editor pane
+  -- Open in the editor pane (main buffer only, not side panels or terminals)
   local wins = vim.api.nvim_list_wins()
   local target_win = nil
 
   for _, win in ipairs(wins) do
     local buf = vim.api.nvim_win_get_buf(win)
     local ft = vim.bo[buf].filetype
+    local buftype = vim.bo[buf].buftype
     local buf_name = vim.api.nvim_buf_get_name(buf)
 
-    if ft ~= "neo-tree" and ft ~= "postgres-drawer" and not buf_name:match("postgres://") then
+    -- Exclude: neo-tree, postgres-drawer, postgres results, terminal buffers (like Claude)
+    if ft ~= "neo-tree" and ft ~= "postgres-drawer" and ft ~= "postgres-results"
+       and buftype ~= "terminal" and not buf_name:match("postgres://") then
       target_win = win
     end
   end
@@ -607,7 +610,17 @@ function M.open_table_query(table_info)
     vim.api.nvim_set_current_win(target_win)
     vim.cmd("edit " .. vim.fn.fnameescape(filename))
   else
-    vim.cmd("vsplit " .. vim.fn.fnameescape(filename))
+    -- No suitable window found - create a new one in the center
+    -- First, find the drawer window to split from properly
+    local drawer_win = state.winid
+    if drawer_win and vim.api.nvim_win_is_valid(drawer_win) then
+      vim.api.nvim_set_current_win(drawer_win)
+      -- Create a new window to the right of the drawer
+      vim.cmd("vertical rightbelow split " .. vim.fn.fnameescape(filename))
+    else
+      -- Fallback: just create a new split
+      vim.cmd("vsplit " .. vim.fn.fnameescape(filename))
+    end
   end
 
   vim.notify(string.format("Opened: %s.%s", table_info.schema, table_info.table), vim.log.levels.INFO)
@@ -645,7 +658,7 @@ function M.show_help()
     "",
     " Claude",
     "  <leader>tc   Toggle Claude (33% split)",
-    "  <leader>wq   Toggle Claude (33% split)",
+    "  <leader>wq   Close Claude panel",
     "  <Esc><Esc>   Exit terminal mode",
     "",
     " Window",

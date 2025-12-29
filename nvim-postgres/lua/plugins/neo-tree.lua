@@ -80,18 +80,21 @@ return {
                   -- Toggle directory
                   require("neo-tree.sources.filesystem").toggle_directory(state, node)
                 else
-                  -- Open file in the rightmost window
+                  -- Open file in the main editor window (not side panels or terminals)
                   local wins = vim.api.nvim_list_wins()
                   local target_win = nil
+                  local neo_tree_win = vim.api.nvim_get_current_win()
 
-                  -- Find the main editor window (not neo-tree, not connections)
+                  -- Find the main editor window
                   for _, win in ipairs(wins) do
                     local buf = vim.api.nvim_win_get_buf(win)
                     local buf_name = vim.api.nvim_buf_get_name(buf)
                     local ft = vim.bo[buf].filetype
+                    local buftype = vim.bo[buf].buftype
 
-                    -- Skip neo-tree and postgres-drawer windows
-                    if ft ~= "neo-tree" and ft ~= "postgres-drawer" and not buf_name:match("postgres://") then
+                    -- Skip neo-tree, postgres-drawer, results, and terminal buffers (like Claude)
+                    if ft ~= "neo-tree" and ft ~= "postgres-drawer" and ft ~= "postgres-results"
+                       and buftype ~= "terminal" and not buf_name:match("postgres://") then
                       target_win = win
                     end
                   end
@@ -100,8 +103,9 @@ return {
                     vim.api.nvim_set_current_win(target_win)
                     vim.cmd("edit " .. vim.fn.fnameescape(node.path))
                   else
-                    -- Fallback: open in a new split
-                    vim.cmd("vsplit " .. vim.fn.fnameescape(node.path))
+                    -- No suitable window - create one to the right of neo-tree
+                    vim.api.nvim_set_current_win(neo_tree_win)
+                    vim.cmd("vertical rightbelow split " .. vim.fn.fnameescape(node.path))
                   end
                 end
               end,

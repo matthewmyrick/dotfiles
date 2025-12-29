@@ -309,9 +309,24 @@ vim.api.nvim_create_user_command("ClaudeVerticalTerm", function()
   create_claude_terminal(false)
 end, { nargs = 0, desc = "Toggle Claude in 33% Vertical Split" })
 
+-- Claude close-only command (for <leader>wq - only closes, never opens)
+vim.api.nvim_create_user_command("ClaudeCloseTerm", function()
+  local claude_buf = find_claude_buffer()
+
+  if claude_buf then
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      if vim.api.nvim_win_get_buf(win) == claude_buf then
+        vim.api.nvim_win_close(win, false)
+        return
+      end
+    end
+  end
+  -- If Claude window is not open, do nothing (don't reopen it)
+end, { nargs = 0, desc = "Close Claude panel (if open)" })
+
 -- Claude terminal keymaps
 vim.keymap.set("n", "<leader>tc", "<cmd>ClaudeVerticalTerm<CR>", { desc = "Toggle Claude (33% split)" })
-vim.keymap.set("n", "<leader>wq", "<cmd>ClaudeVerticalTerm<CR>", { desc = "Toggle Claude (33% split)" })
+vim.keymap.set("n", "<leader>wq", "<cmd>ClaudeCloseTerm<CR>", { desc = "Close Claude panel" })
 
 -- Run SQL query
 vim.keymap.set("n", "<leader>rr", function()

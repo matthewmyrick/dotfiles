@@ -114,9 +114,9 @@ update_nyc_weather() {
 
 # prompt function to add to precmd_functions
 prompt_precmd() {
-    # Update weather in background
-    update_nyc_weather
-    
+    # Update weather in background (commented out - takes too long)
+    # update_nyc_weather
+
     echo # add newline before prompt header
     print -rP "$(prompt_header)"
 }
