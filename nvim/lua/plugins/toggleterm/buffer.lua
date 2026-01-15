@@ -69,12 +69,42 @@ function M.setup()
     -- Setup autocmds for terminal naming
     setup_terminal_autocmds()
 
+    -- Helper function to check for Claude context files
+    local function get_claude_context_info()
+        -- Check for context files in order of priority (Claude reads these automatically)
+        local context_sources = {}
+
+        -- Project-specific CLAUDE.md
+        local project_claude = vim.fn.getcwd() .. "/CLAUDE.md"
+        if vim.fn.filereadable(project_claude) == 1 then
+            table.insert(context_sources, "project")
+        end
+
+        -- Global user context
+        local global_claude = vim.fn.expand("~/.claude/CLAUDE.md")
+        if vim.fn.filereadable(global_claude) == 1 then
+            table.insert(context_sources, "global")
+        end
+
+        return context_sources
+    end
+
     -- Helper function to create Claude terminal
     local function create_claude_terminal(use_continue, is_half_split)
         -- Get the current Node version from NVM
         local nvm_dir = vim.fn.expand("$HOME/.nvm")
         local node_version = vim.fn.system("source " .. nvm_dir .. "/nvm.sh && nvm current"):gsub("%s+", "")
         local claude_path = nvm_dir .. "/versions/node/" .. node_version .. "/bin/claude"
+
+        -- Check for context files and notify
+        if not use_continue then
+            local context_sources = get_claude_context_info()
+            if #context_sources > 0 then
+                vim.schedule(function()
+                    vim.notify("Claude context: " .. table.concat(context_sources, " + "), vim.log.levels.INFO)
+                end)
+            end
+        end
 
         -- Determine command to run
         local claude_cmd
