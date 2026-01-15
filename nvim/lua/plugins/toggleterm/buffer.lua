@@ -73,11 +73,13 @@ function M.setup()
     local function get_claude_context_info()
         -- Check for context files in order of priority (Claude reads these automatically)
         local context_sources = {}
+        local has_project_context = false
 
         -- Project-specific CLAUDE.md
         local project_claude = vim.fn.getcwd() .. "/CLAUDE.md"
         if vim.fn.filereadable(project_claude) == 1 then
             table.insert(context_sources, "project")
+            has_project_context = true
         end
 
         -- Global user context
@@ -86,7 +88,19 @@ function M.setup()
             table.insert(context_sources, "global")
         end
 
-        return context_sources
+        return context_sources, has_project_context
+    end
+
+    -- Helper function to send command to terminal after delay
+    local function send_to_terminal(buf, cmd, delay_ms)
+        vim.defer_fn(function()
+            if vim.api.nvim_buf_is_valid(buf) then
+                local chan = vim.bo[buf].channel
+                if chan then
+                    vim.api.nvim_chan_send(chan, cmd)
+                end
+            end
+        end, delay_ms or 1500)
     end
 
     -- Helper function to create Claude terminal
@@ -96,12 +110,19 @@ function M.setup()
         local node_version = vim.fn.system("source " .. nvm_dir .. "/nvm.sh && nvm current"):gsub("%s+", "")
         local claude_path = nvm_dir .. "/versions/node/" .. node_version .. "/bin/claude"
 
-        -- Check for context files and notify
+        -- Check for context files
+        local context_sources, has_project_context = get_claude_context_info()
+        local should_run_init = not use_continue and not has_project_context
+
+        -- Notify about context
         if not use_continue then
-            local context_sources = get_claude_context_info()
             if #context_sources > 0 then
                 vim.schedule(function()
                     vim.notify("Claude context: " .. table.concat(context_sources, " + "), vim.log.levels.INFO)
+                end)
+            elseif should_run_init then
+                vim.schedule(function()
+                    vim.notify("No project CLAUDE.md found - running /init", vim.log.levels.INFO)
                 end)
             end
         end
@@ -117,10 +138,18 @@ function M.setup()
         -- Create the terminal
         vim.cmd("terminal " .. claude_cmd)
 
+        -- Get the buffer for the new terminal
+        local term_buf = vim.api.nvim_get_current_buf()
+
         -- Set terminal name
         vim.schedule(function()
             set_terminal_name("claude")
         end)
+
+        -- If no project context, run /init after Claude starts
+        if should_run_init then
+            send_to_terminal(term_buf, "/init\n", 2000)
+        end
 
         -- If using --continue, monitor for "No conversation found" and restart without --continue
         if use_continue then
