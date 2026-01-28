@@ -284,9 +284,8 @@ fpr() {
 }
 
 # ghpr (Git Pull Request) - Interactively find and open a GitHub PR from an organization/repository.
-# If no org is provided, shows a fuzzy finder to select from local orgs.
-# If no repo is provided, shows a fuzzy finder to select from org repos.
-# Use --greptile <pr_url> to extract Greptile AI review comments to markdown.
+# Auto-detects repo if in a git directory. Otherwise shows fuzzy finder for org/repo selection.
+# Use --greptile [pr_url] to extract Greptile AI review comments to markdown.
 ghpr() {
   # --- Handle --greptile flag ---
   if [[ "$1" == "--greptile" ]]; then
@@ -295,16 +294,33 @@ ghpr() {
     return $?
   fi
 
-  # --- 1. Handle Organization Selection ---
-  local org
+  # --- 1. Try to auto-detect repo from git remote ---
+  local full_repo=""
+  local org repo_basename
+
   if [ -z "$1" ]; then
-    # No org provided, use fuzzy finder to select from local orgs
-    org=$(_select_org)
-    if [ -z "$org" ]; then
-      echo "No organization selected."
-      return 1
+    # No args provided - try auto-detect first
+    if git remote get-url origin &>/dev/null 2>&1; then
+      local remote_url=$(git remote get-url origin)
+      if echo "$remote_url" | grep -q "github.com"; then
+        full_repo=$(echo "$remote_url" | sed -E 's|.*github\.com[:/]([^/]+/[^/]+)(\.git)?.*|\1|' | sed 's/\.git$//')
+        if [ -n "$full_repo" ] && [ "$full_repo" != "$remote_url" ]; then
+          echo "📦 Auto-detected repository: $full_repo"
+        else
+          full_repo=""
+        fi
+      fi
     fi
-    echo "Selected organization: $org"
+
+    # If not auto-detected, fall back to org/repo selection
+    if [ -z "$full_repo" ]; then
+      org=$(_select_org)
+      if [ -z "$org" ]; then
+        echo "No organization selected."
+        return 1
+      fi
+      echo "Selected organization: $org"
+    fi
   else
     org="$1"
   fi
@@ -313,62 +329,62 @@ ghpr() {
   local repo_list
   local selected_repo
   local repo_name
-  local repo_basename
-  local full_repo
   local pr_list
   local selected_pr
 
-  # --- 3. Handle Repository Selection ---
-  if [ -z "$2" ]; then
-    # No repo provided, fetch and select from GitHub API
-    echo "Fetching repositories for '$org'..."
-    repo_list=$(gh repo list "$org" --limit 1000) || return 1
+  # --- 3. Handle Repository Selection (only if not auto-detected) ---
+  if [ -z "$full_repo" ]; then
+    if [ -z "$2" ]; then
+      # No repo provided, fetch and select from GitHub API
+      echo "Fetching repositories for '$org'..."
+      repo_list=$(gh repo list "$org" --limit 1000) || return 1
 
-    # Check if any repositories were found
-    if [ -z "$repo_list" ]; then
-        echo "No repositories found for organization '$org' or organization does not exist."
+      # Check if any repositories were found
+      if [ -z "$repo_list" ]; then
+          echo "No repositories found for organization '$org' or organization does not exist."
+          return 1
+      fi
+
+      # Calculate dynamic column widths
+      local max_repo_width
+      max_repo_width=$(echo "$repo_list" | awk '{if (length($1) > max) max = length($1)} END {print max}')
+
+      # Set minimum width of 20
+      if [ "$max_repo_width" -lt 20 ]; then
+        max_repo_width=20
+      fi
+
+      # Create header with dynamic width
+      local repo_header=$(printf "%-${max_repo_width}s" "REPOSITORY")
+
+      # Interactive repository selection with dynamic-width colors
+      selected_repo=$(echo "$repo_list" | awk -v repo_width="$max_repo_width" '{
+        repo_name = $1;
+        visibility = $2; if (length(visibility) > 10) visibility = substr(visibility, 1, 7) "...";
+        language = $3; if (length(language) > 12) language = substr(language, 1, 9) "...";
+        updated = $4; if (length(updated) > 12) updated = substr(updated, 1, 9) "...";
+        printf "\033[36m%-*s\033[0m \033[37m%-10s\033[0m \033[33m%-12s\033[0m \033[35m%-12s\033[0m\n", repo_width, repo_name, visibility, language, updated
+      }' | fzf --prompt="Select a repo from '$org' > " --height="50%" --border --ansi \
+        --header="$repo_header VISIBILITY LANGUAGE     UPDATED     " \
+        --delimiter=' ' --with-nth=1,2,3,4)
+
+      # Proceed only if a repository was selected
+      if [ -n "$selected_repo" ]; then
+        # Extract just the full repo name (e.g., "google/go-cloud")
+        repo_name=$(echo "$selected_repo" | awk '{print $1}')
+        # Extract just the repository's base name (e.g., "go-cloud")
+        repo_basename=$(basename "$repo_name")
+      else
+        echo "No repository selected."
         return 1
-    fi
-
-    # Calculate dynamic column widths
-    local max_repo_width
-    max_repo_width=$(echo "$repo_list" | awk '{if (length($1) > max) max = length($1)} END {print max}')
-    
-    # Set minimum width of 20
-    if [ "$max_repo_width" -lt 20 ]; then
-      max_repo_width=20
-    fi
-    
-    # Create header with dynamic width
-    local repo_header=$(printf "%-${max_repo_width}s" "REPOSITORY")
-
-    # Interactive repository selection with dynamic-width colors
-    selected_repo=$(echo "$repo_list" | awk -v repo_width="$max_repo_width" '{
-      repo_name = $1;
-      visibility = $2; if (length(visibility) > 10) visibility = substr(visibility, 1, 7) "...";
-      language = $3; if (length(language) > 12) language = substr(language, 1, 9) "...";
-      updated = $4; if (length(updated) > 12) updated = substr(updated, 1, 9) "...";
-      printf "\033[36m%-*s\033[0m \033[37m%-10s\033[0m \033[33m%-12s\033[0m \033[35m%-12s\033[0m\n", repo_width, repo_name, visibility, language, updated
-    }' | fzf --prompt="Select a repo from '$org' > " --height="50%" --border --ansi \
-      --header="$repo_header VISIBILITY LANGUAGE     UPDATED     " \
-      --delimiter=' ' --with-nth=1,2,3,4)
-
-    # Proceed only if a repository was selected
-    if [ -n "$selected_repo" ]; then
-      # Extract just the full repo name (e.g., "google/go-cloud")
-      repo_name=$(echo "$selected_repo" | awk '{print $1}')
-      # Extract just the repository's base name (e.g., "go-cloud")
-      repo_basename=$(basename "$repo_name")
+      fi
     else
-      echo "No repository selected."
-      return 1
+      repo_basename="$2"
     fi
-  else
-    repo_basename="$2"
-  fi
 
-  # --- 4. Define Full Repository Name ---
-  full_repo="$org/$repo_basename"
+    # --- 4. Define Full Repository Name ---
+    full_repo="$org/$repo_basename"
+  fi
 
   # --- 5. Get Pull Request List ---
   echo "Fetching pull requests for '$full_repo'..."
@@ -1802,9 +1818,56 @@ ghpr_greptile() {
         fi
 
         if [ -z "$full_repo" ]; then
-            echo "❌ Not in a GitHub repository. Please provide a PR URL."
-            echo "Usage: ghpr --greptile <pr_url>"
-            return 1
+            # Not in a repo - use fuzzy find for org and repo selection
+            echo "📂 Not in a GitHub repository. Let's select one..."
+
+            local org
+            org=$(_select_org)
+            if [ -z "$org" ]; then
+                echo "❌ No organization selected."
+                return 1
+            fi
+            echo "Selected organization: $org"
+
+            # Fetch and select repo from GitHub API
+            echo "🔍 Fetching repositories for '$org'..."
+            local repo_list
+            repo_list=$(gh repo list "$org" --limit 1000) || return 1
+
+            if [ -z "$repo_list" ]; then
+                echo "❌ No repositories found for organization '$org'."
+                return 1
+            fi
+
+            # Calculate dynamic column widths
+            local max_repo_width
+            max_repo_width=$(echo "$repo_list" | awk '{if (length($1) > max) max = length($1)} END {print max}')
+            if [ "$max_repo_width" -lt 20 ]; then
+                max_repo_width=20
+            fi
+            local repo_header=$(printf "%-${max_repo_width}s" "REPOSITORY")
+
+            # Interactive repository selection
+            local selected_repo
+            selected_repo=$(echo "$repo_list" | awk -v repo_width="$max_repo_width" '{
+                repo_name = $1;
+                visibility = $2; if (length(visibility) > 10) visibility = substr(visibility, 1, 7) "...";
+                language = $3; if (length(language) > 12) language = substr(language, 1, 9) "...";
+                updated = $4; if (length(updated) > 12) updated = substr(updated, 1, 9) "...";
+                printf "\033[36m%-*s\033[0m \033[37m%-10s\033[0m \033[33m%-12s\033[0m \033[35m%-12s\033[0m\n", repo_width, repo_name, visibility, language, updated
+            }' | fzf --prompt="Select a repo from '$org' > " --height="50%" --border --ansi \
+                --header="$repo_header VISIBILITY LANGUAGE     UPDATED     " \
+                --delimiter=' ' --with-nth=1,2,3,4)
+
+            if [ -z "$selected_repo" ]; then
+                echo "❌ No repository selected."
+                return 1
+            fi
+
+            local repo_name
+            repo_name=$(echo "$selected_repo" | awk '{print $1}')
+            full_repo="$repo_name"
+            echo "📦 Selected repository: $full_repo"
         fi
 
         # Fetch PR list for the repo (including branch name)
