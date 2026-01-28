@@ -1895,8 +1895,26 @@ EOF
         (.body | split("<details><summary>Prompt To Fix With AI</summary>")[0] | rtrimstr("\n\n")) + "\n\n" +
         "### Prompt To Fix With AI\n\n" +
         ((.body | split("<details><summary>Prompt To Fix With AI</summary>")[1] // "") | split("</details>")[0] | ltrimstr("\n\n") | rtrimstr("\n")) + "\n\n" +
+        "### Response\n\n" +
+        "_[TODO: Explain whether this change is needed and why, or why not]_\n\n" +
         "---\n"
     ' >> "$output_file"
+
+    # Add summary prompt at the end for AI review
+    cat >> "$output_file" << 'EOF'
+
+## Instructions for Review
+
+Please go through each Greptile comment above and evaluate whether these are valid concerns. For each item:
+
+1. **Assess the validity** - Is this a real issue that needs to be addressed?
+2. **Provide your response** - Fill in the "Response" section with:
+   - Whether the change should be made or not
+   - A clear explanation of your reasoning
+   - If applicable, any alternative approaches
+
+Be thorough but concise in your explanations.
+EOF
 
     echo "✅ Saved Greptile review to: $output_file"
     echo ""
