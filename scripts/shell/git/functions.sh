@@ -286,7 +286,15 @@ fpr() {
 # ghpr (Git Pull Request) - Interactively find and open a GitHub PR from an organization/repository.
 # If no org is provided, shows a fuzzy finder to select from local orgs.
 # If no repo is provided, shows a fuzzy finder to select from org repos.
+# Use --greptile <pr_url> to extract Greptile AI review comments to markdown.
 ghpr() {
+  # --- Handle --greptile flag ---
+  if [[ "$1" == "--greptile" ]]; then
+    shift
+    ghpr_greptile "$@"
+    return $?
+  fi
+
   # --- 1. Handle Organization Selection ---
   local org
   if [ -z "$1" ]; then
@@ -1752,4 +1760,154 @@ wiki() {
             return 1
             ;;
     esac
+}
+
+# ghpr_greptile - Extract Greptile AI review comments from a GitHub PR and save to markdown
+# Usage: ghpr --greptile [pr_url]
+# If no URL provided, auto-detects repo and shows PR picker
+# Example: ghpr --greptile
+# Example: ghpr --greptile https://github.com/org/repo/pull/123
+ghpr_greptile() {
+    local pr_url="$1"
+    local full_repo pr_number
+
+    # If URL provided, parse it directly
+    if [ -n "$pr_url" ]; then
+        if ! echo "$pr_url" | grep -qE '^https://github\.com/[^/]+/[^/]+/pull/[0-9]+'; then
+            echo "❌ Invalid GitHub PR URL format"
+            echo "Expected: https://github.com/org/repo/pull/123"
+            return 1
+        fi
+
+        full_repo=$(echo "$pr_url" | sed -E 's|https://github\.com/([^/]+/[^/]+)/pull/[0-9]+.*|\1|')
+        pr_number=$(echo "$pr_url" | sed -E 's|https://github\.com/[^/]+/[^/]+/pull/([0-9]+).*|\1|')
+
+        if [ -z "$full_repo" ] || [ -z "$pr_number" ]; then
+            echo "❌ Failed to parse PR URL"
+            return 1
+        fi
+    else
+        # No URL provided - auto-detect repo and show PR picker
+
+        # Try to auto-detect current GitHub repo
+        if git remote get-url origin &>/dev/null 2>&1; then
+            local remote_url=$(git remote get-url origin)
+            # Extract org/repo from GitHub URL (supports both https and ssh)
+            if echo "$remote_url" | grep -q "github.com"; then
+                full_repo=$(echo "$remote_url" | sed -E 's|.*github\.com[:/]([^/]+/[^/]+)(\.git)?.*|\1|' | sed 's/\.git$//')
+                if [ -n "$full_repo" ] && [ "$full_repo" != "$remote_url" ]; then
+                    echo "📦 Auto-detected repository: $full_repo"
+                fi
+            fi
+        fi
+
+        if [ -z "$full_repo" ]; then
+            echo "❌ Not in a GitHub repository. Please provide a PR URL."
+            echo "Usage: ghpr --greptile <pr_url>"
+            return 1
+        fi
+
+        # Fetch PR list for the repo (including branch name)
+        echo "🔍 Fetching pull requests for '$full_repo'..."
+        local pr_list
+        pr_list=$(gh pr list --repo "$full_repo" --limit 100 --json number,title,author,url,state,headRefName --template '{{range .}}#{{.number}}\t{{.headRefName}}\t{{.title}}\t{{.author.login}}\t{{.state}}\t{{.url}}\t{{.number}}{{"\n"}}{{end}}')
+
+        if [ $? -ne 0 ]; then
+            echo "❌ Failed to fetch pull requests for '$full_repo'"
+            return 1
+        fi
+
+        if [ -z "$pr_list" ]; then
+            echo "⚠️  No pull requests found for '$full_repo'"
+            return 1
+        fi
+
+        # Interactive PR selection with fzf (use tab delimiter for reliable field extraction)
+        local selected_pr
+        selected_pr=$(echo "$pr_list" | awk -F'\t' '{
+            pr_num = $1; if (length(pr_num) > 7) pr_num = substr(pr_num, 1, 7);
+            branch = $2; if (length(branch) > 25) branch = substr(branch, 1, 22) "...";
+            title = $3; if (length(title) > 30) title = substr(title, 1, 27) "...";
+            author = $4; if (length(author) > 15) author = substr(author, 1, 12) "...";
+            state = $5;
+            printf "\033[36m%-7s\033[0m\t\033[33m%-25s\033[0m\t\033[35m%-30s\033[0m\t\033[37m%-15s\033[0m\t\033[32m%-8s\033[0m\t%s\n", pr_num, branch, title, author, state, $7
+        }' | fzf \
+            --prompt="Select a PR for Greptile review > " \
+            --height="60%" \
+            --border \
+            --ansi \
+            --delimiter=$'\t' \
+            --nth=1,2,3,4,5 \
+            --with-nth=1,2,3,4,5 \
+            --header="PR #    BRANCH                    TITLE                          AUTHOR          STATE   " \
+            --preview 'gh pr view $(echo {6} | tr -d " ") --repo '"$full_repo"' || echo "Could not load PR details"' \
+            --preview-window 'right:40%')
+
+        if [ -z "$selected_pr" ]; then
+            echo "❌ No PR selected"
+            return 1
+        fi
+
+        # Extract PR number from selection (field 6, tab-delimited)
+        pr_number=$(echo "$selected_pr" | awk -F'\t' '{print $6}' | tr -d ' ')
+        pr_url="https://github.com/$full_repo/pull/$pr_number"
+        echo "📋 Selected PR #$pr_number"
+    fi
+
+    echo "🔍 Fetching Greptile comments from PR #$pr_number in $full_repo..."
+
+    # Count Greptile comments directly using gh api with jq
+    local comment_count
+    comment_count=$(gh api "repos/$full_repo/pulls/$pr_number/comments" \
+        --jq '[.[] | select(.user.login == "greptile-apps[bot]")] | length' 2>/dev/null)
+
+    if [ -z "$comment_count" ] || [ "$comment_count" -eq 0 ]; then
+        echo "⚠️  No Greptile comments found in PR #$pr_number"
+        return 0
+    fi
+
+    echo "📝 Found $comment_count Greptile comment(s)"
+
+    # Create output filename at git root (or current directory if not in a git repo)
+    local git_root output_file
+    git_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+    output_file="${git_root}/greptile-review-pr${pr_number}-$(date +%Y%m%d-%H%M%S).md"
+
+    # Write markdown header
+    cat > "$output_file" << EOF
+# Greptile AI Code Review
+
+**Repository:** $full_repo
+**Pull Request:** #$pr_number
+**URL:** $pr_url
+**Generated:** $(date '+%Y-%m-%d %H:%M:%S')
+
+---
+
+EOF
+
+    # Process comments with gh api and jq directly (avoids shell variable escaping issues)
+    gh api "repos/$full_repo/pulls/$pr_number/comments" --jq '
+        .[] | select(.user.login == "greptile-apps[bot]") |
+        "## " + .path + "\n\n" +
+        "**Lines:** " + ((.start_line // .line) | tostring) + "-" + (.line | tostring) + "\n\n" +
+        "### Review Comment\n\n" +
+        (.body | split("<details><summary>Prompt To Fix With AI</summary>")[0] | rtrimstr("\n\n")) + "\n\n" +
+        "### Prompt To Fix With AI\n\n" +
+        ((.body | split("<details><summary>Prompt To Fix With AI</summary>")[1] // "") | split("</details>")[0] | ltrimstr("\n\n") | rtrimstr("\n")) + "\n\n" +
+        "---\n"
+    ' >> "$output_file"
+
+    echo "✅ Saved Greptile review to: $output_file"
+    echo ""
+    echo "📄 Preview:"
+    head -50 "$output_file"
+
+    # If there are more lines, indicate that
+    local total_lines
+    total_lines=$(wc -l < "$output_file" | tr -d ' ')
+    if [ "$total_lines" -gt 50 ]; then
+        echo ""
+        echo "... ($(($total_lines - 50)) more lines)"
+    fi
 }

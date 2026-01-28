@@ -196,6 +196,7 @@ help() {
     echo "🐙 GITHUB OPERATIONS"
     echo "  ghrc [org]    - Clone repo from GitHub org interactively"
     echo "  ghpr [org] [repo] - Browse & open pull requests with metadata"
+    echo "  ghpr --greptile [url] - Extract Greptile AI review comments to markdown"
     echo "  ghpra <pr>    - Auto-approve PR with LGTM comment"
     echo "  ghprc         - Create PR and auto-open in browser"
     echo "  ghro [org]    - Open GitHub repo in browser (auto-detects current repo)"
