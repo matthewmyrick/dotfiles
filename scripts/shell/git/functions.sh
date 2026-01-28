@@ -90,7 +90,7 @@ _select_repo_from_github() {
   local repo_list
   local selected_repo
   local repo_name
-  
+
   # --- Get Repository List ---
   echo "Fetching repositories for '$org'..." >&2
   repo_list=$(gh repo list "$org" --limit 1000) || return 1
@@ -109,6 +109,117 @@ _select_repo_from_github() {
     repo_name=$(echo "$selected_repo" | awk '{print $1}')
     echo $(basename "$repo_name")
   fi
+}
+
+# Helper function to select a PR interactively from a repository
+# Usage: _select_pr <full_repo>
+# Returns: PR number (or empty if cancelled)
+_select_pr() {
+  local full_repo="$1"
+  local pr_list selected_pr pr_number
+
+  echo "🔍 Fetching pull requests for '$full_repo'..." >&2
+  pr_list=$(gh pr list --repo "$full_repo" --limit 100 --json number,title,author,url,state,headRefName --template '{{range .}}#{{.number}}\t{{.headRefName}}\t{{.title}}\t{{.author.login}}\t{{.state}}\t{{.url}}\t{{.number}}{{"\n"}}{{end}}')
+
+  if [ $? -ne 0 ]; then
+    echo "❌ Failed to fetch pull requests for '$full_repo'." >&2
+    return 1
+  fi
+
+  if [ -z "$pr_list" ]; then
+    echo "⚠️  No pull requests found for '$full_repo'." >&2
+    return 1
+  fi
+
+  # Interactive PR selection with fzf (tab delimiter for reliable extraction)
+  selected_pr=$(echo "$pr_list" | awk -F'\t' '{
+    pr_num = $1; if (length(pr_num) > 7) pr_num = substr(pr_num, 1, 7);
+    branch = $2; if (length(branch) > 25) branch = substr(branch, 1, 22) "...";
+    title = $3; if (length(title) > 30) title = substr(title, 1, 27) "...";
+    author = $4; if (length(author) > 15) author = substr(author, 1, 12) "...";
+    state = $5;
+    printf "\033[36m%-7s\033[0m\t\033[33m%-25s\033[0m\t\033[35m%-30s\033[0m\t\033[37m%-15s\033[0m\t\033[32m%-8s\033[0m\t%s\n", pr_num, branch, title, author, state, $7
+  }' | fzf \
+    --prompt="Select a PR from '$full_repo' > " \
+    --height="60%" \
+    --border \
+    --ansi \
+    --delimiter=$'\t' \
+    --nth=1,2,3,4,5 \
+    --with-nth=1,2,3,4,5 \
+    --header="PR #    BRANCH                    TITLE                          AUTHOR          STATE   " \
+    --preview 'gh pr view $(echo {6} | tr -d " ") --repo '"$full_repo"' || echo "Could not load PR details"' \
+    --preview-window 'right:40%')
+
+  if [ -z "$selected_pr" ]; then
+    return 1
+  fi
+
+  # Extract PR number (field 6, tab-delimited)
+  pr_number=$(echo "$selected_pr" | awk -F'\t' '{print $6}' | tr -d ' ')
+  echo "$pr_number"
+}
+
+# Helper function to auto-detect repo from git remote
+# Returns: full_repo (org/repo) or empty if not in a GitHub repo
+_detect_github_repo() {
+  if git remote get-url origin &>/dev/null 2>&1; then
+    local remote_url=$(git remote get-url origin)
+    if echo "$remote_url" | grep -q "github.com"; then
+      local full_repo=$(echo "$remote_url" | sed -E 's|.*github\.com[:/]([^/]+/[^/]+)(\.git)?.*|\1|' | sed 's/\.git$//')
+      if [ -n "$full_repo" ] && [ "$full_repo" != "$remote_url" ]; then
+        echo "$full_repo"
+      fi
+    fi
+  fi
+}
+
+# Helper function to select org and repo interactively
+# Returns: full_repo (org/repo) or empty if cancelled
+_select_org_and_repo() {
+  local org repo_list selected_repo repo_name
+
+  org=$(_select_org)
+  if [ -z "$org" ]; then
+    echo "❌ No organization selected." >&2
+    return 1
+  fi
+  echo "Selected organization: $org" >&2
+
+  echo "🔍 Fetching repositories for '$org'..." >&2
+  repo_list=$(gh repo list "$org" --limit 1000) || return 1
+
+  if [ -z "$repo_list" ]; then
+    echo "❌ No repositories found for '$org'." >&2
+    return 1
+  fi
+
+  # Calculate dynamic column widths
+  local max_repo_width
+  max_repo_width=$(echo "$repo_list" | awk '{if (length($1) > max) max = length($1)} END {print max}')
+  if [ "$max_repo_width" -lt 20 ]; then
+    max_repo_width=20
+  fi
+  local repo_header=$(printf "%-${max_repo_width}s" "REPOSITORY")
+
+  # Interactive repository selection
+  selected_repo=$(echo "$repo_list" | awk -v repo_width="$max_repo_width" '{
+    repo_name = $1;
+    visibility = $2; if (length(visibility) > 10) visibility = substr(visibility, 1, 7) "...";
+    language = $3; if (length(language) > 12) language = substr(language, 1, 9) "...";
+    updated = $4; if (length(updated) > 12) updated = substr(updated, 1, 9) "...";
+    printf "\033[36m%-*s\033[0m \033[37m%-10s\033[0m \033[33m%-12s\033[0m \033[35m%-12s\033[0m\n", repo_width, repo_name, visibility, language, updated
+  }' | fzf --prompt="Select a repo from '$org' > " --height="50%" --border --ansi \
+    --header="$repo_header VISIBILITY LANGUAGE     UPDATED     " \
+    --delimiter=' ' --with-nth=1,2,3,4)
+
+  if [ -z "$selected_repo" ]; then
+    echo "❌ No repository selected." >&2
+    return 1
+  fi
+
+  repo_name=$(echo "$selected_repo" | awk '{print $1}')
+  echo "$repo_name"
 }
 
 # ghrc (Git Repository Clone) - Interactively find and clone a repository from a GitHub
@@ -294,147 +405,40 @@ ghpr() {
     return $?
   fi
 
-  # --- 1. Try to auto-detect repo from git remote ---
+  # --- 1. Determine repository ---
   local full_repo=""
-  local org repo_basename
 
   if [ -z "$1" ]; then
-    # No args provided - try auto-detect first
-    if git remote get-url origin &>/dev/null 2>&1; then
-      local remote_url=$(git remote get-url origin)
-      if echo "$remote_url" | grep -q "github.com"; then
-        full_repo=$(echo "$remote_url" | sed -E 's|.*github\.com[:/]([^/]+/[^/]+)(\.git)?.*|\1|' | sed 's/\.git$//')
-        if [ -n "$full_repo" ] && [ "$full_repo" != "$remote_url" ]; then
-          echo "📦 Auto-detected repository: $full_repo"
-        else
-          full_repo=""
-        fi
-      fi
-    fi
-
-    # If not auto-detected, fall back to org/repo selection
-    if [ -z "$full_repo" ]; then
-      org=$(_select_org)
-      if [ -z "$org" ]; then
-        echo "No organization selected."
-        return 1
-      fi
-      echo "Selected organization: $org"
-    fi
-  else
-    org="$1"
-  fi
-
-  # --- 2. Define Variables ---
-  local repo_list
-  local selected_repo
-  local repo_name
-  local pr_list
-  local selected_pr
-
-  # --- 3. Handle Repository Selection (only if not auto-detected) ---
-  if [ -z "$full_repo" ]; then
-    if [ -z "$2" ]; then
-      # No repo provided, fetch and select from GitHub API
-      echo "Fetching repositories for '$org'..."
-      repo_list=$(gh repo list "$org" --limit 1000) || return 1
-
-      # Check if any repositories were found
-      if [ -z "$repo_list" ]; then
-          echo "No repositories found for organization '$org' or organization does not exist."
-          return 1
-      fi
-
-      # Calculate dynamic column widths
-      local max_repo_width
-      max_repo_width=$(echo "$repo_list" | awk '{if (length($1) > max) max = length($1)} END {print max}')
-
-      # Set minimum width of 20
-      if [ "$max_repo_width" -lt 20 ]; then
-        max_repo_width=20
-      fi
-
-      # Create header with dynamic width
-      local repo_header=$(printf "%-${max_repo_width}s" "REPOSITORY")
-
-      # Interactive repository selection with dynamic-width colors
-      selected_repo=$(echo "$repo_list" | awk -v repo_width="$max_repo_width" '{
-        repo_name = $1;
-        visibility = $2; if (length(visibility) > 10) visibility = substr(visibility, 1, 7) "...";
-        language = $3; if (length(language) > 12) language = substr(language, 1, 9) "...";
-        updated = $4; if (length(updated) > 12) updated = substr(updated, 1, 9) "...";
-        printf "\033[36m%-*s\033[0m \033[37m%-10s\033[0m \033[33m%-12s\033[0m \033[35m%-12s\033[0m\n", repo_width, repo_name, visibility, language, updated
-      }' | fzf --prompt="Select a repo from '$org' > " --height="50%" --border --ansi \
-        --header="$repo_header VISIBILITY LANGUAGE     UPDATED     " \
-        --delimiter=' ' --with-nth=1,2,3,4)
-
-      # Proceed only if a repository was selected
-      if [ -n "$selected_repo" ]; then
-        # Extract just the full repo name (e.g., "google/go-cloud")
-        repo_name=$(echo "$selected_repo" | awk '{print $1}')
-        # Extract just the repository's base name (e.g., "go-cloud")
-        repo_basename=$(basename "$repo_name")
-      else
-        echo "No repository selected."
-        return 1
-      fi
+    # No args - try auto-detect first
+    full_repo=$(_detect_github_repo)
+    if [ -n "$full_repo" ]; then
+      echo "📦 Auto-detected repository: $full_repo"
     else
-      repo_basename="$2"
+      # Fall back to org/repo selection
+      full_repo=$(_select_org_and_repo)
+      [ -z "$full_repo" ] && return 1
     fi
-
-    # --- 4. Define Full Repository Name ---
+  elif [ -n "$2" ]; then
+    # Both org and repo provided
+    full_repo="$1/$2"
+  else
+    # Only org provided - select repo
+    local org="$1"
+    echo "Selected organization: $org"
+    local repo_basename
+    repo_basename=$(_select_repo_from_github "$org")
+    [ -z "$repo_basename" ] && return 1
     full_repo="$org/$repo_basename"
   fi
 
-  # --- 5. Get Pull Request List ---
-  echo "Fetching pull requests for '$full_repo'..."
-  pr_list=$(gh pr list --repo "$full_repo" --limit 100 --json number,title,author,url,createdAt,state --template '{{range .}}#{{.number}}\t{{.title}}\t{{.author.login}}\t{{.state}}\t{{.createdAt}}\t{{.url}}\t{{.number}}{{"\n"}}{{end}}') 
-  
-  if [ $? -ne 0 ]; then
-    echo "Failed to fetch pull requests for '$full_repo'. Make sure the repository exists and you have access."
-    return 1
-  fi
+  # --- 2. Select PR ---
+  local pr_number
+  pr_number=$(_select_pr "$full_repo")
+  [ -z "$pr_number" ] && { echo "❌ No pull request selected."; return 1; }
 
-  # Check if any PRs were found
-  if [ -z "$pr_list" ]; then
-    echo "No pull requests found for repository '$full_repo'."
-    return 1
-  fi
-
-  # --- 6. Interactive PR Selection with fzf and enhanced metadata display ---
-  selected_pr=$(echo "$pr_list" | awk -F'\t' '{
-    pr_num = $1; if (length(pr_num) > 8) pr_num = substr(pr_num, 1, 5) "...";
-    title = $2; if (length(title) > 35) title = substr(title, 1, 32) "...";
-    author = $3; if (length(author) > 12) author = substr(author, 1, 9) "...";
-    state = $4;
-    created = $5; 
-    # Format date to show just the date part (YYYY-MM-DD)
-    split(created, date_parts, "T");
-    created_date = date_parts[1];
-    printf "\033[36m%-8s\033[0m \033[35m%-35s\033[0m \033[33m%-12s\033[0m \033[32m%-8s\033[0m \033[37m%-12s\033[0m %s\n", pr_num, title, author, state, created_date, $7
-  }' | fzf \
-    --prompt="Select a PR from '$full_repo' > " \
-    --height="60%" \
-    --border \
-    --ansi \
-    --delimiter=' ' \
-    --nth=1,2,3,4,5 \
-    --with-nth=1,2,3,4,5 \
-    --header="PR #     TITLE                              AUTHOR      STATE    CREATED     " \
-    --preview 'gh pr view {6} --repo '"$full_repo"' || echo "Could not load PR details"' \
-    --preview-window 'right:40%')
-
-  # --- 7. Open the Pull Request ---
-  if [ -n "$selected_pr" ]; then
-    # Extract the PR number (7th column)
-    local pr_number
-    pr_number=$(echo "$selected_pr" | awk '{print $6}')
-    
-    echo "Opening PR #$pr_number in browser..."
-    gh pr view "$pr_number" --repo "$full_repo" --web
-  else
-    echo "No pull request selected."
-  fi
+  # --- 3. Open the Pull Request ---
+  echo "🌐 Opening PR #$pr_number in browser..."
+  gh pr view "$pr_number" --repo "$full_repo" --web
 }
 
 # ghpra (Git Pull Request Approve) - Auto-approve a GitHub PR with LGTM comment
@@ -1803,116 +1807,24 @@ ghpr_greptile() {
             return 1
         fi
     else
-        # No URL provided - auto-detect repo and show PR picker
+        # No URL provided - auto-detect or select repo, then pick PR
 
-        # Try to auto-detect current GitHub repo
-        if git remote get-url origin &>/dev/null 2>&1; then
-            local remote_url=$(git remote get-url origin)
-            # Extract org/repo from GitHub URL (supports both https and ssh)
-            if echo "$remote_url" | grep -q "github.com"; then
-                full_repo=$(echo "$remote_url" | sed -E 's|.*github\.com[:/]([^/]+/[^/]+)(\.git)?.*|\1|' | sed 's/\.git$//')
-                if [ -n "$full_repo" ] && [ "$full_repo" != "$remote_url" ]; then
-                    echo "📦 Auto-detected repository: $full_repo"
-                fi
-            fi
-        fi
-
-        if [ -z "$full_repo" ]; then
-            # Not in a repo - use fuzzy find for org and repo selection
+        # Try auto-detect first
+        full_repo=$(_detect_github_repo)
+        if [ -n "$full_repo" ]; then
+            echo "📦 Auto-detected repository: $full_repo"
+        else
+            # Fall back to org/repo selection
             echo "📂 Not in a GitHub repository. Let's select one..."
-
-            local org
-            org=$(_select_org)
-            if [ -z "$org" ]; then
-                echo "❌ No organization selected."
-                return 1
-            fi
-            echo "Selected organization: $org"
-
-            # Fetch and select repo from GitHub API
-            echo "🔍 Fetching repositories for '$org'..."
-            local repo_list
-            repo_list=$(gh repo list "$org" --limit 1000) || return 1
-
-            if [ -z "$repo_list" ]; then
-                echo "❌ No repositories found for organization '$org'."
-                return 1
-            fi
-
-            # Calculate dynamic column widths
-            local max_repo_width
-            max_repo_width=$(echo "$repo_list" | awk '{if (length($1) > max) max = length($1)} END {print max}')
-            if [ "$max_repo_width" -lt 20 ]; then
-                max_repo_width=20
-            fi
-            local repo_header=$(printf "%-${max_repo_width}s" "REPOSITORY")
-
-            # Interactive repository selection
-            local selected_repo
-            selected_repo=$(echo "$repo_list" | awk -v repo_width="$max_repo_width" '{
-                repo_name = $1;
-                visibility = $2; if (length(visibility) > 10) visibility = substr(visibility, 1, 7) "...";
-                language = $3; if (length(language) > 12) language = substr(language, 1, 9) "...";
-                updated = $4; if (length(updated) > 12) updated = substr(updated, 1, 9) "...";
-                printf "\033[36m%-*s\033[0m \033[37m%-10s\033[0m \033[33m%-12s\033[0m \033[35m%-12s\033[0m\n", repo_width, repo_name, visibility, language, updated
-            }' | fzf --prompt="Select a repo from '$org' > " --height="50%" --border --ansi \
-                --header="$repo_header VISIBILITY LANGUAGE     UPDATED     " \
-                --delimiter=' ' --with-nth=1,2,3,4)
-
-            if [ -z "$selected_repo" ]; then
-                echo "❌ No repository selected."
-                return 1
-            fi
-
-            local repo_name
-            repo_name=$(echo "$selected_repo" | awk '{print $1}')
-            full_repo="$repo_name"
+            full_repo=$(_select_org_and_repo)
+            [ -z "$full_repo" ] && return 1
             echo "📦 Selected repository: $full_repo"
         fi
 
-        # Fetch PR list for the repo (including branch name)
-        echo "🔍 Fetching pull requests for '$full_repo'..."
-        local pr_list
-        pr_list=$(gh pr list --repo "$full_repo" --limit 100 --json number,title,author,url,state,headRefName --template '{{range .}}#{{.number}}\t{{.headRefName}}\t{{.title}}\t{{.author.login}}\t{{.state}}\t{{.url}}\t{{.number}}{{"\n"}}{{end}}')
+        # Select PR using helper
+        pr_number=$(_select_pr "$full_repo")
+        [ -z "$pr_number" ] && { echo "❌ No PR selected"; return 1; }
 
-        if [ $? -ne 0 ]; then
-            echo "❌ Failed to fetch pull requests for '$full_repo'"
-            return 1
-        fi
-
-        if [ -z "$pr_list" ]; then
-            echo "⚠️  No pull requests found for '$full_repo'"
-            return 1
-        fi
-
-        # Interactive PR selection with fzf (use tab delimiter for reliable field extraction)
-        local selected_pr
-        selected_pr=$(echo "$pr_list" | awk -F'\t' '{
-            pr_num = $1; if (length(pr_num) > 7) pr_num = substr(pr_num, 1, 7);
-            branch = $2; if (length(branch) > 25) branch = substr(branch, 1, 22) "...";
-            title = $3; if (length(title) > 30) title = substr(title, 1, 27) "...";
-            author = $4; if (length(author) > 15) author = substr(author, 1, 12) "...";
-            state = $5;
-            printf "\033[36m%-7s\033[0m\t\033[33m%-25s\033[0m\t\033[35m%-30s\033[0m\t\033[37m%-15s\033[0m\t\033[32m%-8s\033[0m\t%s\n", pr_num, branch, title, author, state, $7
-        }' | fzf \
-            --prompt="Select a PR for Greptile review > " \
-            --height="60%" \
-            --border \
-            --ansi \
-            --delimiter=$'\t' \
-            --nth=1,2,3,4,5 \
-            --with-nth=1,2,3,4,5 \
-            --header="PR #    BRANCH                    TITLE                          AUTHOR          STATE   " \
-            --preview 'gh pr view $(echo {6} | tr -d " ") --repo '"$full_repo"' || echo "Could not load PR details"' \
-            --preview-window 'right:40%')
-
-        if [ -z "$selected_pr" ]; then
-            echo "❌ No PR selected"
-            return 1
-        fi
-
-        # Extract PR number from selection (field 6, tab-delimited)
-        pr_number=$(echo "$selected_pr" | awk -F'\t' '{print $6}' | tr -d ' ')
         pr_url="https://github.com/$full_repo/pull/$pr_number"
         echo "📋 Selected PR #$pr_number"
     fi
