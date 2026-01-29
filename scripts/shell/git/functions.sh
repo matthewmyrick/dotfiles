@@ -1831,17 +1831,28 @@ ghpr_greptile() {
 
     echo "🔍 Fetching Greptile comments from PR #$pr_number in $full_repo..."
 
-    # Count Greptile comments directly using gh api with jq
-    local comment_count
-    comment_count=$(gh api "repos/$full_repo/pulls/$pr_number/comments" \
+    # Count inline Greptile review comments
+    local inline_count
+    inline_count=$(gh api "repos/$full_repo/pulls/$pr_number/comments" \
         --jq '[.[] | select(.user.login == "greptile-apps[bot]")] | length' 2>/dev/null)
+    inline_count=${inline_count:-0}
 
-    if [ -z "$comment_count" ] || [ "$comment_count" -eq 0 ]; then
+    # Check for additional comments in issue-level comments
+    local has_additional
+    has_additional=$(gh api "repos/$full_repo/issues/$pr_number/comments" --jq '
+        [.[] | select(.user.login == "greptile-apps[bot]") | .body | select(contains("Additional Comments"))] | length
+    ' 2>/dev/null)
+    has_additional=${has_additional:-0}
+
+    if [ "$inline_count" -eq 0 ] && [ "$has_additional" -eq 0 ]; then
         echo "⚠️  No Greptile comments found in PR #$pr_number"
         return 0
     fi
 
-    echo "📝 Found $comment_count Greptile comment(s)"
+    echo "📝 Found $inline_count inline review comment(s)"
+    if [ "$has_additional" -gt 0 ]; then
+        echo "📝 Found additional comments section"
+    fi
 
     # Create output filename at git root (or current directory if not in a git repo)
     local git_root output_file
@@ -1857,11 +1868,13 @@ ghpr_greptile() {
 **URL:** $pr_url
 **Generated:** $(date '+%Y-%m-%d %H:%M:%S')
 
+> **Prompt:** Please review the Greptile AI comments below and evaluate whether each is a valid concern, a necessary change, or simply a note. For each item, update this file and fill in the "Response" section directly in this document explaining whether the change should be made and why. After reviewing all comments, add a prioritized plan of action at the end of this file for me to review before any changes are made.
+
 ---
 
 EOF
 
-    # Process comments with gh api and jq directly (avoids shell variable escaping issues)
+    # Process inline review comments with gh api and jq
     gh api "repos/$full_repo/pulls/$pr_number/comments" --jq '
         .[] | select(.user.login == "greptile-apps[bot]") |
         "## " + .path + "\n\n" +
@@ -1875,20 +1888,106 @@ EOF
         "---\n"
     ' >> "$output_file"
 
+    # Process additional comments from issue-level comments (Greptile posts these separately)
+    local additional_body
+    additional_body=$(gh api "repos/$full_repo/issues/$pr_number/comments" --jq '
+        [.[] | select(.user.login == "greptile-apps[bot]") | .body] |
+        map(select(contains("Additional Comments"))) | .[0] // empty
+    ' 2>/dev/null)
+
+    if [ -n "$additional_body" ]; then
+        local additional_count
+        additional_count=$(echo "$additional_body" | sed -n 's/.*Additional Comments (\([0-9]*\)).*/\1/p')
+        echo "📝 Found ${additional_count:-some} additional comment(s)"
+
+        # Add additional comments section header
+        echo "" >> "$output_file"
+        echo "# Additional Comments" >> "$output_file"
+        echo "" >> "$output_file"
+
+        # Process the additional comments body:
+        # 1. Strip outer <details> wrapper
+        # 2. Split by --- into individual comments
+        # 3. For each, extract file path, comment, and prompt
+        echo "$additional_body" | \
+            sed '1s/<details>//' | \
+            sed '1s/<summary>Additional Comments ([0-9]*)<\/summary>//' | \
+            sed '$s/<\/details>//' | \
+            awk '
+            BEGIN { in_prompt = 0; comment_num = 0; buffer = "" }
+
+            # New comment section starts with **`filepath`**
+            /^\*\*`[^`]+`\*\*$/ {
+                # Print previous comment response section if we had one
+                if (comment_num > 0) {
+                    print "### Response\n"
+                    print "_[TODO: Explain whether this change is needed and why, or why not]_\n"
+                    print "---\n"
+                }
+                comment_num++
+                # Extract filepath
+                filepath = $0
+                gsub(/^\*\*`/, "", filepath)
+                gsub(/`\*\*$/, "", filepath)
+                print "## " filepath " (Additional)\n"
+                print "### Review Comment\n"
+                in_prompt = 0
+                next
+            }
+
+            # Start of prompt section
+            /<details><summary>Prompt To Fix With AI<\/summary>/ {
+                in_prompt = 1
+                print "### Prompt To Fix With AI\n"
+                next
+            }
+
+            # End of prompt section
+            /^<\/details>$/ {
+                if (in_prompt) {
+                    in_prompt = 0
+                }
+                next
+            }
+
+            # Skip separator lines
+            /^---$/ { next }
+
+            # Skip empty summary/details tags
+            /^<\/?details>/ { next }
+            /^<summary>/ { next }
+
+            # Print content
+            { print }
+
+            END {
+                if (comment_num > 0) {
+                    print "\n### Response\n"
+                    print "_[TODO: Explain whether this change is needed and why, or why not]_\n"
+                    print "---\n"
+                }
+            }
+            ' >> "$output_file"
+    fi
+
     # Add summary prompt at the end for AI review
     cat >> "$output_file" << 'EOF'
 
 ## Instructions for Review
 
-Please go through each Greptile comment above and evaluate whether these are valid concerns. For each item:
+**Important: Update this file directly with your responses.**
+
+Please go through each Greptile comment above (both inline review comments and additional comments) and evaluate whether these are valid concerns. For each item:
 
 1. **Assess the validity** - Is this a real issue that needs to be addressed?
-2. **Provide your response** - Fill in the "Response" section with:
+2. **Update this file** - Replace the TODO placeholder in each "Response" section with:
    - Whether the change should be made or not
    - A clear explanation of your reasoning
    - If applicable, any alternative approaches
 
 Be thorough but concise in your explanations.
+
+After completing all responses, add a "## Plan of Action" section at the end of this file with a prioritized list of changes to make. Present the plan for me to review before any changes are made.
 EOF
 
     echo "✅ Saved Greptile review to: $output_file"
