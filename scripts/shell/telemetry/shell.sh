@@ -54,5 +54,19 @@ zprof() {
     print -P "${_c}#${_rank} ${_name}${_cn}   total=${_tot}ms   self=${_self}ms"
   done <<<"$_top"
 
+  # Show today's calendar events
+  if command -v icalBuddy &>/dev/null; then
+    local _events
+    _events=$(icalBuddy -nc -nrd -ea -n -npn -iep "title,datetime" -po "datetime,title" -ps " | " -df "" -tf "%I:%M %p" -b "" eventsToday 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g')
+    if [ -n "$_events" ]; then
+      print "\n📅 Today's meetings:"
+      echo "$_events" | while IFS='|' read -r _time _title; do
+        print "  \033[33m${_time}\033[0m  ${_title}"
+      done
+    else
+      print "\n📅 No meetings today!"
+    fi
+  fi
+
   rm -f "$_tmp"
 }
