@@ -8,7 +8,6 @@ local query = require("postgres.query")
 local state = {
   bufnr = nil,
   winid = nil,
-  file_winid = nil, -- Window for file tree
   expanded = {}, -- Track expanded nodes: { [conn_id] = true, [conn_id..":schema"] = true, ... }
   schemas = {}, -- Cache: { [conn_id] = { "public", "other", ... } }
   tables = {}, -- Cache: { [conn_id..":schema"] = { {name, type}, ... } }
@@ -381,8 +380,8 @@ local function setup_keymaps(bufnr)
     M.show_help()
   end, opts)
 
-  -- Fuzzy search tables with \
-  vim.keymap.set("n", "\\", function()
+  -- Fuzzy search tables with /
+  vim.keymap.set("n", "/", function()
     M.fuzzy_search_tables()
   end, opts)
 end
@@ -432,41 +431,15 @@ function M.open()
   vim.api.nvim_win_set_option(state.winid, "winfixwidth", true)
   vim.api.nvim_win_set_option(state.winid, "wrap", false)
   vim.api.nvim_win_set_option(state.winid, "cursorline", true)
-
-  -- Split the drawer window horizontally for file tree (bottom half)
-  vim.cmd("belowright split")
-  state.file_winid = vim.api.nvim_get_current_win()
-
-  -- Set height to roughly half
-  local total_height = vim.o.lines - 4 -- Account for statusline, cmdline, etc.
-  local conn_height = math.floor(total_height * 0.5)
-  vim.api.nvim_win_set_height(state.winid, conn_height)
-
-  -- Window options for file tree window
-  vim.api.nvim_win_set_option(state.file_winid, "number", false)
-  vim.api.nvim_win_set_option(state.file_winid, "relativenumber", false)
-  vim.api.nvim_win_set_option(state.file_winid, "signcolumn", "no")
-  vim.api.nvim_win_set_option(state.file_winid, "winfixwidth", true)
-
-  -- Open neo-tree in the file window
-  local sql_dir = require("postgres").config.sql_directory
-  vim.cmd("Neotree position=current dir=" .. sql_dir)
-
-  -- Go back to connections window
-  vim.api.nvim_set_current_win(state.winid)
 end
 
 -- Close the drawer
 function M.close()
-  if state.file_winid and vim.api.nvim_win_is_valid(state.file_winid) then
-    vim.api.nvim_win_close(state.file_winid, true)
-  end
   if state.winid and vim.api.nvim_win_is_valid(state.winid) then
     vim.api.nvim_win_close(state.winid, true)
   end
   state.winid = nil
   state.bufnr = nil
-  state.file_winid = nil
 end
 
 -- Toggle the drawer
@@ -530,9 +503,25 @@ function M.fuzzy_search_tables()
   local has_telescope, telescope_pickers = pcall(require, "telescope.pickers")
   if has_telescope then
     local finders = require("telescope.finders")
-    local conf = require("telescope.config").values
+    local sorters = require("telescope.sorters")
     local actions = require("telescope.actions")
     local action_state = require("telescope.actions.state")
+
+    -- Custom sorter that splits query on spaces and matches each token
+    local multi_token_sorter = sorters.new({
+      scoring_function = function(_, prompt, ordinal)
+        if not prompt or prompt == "" then
+          return 0
+        end
+        local lower_ordinal = ordinal:lower()
+        for token in prompt:gmatch("%S+") do
+          if not lower_ordinal:find(token:lower(), 1, true) then
+            return -1
+          end
+        end
+        return 0
+      end,
+    })
 
     telescope_pickers.new({}, {
       prompt_title = "Search Tables",
@@ -547,7 +536,7 @@ function M.fuzzy_search_tables()
           }
         end,
       }),
-      sorter = conf.generic_sorter({}),
+      sorter = multi_token_sorter,
       attach_mappings = function(prompt_bufnr, map)
         actions.select_default:replace(function()
           actions.close(prompt_bufnr)
@@ -575,21 +564,22 @@ function M.fuzzy_search_tables()
   end
 end
 
--- Open a query file for a table
+-- Open a scratch buffer with a query for a table
 function M.open_table_query(table_info)
   -- Generate SELECT query for the table
   local sql = string.format("SELECT * FROM %s.%s LIMIT 100;", table_info.schema, table_info.table)
+  local buf_name = string.format("query_%s_%s.sql", table_info.schema, table_info.table)
 
-  -- Find or create a buffer for the query
-  local sql_dir = require("postgres").config.sql_directory
-  local filename = string.format("%s/query_%s_%s.sql", sql_dir, table_info.schema, table_info.table)
-
-  -- Check if file exists, if not create it
-  if vim.fn.filereadable(filename) == 0 then
-    vim.fn.writefile({ sql }, filename)
+  -- Check if a scratch buffer with this name already exists
+  local existing_buf = nil
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(b) and vim.api.nvim_buf_get_name(b):match("[^/]+$") == buf_name then
+      existing_buf = b
+      break
+    end
   end
 
-  -- Open in the editor pane (main buffer only, not side panels or terminals)
+  -- Find the editor pane
   local wins = vim.api.nvim_list_wins()
   local target_win = nil
 
@@ -597,29 +587,41 @@ function M.open_table_query(table_info)
     local buf = vim.api.nvim_win_get_buf(win)
     local ft = vim.bo[buf].filetype
     local buftype = vim.bo[buf].buftype
-    local buf_name = vim.api.nvim_buf_get_name(buf)
+    local win_buf_name = vim.api.nvim_buf_get_name(buf)
 
-    -- Exclude: neo-tree, postgres-drawer, postgres results, terminal buffers (like Claude)
-    if ft ~= "neo-tree" and ft ~= "postgres-drawer" and ft ~= "postgres-results"
-       and buftype ~= "terminal" and not buf_name:match("postgres://") then
+    -- Exclude: postgres-drawer, postgres results, terminal buffers (like Claude)
+    if ft ~= "postgres-drawer" and ft ~= "postgres-results"
+       and buftype ~= "terminal" and not win_buf_name:match("postgres://") then
       target_win = win
     end
   end
 
-  if target_win then
-    vim.api.nvim_set_current_win(target_win)
-    vim.cmd("edit " .. vim.fn.fnameescape(filename))
+  if existing_buf then
+    -- Reuse existing buffer
+    if target_win then
+      vim.api.nvim_set_current_win(target_win)
+    end
+    vim.api.nvim_set_current_buf(existing_buf)
   else
-    -- No suitable window found - create a new one in the center
-    -- First, find the drawer window to split from properly
-    local drawer_win = state.winid
-    if drawer_win and vim.api.nvim_win_is_valid(drawer_win) then
-      vim.api.nvim_set_current_win(drawer_win)
-      -- Create a new window to the right of the drawer
-      vim.cmd("vertical rightbelow split " .. vim.fn.fnameescape(filename))
+    -- Create scratch buffer (no file on disk, no swap)
+    local buf = vim.api.nvim_create_buf(true, true)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { sql })
+    vim.bo[buf].filetype = "sql"
+    vim.bo[buf].swapfile = false
+    vim.api.nvim_buf_set_name(buf, buf_name)
+
+    if target_win then
+      vim.api.nvim_set_current_win(target_win)
+      vim.api.nvim_set_current_buf(buf)
     else
-      -- Fallback: just create a new split
-      vim.cmd("vsplit " .. vim.fn.fnameescape(filename))
+      local drawer_win = state.winid
+      if drawer_win and vim.api.nvim_win_is_valid(drawer_win) then
+        vim.api.nvim_set_current_win(drawer_win)
+        vim.cmd("vertical rightbelow split")
+      else
+        vim.cmd("vsplit")
+      end
+      vim.api.nvim_set_current_buf(buf)
     end
   end
 
@@ -645,16 +647,14 @@ function M.show_help()
     "  x            Disconnect (deactivate)",
     "  r            Refresh (clear cache)",
     "",
-    " Search (global)",
-    "  /            Search SQL files",
-    "  \\            Search tables",
-    "",
-    " Queries",
+    " Search & Queries",
+    "  /            Search tables",
+    "  <leader><leader>  Quick queries",
     "  <leader>rr   Run SQL query",
     "  <leader>rt   Toggle results pane",
-    "",
-    " Files",
-    "  <leader>ww   Write file",
+    "  Ctrl+l       Insert table name at cursor",
+    "  Ctrl+k       Expand * to column names",
+    "  <leader>ff   Format SQL",
     "",
     " Claude",
     "  <leader>tc   Toggle Claude (33% split)",
@@ -714,12 +714,13 @@ function M.show_help()
   vim.api.nvim_win_set_option(win, "cursorline", false)
   vim.api.nvim_win_set_option(win, "winhighlight", "Normal:PgHelpNormal,FloatBorder:PgHelpBorder")
 
-  -- Highlight the header
+  -- Highlight the header and section titles
   vim.api.nvim_buf_add_highlight(buf, -1, "PgHeader", 0, 0, -1)
-  vim.api.nvim_buf_add_highlight(buf, -1, "PgSchema", 2, 0, -1)
-  vim.api.nvim_buf_add_highlight(buf, -1, "PgSchema", 7, 0, -1)
-  vim.api.nvim_buf_add_highlight(buf, -1, "PgSchema", 12, 0, -1)
-  vim.api.nvim_buf_add_highlight(buf, -1, "PgSchema", 15, 0, -1)
+  vim.api.nvim_buf_add_highlight(buf, -1, "PgSchema", 2, 0, -1)   -- Navigation
+  vim.api.nvim_buf_add_highlight(buf, -1, "PgSchema", 9, 0, -1)   -- Connections
+  vim.api.nvim_buf_add_highlight(buf, -1, "PgSchema", 16, 0, -1)  -- Search & Queries
+  vim.api.nvim_buf_add_highlight(buf, -1, "PgSchema", 24, 0, -1)  -- Claude
+  vim.api.nvim_buf_add_highlight(buf, -1, "PgSchema", 29, 0, -1)  -- Window
 
   -- Close on any key press
   vim.keymap.set("n", "<Esc>", function()

@@ -28,6 +28,7 @@ while [[ $# -gt 0 ]]; do
       echo "                            brew        - Homebrew and packages"
       echo "                            nvim        - Neovim configuration"
       echo "                            nvim-dbee   - Database client (nvim-dbee)"
+      echo "                            nvim-postgres - PostgreSQL client (nvim-postgres)"
       echo "                            sketchybar  - SketchyBar configuration"
       echo "                            ghostty     - Ghostty terminal configuration"
       echo "                            scripts     - Shell scripts and modules"
@@ -35,6 +36,7 @@ while [[ $# -gt 0 ]]; do
       echo "                            claude      - Claude commands"
       echo "                            prompt      - Terminal prompt configuration"
       echo "                            ssm         - SSH Manager (interactive SSH)"
+      echo "                            pgadmin4    - pgAdmin 4 server configuration"
       echo ""
       echo "  -h, --help              Show this help message"
       echo ""
@@ -56,12 +58,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|nvim-dbee|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm)
+    brew|nvim|nvim-dbee|nvim-postgres|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|pgadmin4)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, nvim-dbee, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm"
+      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, pgadmin4"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -122,6 +124,67 @@ function installNvimDbeeOnly() {
   echo "  - First run will install plugins and compile Go backend"
   echo "  - Use <leader>db to toggle database explorer"
   echo "  - Configuration at ~/.config/nvim-dbee"
+  echo ""
+}
+
+function installNvimPostgresOnly() {
+  echo "🚀 Starting nvim-postgres (PostgreSQL client) installation..."
+  echo ""
+
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🔄 Installing nvim-postgres configuration..."
+  echo "═══════════════════════════════════════════════════════════════"
+
+  # Install nvim-postgres config
+  rm -rf ~/.config/nvim-postgres
+  cp -R "$INSTALL_DIR/nvim-postgres" ~/.config/
+
+  # Seed default connection if no connections file exists
+  local CONN_DIR="$HOME/.local/share/nvim-postgres/postgres"
+  local CONN_FILE="$CONN_DIR/connections.json"
+  if [ ! -f "$CONN_FILE" ]; then
+    mkdir -p "$CONN_DIR"
+    cat > "$CONN_FILE" << 'CONN_EOF'
+{
+  "connections": [
+    {
+      "id": "localhost-postgres",
+      "name": "localhost",
+      "host": "localhost",
+      "port": "5438",
+      "database": "postgres",
+      "user": "postgres",
+      "password": "postgres",
+      "ssl": false
+    }
+  ]
+}
+CONN_EOF
+    echo "  Created default connection (localhost/postgres)"
+  else
+    echo "  Preserved existing connections.json"
+  fi
+
+  # Install sql-formatter for <leader>ff
+  if ! command -v sql-formatter &>/dev/null; then
+    echo "  Installing sql-formatter..."
+    npm install -g sql-formatter
+  else
+    echo "  sql-formatter already installed"
+  fi
+
+  echo "✅ nvim-postgres configuration installed successfully!"
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 nvim-postgres installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Usage:"
+  echo "  - Run 'NVIM_APPNAME=nvim-postgres nvim' to open"
+  echo "  - First run will install plugins via lazy.nvim"
+  echo "  - Press / to search tables, <leader><leader> for quick queries"
+  echo "  - Configuration at ~/.config/nvim-postgres"
   echo ""
 }
 
@@ -394,6 +457,30 @@ function installSsmOnly() {
   echo "📁 Configuration:"
   echo "  • Config: ~/.config/ssh-manager/config.yaml"
   echo "  • Keys:   ~/.config/ssh-manager/keys/"
+  echo ""
+}
+
+function installPgadmin4Only() {
+  echo "🚀 Starting pgAdmin 4 configuration installation..."
+  echo ""
+
+  if [ -f "$INSTALL_DIR/pgadmin-4/setup.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing pgAdmin 4 configuration..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/pgadmin-4/setup.sh" || {
+      echo "❌ Error installing pgAdmin 4 configuration"
+      return 1
+    }
+  else
+    echo "⚠️  pgAdmin 4 setup script not found"
+    return 1
+  fi
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 pgAdmin 4 configuration completed!"
+  echo "═══════════════════════════════════════════════════════════════"
   echo ""
 }
 
@@ -758,6 +845,22 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
+  nvim-postgres)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                NVIM-POSTGRES INSTALLER                       ║"
+    echo "║                                                               ║"
+    echo "║  This will install the PostgreSQL client (nvim-postgres)     ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installNvimPostgresOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
   brew)
     echo "╔═══════════════════════════════════════════════════════════════╗"
     echo "║                   HOMEBREW INSTALLER                         ║"
@@ -904,7 +1007,23 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
+  pgadmin4)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                   PGADMIN 4 INSTALLER                         ║"
+    echo "║                                                               ║"
+    echo "║  This will configure pgAdmin 4 with server definitions       ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installPgadmin4Only
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
 esac
 
 # Cleanup
-unset installDotfiles installNvimOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly
+unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installPgadmin4Only

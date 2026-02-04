@@ -13,6 +13,9 @@ return {
         },
       })
       vim.cmd.colorscheme("catppuccin")
+
+      -- Yank highlight - orange flash
+      vim.api.nvim_set_hl(0, "YankHighlight", { bg = "#b07a3b", blend = 99 })
     end,
   },
 }

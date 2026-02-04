@@ -218,8 +218,8 @@ function M.show()
     local buftype = vim.bo[buf].buftype
     local buf_name = vim.api.nvim_buf_get_name(buf)
 
-    -- Exclude: neo-tree, postgres-drawer, postgres results, terminal buffers (like Claude)
-    if ft ~= "neo-tree" and ft ~= "postgres-drawer" and ft ~= "postgres-results"
+    -- Exclude: postgres-drawer, postgres results, terminal buffers (like Claude)
+    if ft ~= "postgres-drawer" and ft ~= "postgres-results"
        and buftype ~= "terminal" and not buf_name:match("postgres://") then
       target_win = win
     end

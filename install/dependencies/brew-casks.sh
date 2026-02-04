@@ -6,6 +6,7 @@ CASK_PACKAGES=(
   ghostty
   karabiner-elements
   hammerspoon
+  pgadmin4
 )
 
 # Install or upgrade each cask package
