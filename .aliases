@@ -41,6 +41,9 @@ alias ptpy='ptpython'
 # database
 alias pg='NVIM_APPNAME=nvim-postgres nvim'
 
+# aws s3 browser
+alias s3='NVIM_APPNAME=nvim-aws-s3 nvim'
+
 # sre agent
 alias sre='~/.config/sre-agent/sre'
 

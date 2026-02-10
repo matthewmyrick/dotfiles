@@ -29,6 +29,7 @@ while [[ $# -gt 0 ]]; do
       echo "                            nvim        - Neovim configuration"
       echo "                            nvim-dbee   - Database client (nvim-dbee)"
       echo "                            nvim-postgres - PostgreSQL client (nvim-postgres)"
+      echo "                            nvim-aws-s3   - AWS S3 browser (nvim-aws-s3)"
       echo "                            sketchybar  - SketchyBar configuration"
       echo "                            ghostty     - Ghostty terminal configuration"
       echo "                            scripts     - Shell scripts and modules"
@@ -58,12 +59,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|nvim-dbee|nvim-postgres|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|pgadmin4)
+    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|pgadmin4)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, pgadmin4"
+      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, pgadmin4"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -185,6 +186,38 @@ CONN_EOF
   echo "  - First run will install plugins via lazy.nvim"
   echo "  - Press / to search tables, <leader><leader> for quick queries"
   echo "  - Configuration at ~/.config/nvim-postgres"
+  echo ""
+}
+
+function installNvimAwsS3Only() {
+  echo "🚀 Starting nvim-aws-s3 (S3 Browser) installation..."
+  echo ""
+
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🔄 Installing nvim-aws-s3 configuration..."
+  echo "═══════════════════════════════════════════════════════════════"
+
+  # Install nvim-aws-s3 config
+  rm -rf ~/.config/nvim-aws-s3
+  cp -R "$INSTALL_DIR/nvim-aws-s3" ~/.config/
+
+  echo "✅ nvim-aws-s3 configuration installed successfully!"
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 nvim-aws-s3 installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Prerequisites:"
+  echo "  - AWS CLI must be configured (run 'aws configure')"
+  echo "  - Valid AWS credentials with S3 read access"
+  echo ""
+  echo "📋 Usage:"
+  echo "  - Run 'NVIM_APPNAME=nvim-aws-s3 nvim' to open"
+  echo "  - On startup, enter your AWS region (e.g., us-east-1)"
+  echo "  - Press Enter on a bucket to expand, Enter on a file to preview"
+  echo "  - Press / to fuzzy search files, ? for help"
+  echo "  - Configuration at ~/.config/nvim-aws-s3"
   echo ""
 }
 
@@ -861,6 +894,22 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
+  nvim-aws-s3)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                 NVIM-AWS-S3 INSTALLER                        ║"
+    echo "║                                                               ║"
+    echo "║  This will install the S3 browser (nvim-aws-s3)              ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installNvimAwsS3Only
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
   brew)
     echo "╔═══════════════════════════════════════════════════════════════╗"
     echo "║                   HOMEBREW INSTALLER                         ║"
@@ -1026,4 +1075,4 @@ case "$INSTALL_TARGET" in
 esac
 
 # Cleanup
-unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installPgadmin4Only
+unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installPgadmin4Only
