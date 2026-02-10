@@ -282,7 +282,7 @@ local function setup_keymaps(bufnr)
   end, opts)
 
   vim.keymap.set("n", "r", function()
-    M.refresh()
+    M.refresh_current_bucket()
   end, opts)
 
   vim.keymap.set("n", "R", function()
@@ -308,6 +308,18 @@ local function setup_keymaps(bufnr)
   vim.keymap.set("n", "m", function()
     M.show_current_metadata()
   end, opts)
+end
+
+-- Find line number for a bucket in the tree
+local function find_bucket_line(bucket_name)
+  local line_data = vim.b[state.bufnr].s3_line_data
+  if not line_data then return nil end
+  for i, data in ipairs(line_data) do
+    if data.type == "bucket" and data.name == bucket_name then
+      return i
+    end
+  end
+  return nil
 end
 
 -- Fuzzy search buckets
@@ -341,9 +353,18 @@ function M.fuzzy_search_buckets()
         actions.close(prompt_bufnr)
         local selection = action_state.get_selected_entry()
         if selection then
+          local bucket_name = selection.value.name
           -- Expand the bucket
-          local data = { type = "bucket", bucket = selection.value.name, name = selection.value.name }
+          local data = { type = "bucket", bucket = bucket_name, name = bucket_name }
           toggle_node(data)
+          -- Move cursor to the bucket line after render
+          vim.defer_fn(function()
+            local line = find_bucket_line(bucket_name)
+            if line and state.winid and vim.api.nvim_win_is_valid(state.winid) then
+              vim.api.nvim_set_current_win(state.winid)
+              vim.api.nvim_win_set_cursor(state.winid, { line, 0 })
+            end
+          end, 50)
         end
       end)
       return true
@@ -468,7 +489,104 @@ function M.close()
   state.bufnr = nil
 end
 
--- Refresh
+-- Refresh current bucket (clears cache and reloads, keeping expanded folders open)
+function M.refresh_current_bucket()
+  local line = vim.api.nvim_win_get_cursor(0)[1]
+  local data = get_line_data(line)
+
+  if not data then
+    vim.notify("No item under cursor", vim.log.levels.WARN)
+    return
+  end
+
+  -- Get the bucket name from whatever item we're on
+  local bucket_name = data.bucket
+  if not bucket_name then
+    vim.notify("No bucket context", vim.log.levels.WARN)
+    return
+  end
+
+  vim.notify("Refreshing bucket: " .. bucket_name, vim.log.levels.INFO)
+
+  -- Save which folders were expanded for this bucket
+  local expanded_prefixes = {}
+  for key, is_expanded in pairs(state.expanded) do
+    if is_expanded and key:match("^" .. bucket_name .. ":") then
+      local prefix = key:sub(#bucket_name + 2)  -- Remove "bucket:"
+      if prefix ~= "" then
+        table.insert(expanded_prefixes, prefix)
+      end
+    end
+  end
+
+  -- Clear all cached contents for this bucket
+  local keys_to_remove = {}
+  for key, _ in pairs(state.contents) do
+    if key:match("^" .. bucket_name .. ":") then
+      table.insert(keys_to_remove, key)
+    end
+  end
+  for _, key in ipairs(keys_to_remove) do
+    state.contents[key] = nil
+  end
+
+  -- Reload the bucket contents and re-expand folders
+  if state.expanded[bucket_name] then
+    state.loading[bucket_name] = true
+    render()
+
+    local function reload_prefix(prefix, callback)
+      local content_key = bucket_name .. ":" .. prefix
+      api.list_objects(bucket_name, prefix)
+      vim.defer_fn(function()
+        local contents, err = api.list_objects(bucket_name, prefix)
+        if contents then
+          state.contents[content_key] = contents
+          state.expanded[content_key] = true
+        end
+        if callback then callback() end
+      end, 10)
+    end
+
+    vim.defer_fn(function()
+      -- First reload the root
+      local contents, err = api.list_objects(bucket_name, "")
+      state.loading[bucket_name] = false
+      if contents then
+        state.contents[bucket_name .. ":"] = contents
+
+        -- Now reload each expanded folder
+        local pending = #expanded_prefixes
+        if pending == 0 then
+          vim.notify("Bucket refreshed", vim.log.levels.INFO)
+          render()
+        else
+          for _, prefix in ipairs(expanded_prefixes) do
+            vim.defer_fn(function()
+              local folder_contents, _ = api.list_objects(bucket_name, prefix)
+              if folder_contents then
+                state.contents[bucket_name .. ":" .. prefix] = folder_contents
+                state.expanded[bucket_name .. ":" .. prefix] = true
+              end
+              pending = pending - 1
+              if pending == 0 then
+                vim.notify("Bucket refreshed", vim.log.levels.INFO)
+                render()
+              end
+            end, 10)
+          end
+        end
+      else
+        vim.notify("Error: " .. (err or "unknown"), vim.log.levels.ERROR)
+        render()
+      end
+    end, 10)
+  else
+    render()
+  end
+end
+
+-- Refresh (legacy, just re-render)
 function M.refresh()
   render()
 end
@@ -494,82 +612,203 @@ function M.load_buckets()
   end, 10)
 end
 
--- Show metadata for current file
+-- Show metadata popup
+local function show_metadata_popup(title, lines)
+  table.insert(lines, "")
+  table.insert(lines, " Press q or <Esc> to close")
+
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+
+  local width = 55
+  local height = #lines
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = math.floor((vim.o.lines - height) / 2),
+    col = math.floor((vim.o.columns - width) / 2),
+    style = "minimal",
+    border = "rounded",
+  })
+
+  -- Make it transparent
+  vim.wo[win].winblend = 15
+
+  -- Apply highlights
+  vim.api.nvim_buf_add_highlight(buf, -1, "S3Header", 0, 0, -1)
+
+  vim.keymap.set("n", "q", function() vim.api.nvim_win_close(win, true) end, { buffer = buf })
+  vim.keymap.set("n", "<Esc>", function() vim.api.nvim_win_close(win, true) end, { buffer = buf })
+end
+
+-- Show metadata for item under cursor (or current previewed file)
 function M.show_current_metadata()
-  if not state.current_file then
-    vim.notify("No file selected. Preview a file first.", vim.log.levels.WARN)
+  -- Check if we're in the drawer
+  local in_drawer = vim.bo.filetype == "s3-drawer"
+  local data = nil
+
+  if in_drawer then
+    local line = vim.api.nvim_win_get_cursor(0)[1]
+    data = get_line_data(line)
+  end
+
+  -- If in drawer with valid data, show metadata for that item
+  if data then
+    if data.type == "bucket" then
+      -- Show bucket info (no S3 API call needed)
+      local lines = {
+        " S3 Bucket Info",
+        "",
+        " Bucket",
+        " ─────────────────────────────────────────",
+        "  Name:    " .. data.name,
+        "  URI:     s3://" .. data.name,
+        "",
+        " Contents",
+        " ─────────────────────────────────────────",
+      }
+
+      -- Count folders and files if expanded
+      local content_key = data.bucket .. ":"
+      local contents = state.contents[content_key]
+      if contents then
+        local folder_count = contents.folders and #contents.folders or 0
+        local file_count = contents.files and #contents.files or 0
+        table.insert(lines, "  Folders: " .. folder_count)
+        table.insert(lines, "  Files:   " .. file_count)
+      else
+        table.insert(lines, "  (Expand bucket to see contents)")
+      end
+
+      show_metadata_popup("Bucket Info", lines)
+      return
+
+    elseif data.type == "folder" then
+      -- Show folder info
+      local lines = {
+        " S3 Folder Info",
+        "",
+        " Location",
+        " ─────────────────────────────────────────",
+        "  Bucket:  " .. data.bucket,
+        "  Prefix:  " .. data.prefix,
+        "  URI:     s3://" .. data.bucket .. "/" .. data.prefix,
+        "",
+        " Contents",
+        " ─────────────────────────────────────────",
+      }
+
+      -- Count folders and files if expanded
+      local content_key = data.bucket .. ":" .. data.prefix
+      local contents = state.contents[content_key]
+      if contents then
+        local folder_count = contents.folders and #contents.folders or 0
+        local file_count = contents.files and #contents.files or 0
+        table.insert(lines, "  Folders: " .. folder_count)
+        table.insert(lines, "  Files:   " .. file_count)
+      else
+        table.insert(lines, "  (Expand folder to see contents)")
+      end
+
+      show_metadata_popup("Folder Info", lines)
+      return
+
+    elseif data.type == "file" then
+      -- Fetch file metadata from S3
+      vim.notify("Loading metadata...", vim.log.levels.INFO)
+      vim.defer_fn(function()
+        local meta, err = api.get_metadata(data.bucket, data.key)
+        if not meta then
+          vim.notify("Error: " .. (err or "unknown"), vim.log.levels.ERROR)
+          return
+        end
+
+        local lines = {
+          " S3 Object Metadata",
+          "",
+          " Basic Info",
+          " ─────────────────────────────────────────",
+          "  Bucket:        " .. data.bucket,
+          "  Key:           " .. data.key,
+          "  Size:          " .. api.format_bytes(meta.content_length) .. " (" .. (meta.content_length or 0) .. " bytes)",
+          "  Content-Type:  " .. (meta.content_type or "unknown"),
+          "",
+          " Timestamps",
+          " ─────────────────────────────────────────",
+          "  Last Modified: " .. (meta.last_modified or "unknown"),
+          "",
+          " Storage",
+          " ─────────────────────────────────────────",
+          "  Storage Class: " .. (meta.storage_class or "STANDARD"),
+          "  ETag:          " .. (meta.etag or "unknown"),
+        }
+
+        -- Add custom metadata if present
+        if meta.metadata and next(meta.metadata) then
+          table.insert(lines, "")
+          table.insert(lines, " Custom Metadata")
+          table.insert(lines, " ─────────────────────────────────────────")
+          for k, v in pairs(meta.metadata) do
+            table.insert(lines, "  " .. k .. ": " .. v)
+          end
+        end
+
+        show_metadata_popup("Object Metadata", lines)
+      end, 10)
+      return
+    end
+  end
+
+  -- Fall back to current previewed file
+  if state.current_file then
+    local bucket = state.current_file.bucket
+    local key = state.current_file.key
+
+    vim.notify("Loading metadata...", vim.log.levels.INFO)
+    vim.defer_fn(function()
+      local meta, err = api.get_metadata(bucket, key)
+      if not meta then
+        vim.notify("Error: " .. (err or "unknown"), vim.log.levels.ERROR)
+        return
+      end
+
+      local lines = {
+        " S3 Object Metadata",
+        "",
+        " Basic Info",
+        " ─────────────────────────────────────────",
+        "  Bucket:        " .. bucket,
+        "  Key:           " .. key,
+        "  Size:          " .. api.format_bytes(meta.content_length) .. " (" .. (meta.content_length or 0) .. " bytes)",
+        "  Content-Type:  " .. (meta.content_type or "unknown"),
+        "",
+        " Timestamps",
+        " ─────────────────────────────────────────",
+        "  Last Modified: " .. (meta.last_modified or "unknown"),
+        "",
+        " Storage",
+        " ─────────────────────────────────────────",
+        "  Storage Class: " .. (meta.storage_class or "STANDARD"),
+        "  ETag:          " .. (meta.etag or "unknown"),
+      }
+
+      -- Add custom metadata if present
+      if meta.metadata and next(meta.metadata) then
+        table.insert(lines, "")
+        table.insert(lines, " Custom Metadata")
+        table.insert(lines, " ─────────────────────────────────────────")
+        for k, v in pairs(meta.metadata) do
+          table.insert(lines, "  " .. k .. ": " .. v)
+        end
+      end
+
+      show_metadata_popup("Object Metadata", lines)
+    end, 10)
     return
   end
 
-  local bucket = state.current_file.bucket
-  local key = state.current_file.key
-
-  vim.notify("Loading metadata...", vim.log.levels.INFO)
-
-  vim.defer_fn(function()
-    local meta, err = api.get_metadata(bucket, key)
-    if not meta then
-      vim.notify("Error: " .. (err or "unknown"), vim.log.levels.ERROR)
-      return
-    end
-
-    local lines = {
-      " S3 Object Metadata",
-      "",
-      " Basic Info",
-      " ─────────────────────────────────────",
-      "  Bucket:        " .. bucket,
-      "  Key:           " .. key,
-      "  Size:          " .. api.format_bytes(meta.content_length) .. " (" .. (meta.content_length or 0) .. " bytes)",
-      "  Content-Type:  " .. (meta.content_type or "unknown"),
-      "",
-      " Timestamps",
-      " ─────────────────────────────────────",
-      "  Last Modified: " .. (meta.last_modified or "unknown"),
-      "",
-      " Storage",
-      " ─────────────────────────────────────",
-      "  Storage Class: " .. (meta.storage_class or "STANDARD"),
-      "  ETag:          " .. (meta.etag or "unknown"),
-    }
-
-    -- Add custom metadata if present
-    if meta.metadata and next(meta.metadata) then
-      table.insert(lines, "")
-      table.insert(lines, " Custom Metadata")
-      table.insert(lines, " ─────────────────────────────────────")
-      for k, v in pairs(meta.metadata) do
-        table.insert(lines, "  " .. k .. ": " .. v)
-      end
-    end
-
-    table.insert(lines, "")
-    table.insert(lines, " Press q or <Esc> to close")
-
-    local buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-
-    local width = 50
-    local height = #lines
-    local win = vim.api.nvim_open_win(buf, true, {
-      relative = "editor",
-      width = width,
-      height = height,
-      row = math.floor((vim.o.lines - height) / 2),
-      col = math.floor((vim.o.columns - width) / 2),
-      style = "minimal",
-      border = "rounded",
-    })
-
-    -- Apply highlights
-    vim.api.nvim_buf_add_highlight(buf, -1, "S3Header", 0, 0, -1)
-    vim.api.nvim_buf_add_highlight(buf, -1, "S3Folder", 2, 0, -1)
-    vim.api.nvim_buf_add_highlight(buf, -1, "S3Folder", 9, 0, -1)
-    vim.api.nvim_buf_add_highlight(buf, -1, "S3Folder", 13, 0, -1)
-
-    vim.keymap.set("n", "q", function() vim.api.nvim_win_close(win, true) end, { buffer = buf })
-    vim.keymap.set("n", "<Esc>", function() vim.api.nvim_win_close(win, true) end, { buffer = buf })
-  end, 10)
+  vim.notify("No item selected", vim.log.levels.WARN)
 end
 
 -- Show help
@@ -592,7 +831,7 @@ function M.show_help()
     " Actions",
     " ─────────────────────────",
     " m     Show file metadata",
-    " r     Refresh view",
+    " r     Refresh current bucket",
     " R     Reload all buckets",
     " q     Close drawer",
     " ?     Show this help",
@@ -612,6 +851,9 @@ function M.show_help()
     style = "minimal",
     border = "rounded",
   })
+
+  -- Make it transparent
+  vim.wo[win].winblend = 15
 
   vim.keymap.set("n", "q", function() vim.api.nvim_win_close(win, true) end, { buffer = buf })
   vim.keymap.set("n", "<Esc>", function() vim.api.nvim_win_close(win, true) end, { buffer = buf })
