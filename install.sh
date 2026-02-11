@@ -37,7 +37,6 @@ while [[ $# -gt 0 ]]; do
       echo "                            claude      - Claude commands"
       echo "                            prompt      - Terminal prompt configuration"
       echo "                            ssm         - SSH Manager (interactive SSH)"
-      echo "                            pgadmin4    - pgAdmin 4 server configuration"
       echo ""
       echo "  -h, --help              Show this help message"
       echo ""
@@ -59,12 +58,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|pgadmin4)
+    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, pgadmin4"
+      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -490,30 +489,6 @@ function installSsmOnly() {
   echo "📁 Configuration:"
   echo "  • Config: ~/.config/ssh-manager/config.yaml"
   echo "  • Keys:   ~/.config/ssh-manager/keys/"
-  echo ""
-}
-
-function installPgadmin4Only() {
-  echo "🚀 Starting pgAdmin 4 configuration installation..."
-  echo ""
-
-  if [ -f "$INSTALL_DIR/pgadmin-4/setup.sh" ]; then
-    echo "═══════════════════════════════════════════════════════════════"
-    echo "🔄 Installing pgAdmin 4 configuration..."
-    echo "═══════════════════════════════════════════════════════════════"
-    bash "$INSTALL_DIR/pgadmin-4/setup.sh" || {
-      echo "❌ Error installing pgAdmin 4 configuration"
-      return 1
-    }
-  else
-    echo "⚠️  pgAdmin 4 setup script not found"
-    return 1
-  fi
-
-  echo ""
-  echo "═══════════════════════════════════════════════════════════════"
-  echo "🎉 pgAdmin 4 configuration completed!"
-  echo "═══════════════════════════════════════════════════════════════"
   echo ""
 }
 
@@ -1056,23 +1031,7 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
-  pgadmin4)
-    echo "╔═══════════════════════════════════════════════════════════════╗"
-    echo "║                   PGADMIN 4 INSTALLER                         ║"
-    echo "║                                                               ║"
-    echo "║  This will configure pgAdmin 4 with server definitions       ║"
-    echo "╚═══════════════════════════════════════════════════════════════╝"
-    echo ""
-    read -p "Are you sure you want to proceed? (y/n) " -n 1
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-      installPgadmin4Only
-    else
-      echo "Installation cancelled."
-      exit 0
-    fi
-    ;;
 esac
 
 # Cleanup
-unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installPgadmin4Only
+unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly

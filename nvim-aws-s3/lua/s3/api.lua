@@ -170,4 +170,106 @@ function M.get_filetype(filename)
   return ext and map[ext:lower()] or "text"
 end
 
+-- Delete an object
+function M.delete_object(bucket, key)
+  local cmd = string.format(
+    "aws s3api delete-object --bucket %s --key %s 2>&1",
+    vim.fn.shellescape(bucket),
+    vim.fn.shellescape(key)
+  )
+  local output = vim.fn.system(cmd)
+
+  if vim.v.shell_error ~= 0 then
+    return false, "Failed to delete: " .. output
+  end
+
+  return true, nil
+end
+
+-- Download an object to local path
+function M.download_object(bucket, key, local_path)
+  local cmd = string.format(
+    "aws s3 cp s3://%s/%s %s 2>&1",
+    vim.fn.shellescape(bucket),
+    vim.fn.shellescape(key),
+    vim.fn.shellescape(local_path)
+  )
+  local output = vim.fn.system(cmd)
+
+  if vim.v.shell_error ~= 0 then
+    return false, "Failed to download: " .. output
+  end
+
+  return true, nil
+end
+
+-- Upload content to S3
+function M.put_object(bucket, key, local_path)
+  local cmd = string.format(
+    "aws s3 cp %s s3://%s/%s 2>&1",
+    vim.fn.shellescape(local_path),
+    vim.fn.shellescape(bucket),
+    vim.fn.shellescape(key)
+  )
+  local output = vim.fn.system(cmd)
+
+  if vim.v.shell_error ~= 0 then
+    return false, "Failed to upload: " .. output
+  end
+
+  return true, nil
+end
+
+-- Copy an object within S3
+function M.copy_object(source_bucket, source_key, dest_bucket, dest_key)
+  local cmd = string.format(
+    "aws s3 cp s3://%s/%s s3://%s/%s 2>&1",
+    vim.fn.shellescape(source_bucket),
+    vim.fn.shellescape(source_key),
+    vim.fn.shellescape(dest_bucket),
+    vim.fn.shellescape(dest_key)
+  )
+  local output = vim.fn.system(cmd)
+
+  if vim.v.shell_error ~= 0 then
+    return false, "Failed to copy: " .. output
+  end
+
+  return true, nil
+end
+
+-- Move an object (copy then delete)
+function M.move_object(source_bucket, source_key, dest_bucket, dest_key)
+  local cmd = string.format(
+    "aws s3 mv s3://%s/%s s3://%s/%s 2>&1",
+    vim.fn.shellescape(source_bucket),
+    vim.fn.shellescape(source_key),
+    vim.fn.shellescape(dest_bucket),
+    vim.fn.shellescape(dest_key)
+  )
+  local output = vim.fn.system(cmd)
+
+  if vim.v.shell_error ~= 0 then
+    return false, "Failed to move: " .. output
+  end
+
+  return true, nil
+end
+
+-- Get full object content (for editing)
+function M.get_full_content(bucket, key)
+  local cmd = string.format(
+    "aws s3 cp s3://%s/%s - 2>/dev/null",
+    vim.fn.shellescape(bucket),
+    vim.fn.shellescape(key)
+  )
+  local output = vim.fn.system(cmd)
+
+  if vim.v.shell_error ~= 0 then
+    return nil, "Failed to fetch content"
+  end
+
+  return output, nil
+end
+
 return M

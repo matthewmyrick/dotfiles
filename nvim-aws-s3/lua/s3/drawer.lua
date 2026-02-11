@@ -12,6 +12,7 @@ local state = {
   contents = {},
   loading = {},
   current_file = nil,  -- Track current previewed file {bucket, key, size}
+  clipboard = nil,     -- {mode = "copy"|"cut", bucket, key, name}
 }
 
 -- Icons
@@ -41,6 +42,16 @@ local function setup_highlights()
   vim.api.nvim_set_hl(0, "S3Loading", { fg = "#a6adc8", italic = true })
   vim.api.nvim_set_hl(0, "S3Size", { fg = "#6c7086" })
   vim.api.nvim_set_hl(0, "S3Header", { fg = "#89b4fa", bold = true })
+  vim.api.nvim_set_hl(0, "S3Cut", { fg = "#f38ba8", italic = true })  -- Red for cut files
+  vim.api.nvim_set_hl(0, "S3Copied", { fg = "#a6e3a1", italic = true })  -- Green for copied files
+end
+
+-- Check if file is in clipboard
+local function get_clipboard_hl(bucket, key)
+  if state.clipboard and state.clipboard.bucket == bucket and state.clipboard.key == key then
+    return state.clipboard.mode == "cut" and "S3Cut" or "S3Copied"
+  end
+  return nil
 end
 
 -- Render contents recursively
@@ -72,7 +83,8 @@ local function render_contents(lines, highlights, line_data, bucket, prefix, dep
     local size_str = api.format_bytes(file.size)
     local icon = get_file_icon(file.name)
     table.insert(lines, indent .. icon .. " " .. file.name .. "  " .. size_str)
-    table.insert(highlights, { line = #lines, hl = "S3File" })
+    local clip_hl = get_clipboard_hl(bucket, file.key)
+    table.insert(highlights, { line = #lines, hl = clip_hl or "S3File" })
     table.insert(line_data, { type = "file", name = file.name, bucket = bucket, key = file.key, size = file.size })
   end
 end
@@ -87,7 +99,11 @@ local function render()
 
   -- Header
   local region = s3.get_region() or "no region"
-  table.insert(lines, " S3 [" .. region .. "]")
+  local header = " S3 [" .. region .. "]"
+  if state.clipboard then
+    header = header .. " [" .. state.clipboard.mode:upper() .. ": " .. state.clipboard.name .. "]"
+  end
+  table.insert(lines, header)
   table.insert(highlights, { line = 1, hl = "S3Header" })
   table.insert(line_data, { type = "header" })
 
@@ -264,6 +280,377 @@ function M.preview_file(bucket, key, size)
   end, 10)
 end
 
+-- Confirmation dialog
+local function confirm_dialog(title, message, on_yes)
+  local lines = {
+    " " .. title,
+    "",
+    " " .. message,
+    "",
+    " [y] Yes    [n] No",
+  }
+
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+
+  local width = math.max(#title + 4, #message + 4, 25)
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = "editor",
+    width = width,
+    height = #lines,
+    row = math.floor((vim.o.lines - #lines) / 2),
+    col = math.floor((vim.o.columns - width) / 2),
+    style = "minimal",
+    border = "rounded",
+  })
+
+  -- Solid background (no transparency, no text showing through)
+  vim.wo[win].winblend = 0
+  vim.wo[win].winhighlight = "Normal:Normal,NormalFloat:Normal,FloatBorder:Normal"
+  vim.api.nvim_buf_add_highlight(buf, -1, "S3Header", 0, 0, -1)
+
+  vim.keymap.set("n", "y", function()
+    vim.api.nvim_win_close(win, true)
+    on_yes()
+  end, { buffer = buf })
+
+  vim.keymap.set("n", "n", function()
+    vim.api.nvim_win_close(win, true)
+  end, { buffer = buf })
+
+  vim.keymap.set("n", "<Esc>", function()
+    vim.api.nvim_win_close(win, true)
+  end, { buffer = buf })
+
+  vim.keymap.set("n", "q", function()
+    vim.api.nvim_win_close(win, true)
+  end, { buffer = buf })
+end
+
+-- Input dialog
+local function input_dialog(title, default_value, on_submit)
+  vim.ui.input({
+    prompt = title .. ": ",
+    default = default_value,
+  }, function(input)
+    if input and input ~= "" then
+      on_submit(input)
+    end
+  end)
+end
+
+-- Download file
+function M.download_file()
+  local line = vim.api.nvim_win_get_cursor(0)[1]
+  local data = get_line_data(line)
+
+  if not data or data.type ~= "file" then
+    vim.notify("Select a file to download", vim.log.levels.WARN)
+    return
+  end
+
+  local default_path = vim.fn.expand("~/Downloads/") .. data.name
+
+  input_dialog("Download to", default_path, function(path)
+    vim.notify("Downloading " .. data.name .. "...", vim.log.levels.INFO)
+    vim.defer_fn(function()
+      local ok, err = api.download_object(data.bucket, data.key, path)
+      if ok then
+        vim.notify("Downloaded to " .. path, vim.log.levels.INFO)
+      else
+        vim.notify("Error: " .. (err or "unknown"), vim.log.levels.ERROR)
+      end
+    end, 10)
+  end)
+end
+
+-- Delete file
+function M.delete_file()
+  local line = vim.api.nvim_win_get_cursor(0)[1]
+  local data = get_line_data(line)
+
+  if not data or data.type ~= "file" then
+    vim.notify("Select a file to delete", vim.log.levels.WARN)
+    return
+  end
+
+  confirm_dialog("Delete File", "Delete " .. data.name .. "?", function()
+    vim.notify("Deleting " .. data.name .. "...", vim.log.levels.INFO)
+    vim.defer_fn(function()
+      local ok, err = api.delete_object(data.bucket, data.key)
+      if ok then
+        vim.notify("Deleted " .. data.name, vim.log.levels.INFO)
+        -- Clear from clipboard if it was there
+        if state.clipboard and state.clipboard.bucket == data.bucket and state.clipboard.key == data.key then
+          state.clipboard = nil
+        end
+        -- Refresh the parent folder
+        M.refresh_current_bucket()
+      else
+        vim.notify("Error: " .. (err or "unknown"), vim.log.levels.ERROR)
+      end
+    end, 10)
+  end)
+end
+
+-- Edit file
+function M.edit_file()
+  local line = vim.api.nvim_win_get_cursor(0)[1]
+  local data = get_line_data(line)
+
+  -- Also allow editing from preview window
+  if not data and state.current_file then
+    data = { type = "file", bucket = state.current_file.bucket, key = state.current_file.key, name = state.current_file.key:match("[^/]+$") }
+  end
+
+  if not data or data.type ~= "file" then
+    vim.notify("Select a file to edit", vim.log.levels.WARN)
+    return
+  end
+
+  if api.is_binary(data.key) then
+    vim.notify("Cannot edit binary files", vim.log.levels.WARN)
+    return
+  end
+
+  vim.notify("Loading file for editing...", vim.log.levels.INFO)
+
+  vim.defer_fn(function()
+    local content, err = api.get_full_content(data.bucket, data.key)
+    if not content then
+      vim.notify("Error: " .. (err or "unknown"), vim.log.levels.ERROR)
+      return
+    end
+
+    -- Create a new buffer for editing
+    local edit_buf = vim.api.nvim_create_buf(true, false)
+    local lines = vim.split(content, "\n")
+    vim.api.nvim_buf_set_lines(edit_buf, 0, -1, false, lines)
+    vim.api.nvim_buf_set_name(edit_buf, "s3-edit://" .. data.bucket .. "/" .. data.key)
+    vim.bo[edit_buf].filetype = api.get_filetype(data.key)
+    vim.bo[edit_buf].modified = false
+
+    -- Store S3 info in buffer variables
+    vim.b[edit_buf].s3_bucket = data.bucket
+    vim.b[edit_buf].s3_key = data.key
+
+    -- Find or create edit window
+    vim.cmd("wincmd l")
+    if vim.bo.filetype == "s3-drawer" then
+      vim.cmd("vsplit")
+    end
+    vim.api.nvim_win_set_buf(0, edit_buf)
+
+    -- Setup save command for this buffer
+    vim.api.nvim_buf_create_user_command(edit_buf, "W", function()
+      M.save_edited_file(edit_buf)
+    end, {})
+
+    -- Also map :w to save
+    vim.api.nvim_create_autocmd("BufWriteCmd", {
+      buffer = edit_buf,
+      callback = function()
+        M.save_edited_file(edit_buf)
+      end,
+    })
+
+    -- Map <leader>ww
+    vim.keymap.set("n", "<leader>ww", function()
+      M.save_edited_file(edit_buf)
+    end, { buffer = edit_buf, desc = "Save to S3" })
+
+    vim.notify("Editing " .. data.name .. " - Use :w or <leader>ww to save to S3", vim.log.levels.INFO)
+  end, 10)
+end
+
+-- Save edited file back to S3
+function M.save_edited_file(bufnr)
+  local bucket = vim.b[bufnr].s3_bucket
+  local key = vim.b[bufnr].s3_key
+
+  if not bucket or not key then
+    vim.notify("No S3 info for this buffer", vim.log.levels.ERROR)
+    return
+  end
+
+  -- Get buffer content
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local content = table.concat(lines, "\n")
+
+  -- Write to temp file
+  local tmp_file = vim.fn.tempname()
+  local f = io.open(tmp_file, "w")
+  if not f then
+    vim.notify("Failed to create temp file", vim.log.levels.ERROR)
+    return
+  end
+  f:write(content)
+  f:close()
+
+  vim.notify("Saving to S3...", vim.log.levels.INFO)
+
+  vim.defer_fn(function()
+    local ok, err = api.put_object(bucket, key, tmp_file)
+    os.remove(tmp_file)
+
+    if ok then
+      vim.bo[bufnr].modified = false
+      vim.notify("Saved to s3://" .. bucket .. "/" .. key, vim.log.levels.INFO)
+    else
+      vim.notify("Error: " .. (err or "unknown"), vim.log.levels.ERROR)
+    end
+  end, 10)
+end
+
+-- Copy file (yank)
+function M.yank_file()
+  local line = vim.api.nvim_win_get_cursor(0)[1]
+  local data = get_line_data(line)
+
+  if not data or data.type ~= "file" then
+    vim.notify("Select a file to copy", vim.log.levels.WARN)
+    return
+  end
+
+  state.clipboard = {
+    mode = "copy",
+    bucket = data.bucket,
+    key = data.key,
+    name = data.name,
+  }
+
+  vim.notify("Copied: " .. data.name, vim.log.levels.INFO)
+  render()
+end
+
+-- Cut file (for move)
+function M.cut_file()
+  local line = vim.api.nvim_win_get_cursor(0)[1]
+  local data = get_line_data(line)
+
+  if not data or data.type ~= "file" then
+    vim.notify("Select a file to move", vim.log.levels.WARN)
+    return
+  end
+
+  state.clipboard = {
+    mode = "cut",
+    bucket = data.bucket,
+    key = data.key,
+    name = data.name,
+  }
+
+  vim.notify("Cut: " .. data.name .. " (press p to paste)", vim.log.levels.INFO)
+  render()
+end
+
+-- Paste file
+function M.paste_file()
+  if not state.clipboard then
+    vim.notify("Nothing in clipboard. Use y to copy or m to cut.", vim.log.levels.WARN)
+    return
+  end
+
+  local line = vim.api.nvim_win_get_cursor(0)[1]
+  local data = get_line_data(line)
+
+  if not data then
+    vim.notify("Select a destination folder or bucket", vim.log.levels.WARN)
+    return
+  end
+
+  -- Determine destination
+  local dest_bucket = data.bucket
+  local dest_prefix = ""
+
+  if data.type == "folder" then
+    dest_prefix = data.prefix
+  elseif data.type == "file" then
+    -- Get parent folder
+    dest_prefix = data.key:match("^(.*/)")  or ""
+  end
+
+  local dest_key = dest_prefix .. state.clipboard.name
+
+  -- Check if same location
+  if dest_bucket == state.clipboard.bucket and dest_key == state.clipboard.key then
+    vim.notify("Cannot paste to same location", vim.log.levels.WARN)
+    return
+  end
+
+  local mode = state.clipboard.mode
+  local action = mode == "copy" and "Copying" or "Moving"
+
+  vim.notify(action .. " " .. state.clipboard.name .. "...", vim.log.levels.INFO)
+
+  vim.defer_fn(function()
+    local ok, err
+
+    if mode == "copy" then
+      ok, err = api.copy_object(state.clipboard.bucket, state.clipboard.key, dest_bucket, dest_key)
+    else
+      ok, err = api.move_object(state.clipboard.bucket, state.clipboard.key, dest_bucket, dest_key)
+    end
+
+    if ok then
+      vim.notify((mode == "copy" and "Copied" or "Moved") .. " to s3://" .. dest_bucket .. "/" .. dest_key, vim.log.levels.INFO)
+
+      -- Clear clipboard after move
+      if mode == "cut" then
+        state.clipboard = nil
+      end
+
+      -- Refresh
+      M.refresh_current_bucket()
+    else
+      vim.notify("Error: " .. (err or "unknown"), vim.log.levels.ERROR)
+    end
+  end, 10)
+end
+
+-- Rename file or folder
+function M.rename_item()
+  local line = vim.api.nvim_win_get_cursor(0)[1]
+  local data = get_line_data(line)
+
+  if not data or (data.type ~= "file" and data.type ~= "folder") then
+    vim.notify("Select a file or folder to rename", vim.log.levels.WARN)
+    return
+  end
+
+  local current_name = data.name
+  local is_folder = data.type == "folder"
+
+  input_dialog("Rename to", current_name, function(new_name)
+    if new_name == current_name then
+      return
+    end
+
+    confirm_dialog("Confirm Rename", "Rename to " .. new_name .. "?", function()
+      if is_folder then
+        vim.notify("Folder renaming requires moving all contents. Not yet implemented.", vim.log.levels.WARN)
+        return
+      end
+
+      -- Calculate new key
+      local parent_prefix = data.key:match("^(.*/)") or ""
+      local new_key = parent_prefix .. new_name
+
+      vim.notify("Renaming to " .. new_name .. "...", vim.log.levels.INFO)
+
+      vim.defer_fn(function()
+        local ok, err = api.move_object(data.bucket, data.key, data.bucket, new_key)
+        if ok then
+          vim.notify("Renamed to " .. new_name, vim.log.levels.INFO)
+          M.refresh_current_bucket()
+        else
+          vim.notify("Error: " .. (err or "unknown"), vim.log.levels.ERROR)
+        end
+      end, 10)
+    end)
+  end)
+end
+
 -- Setup keymaps
 local function setup_keymaps(bufnr)
   local opts = { buffer = bufnr, noremap = true, silent = true }
@@ -281,7 +668,8 @@ local function setup_keymaps(bufnr)
     end
   end, opts)
 
-  vim.keymap.set("n", "r", function()
+  -- Refresh keymaps (changed)
+  vim.keymap.set("n", "gr", function()
     M.refresh_current_bucket()
   end, opts)
 
@@ -305,8 +693,38 @@ local function setup_keymaps(bufnr)
     M.fuzzy_search_buckets()
   end, opts)
 
-  vim.keymap.set("n", "m", function()
+  -- Metadata (changed from m to i)
+  vim.keymap.set("n", "i", function()
     M.show_current_metadata()
+  end, opts)
+
+  -- New features
+  vim.keymap.set("n", "d", function()
+    M.download_file()
+  end, opts)
+
+  vim.keymap.set("n", "D", function()
+    M.delete_file()
+  end, opts)
+
+  vim.keymap.set("n", "e", function()
+    M.edit_file()
+  end, opts)
+
+  vim.keymap.set("n", "y", function()
+    M.yank_file()
+  end, opts)
+
+  vim.keymap.set("n", "m", function()
+    M.cut_file()
+  end, opts)
+
+  vim.keymap.set("n", "p", function()
+    M.paste_file()
+  end, opts)
+
+  vim.keymap.set("n", "r", function()
+    M.rename_item()
   end, opts)
 end
 
@@ -535,19 +953,6 @@ function M.refresh_current_bucket()
     state.loading[bucket_name] = true
     render()
 
-    local function reload_prefix(prefix, callback)
-      local content_key = bucket_name .. ":" .. prefix
-      api.list_objects(bucket_name, prefix)
-      vim.defer_fn(function()
-        local contents, err = api.list_objects(bucket_name, prefix)
-        if contents then
-          state.contents[content_key] = contents
-          state.expanded[content_key] = true
-        end
-        if callback then callback() end
-      end, 10)
-    end
-
     vim.defer_fn(function()
       -- First reload the root
       local contents, err = api.list_objects(bucket_name, "")
@@ -632,8 +1037,9 @@ local function show_metadata_popup(title, lines)
     border = "rounded",
   })
 
-  -- Make it transparent
-  vim.wo[win].winblend = 15
+  -- Solid background (no transparency, no text showing through)
+  vim.wo[win].winblend = 0
+  vim.wo[win].winhighlight = "Normal:Normal,NormalFloat:Normal,FloatBorder:Normal"
 
   -- Apply highlights
   vim.api.nvim_buf_add_highlight(buf, -1, "S3Header", 0, 0, -1)
@@ -817,24 +1223,37 @@ function M.show_help()
     " S3 Browser Help",
     "",
     " Navigation",
-    " ─────────────────────────",
-    " <CR>  Expand/collapse or preview",
-    " o     Toggle expand",
-    " C-h   Cycle windows forward",
-    " C-g   Cycle windows backward",
+    " ─────────────────────────────────────",
+    " <CR>     Expand/collapse or preview",
+    " o        Toggle expand folder/bucket",
+    " C-h      Cycle windows forward",
+    " C-g      Cycle windows backward",
     "",
     " Search",
-    " ─────────────────────────",
-    " /     Fuzzy search files",
-    " b     Fuzzy search buckets",
+    " ─────────────────────────────────────",
+    " /        Fuzzy search files",
+    " b        Fuzzy search buckets",
     "",
-    " Actions",
-    " ─────────────────────────",
-    " m     Show file metadata",
-    " r     Refresh current bucket",
-    " R     Reload all buckets",
-    " q     Close drawer",
-    " ?     Show this help",
+    " File Operations",
+    " ─────────────────────────────────────",
+    " e        Edit file (save with :w)",
+    " d        Download file",
+    " D        Delete file",
+    " r        Rename file/folder",
+    "",
+    " Copy/Move",
+    " ─────────────────────────────────────",
+    " y        Copy (yank) file",
+    " m        Cut (move) file",
+    " p        Paste file",
+    "",
+    " Other",
+    " ─────────────────────────────────────",
+    " i        Show info/metadata",
+    " gr       Refresh current bucket",
+    " R        Reload all buckets",
+    " q        Close drawer",
+    " ?        Show this help",
     "",
     " Press any key to close",
   }
@@ -842,18 +1261,23 @@ function M.show_help()
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
+  local width = 45
   local win = vim.api.nvim_open_win(buf, true, {
     relative = "editor",
-    width = 35,
+    width = width,
     height = #lines,
     row = math.floor((vim.o.lines - #lines) / 2),
-    col = math.floor((vim.o.columns - 35) / 2),
+    col = math.floor((vim.o.columns - width) / 2),
     style = "minimal",
     border = "rounded",
   })
 
-  -- Make it transparent
-  vim.wo[win].winblend = 15
+  -- Solid background (no transparency, no text showing through)
+  vim.wo[win].winblend = 0
+  vim.wo[win].winhighlight = "Normal:Normal,NormalFloat:Normal,FloatBorder:Normal"
+
+  -- Apply highlights
+  vim.api.nvim_buf_add_highlight(buf, -1, "S3Header", 0, 0, -1)
 
   vim.keymap.set("n", "q", function() vim.api.nvim_win_close(win, true) end, { buffer = buf })
   vim.keymap.set("n", "<Esc>", function() vim.api.nvim_win_close(win, true) end, { buffer = buf })

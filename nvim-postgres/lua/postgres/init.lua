@@ -6,8 +6,8 @@ M.config = {
   connections_file = vim.fn.stdpath("data") .. "/postgres/connections.json",
   drawer_width = 40,
   sql_directory = vim.fn.expand("~/.config/nvim-postgres/sql"),
-  queries_directory = vim.fn.expand("~/Github/matthewmyrick/dotfiles/pgadmin-4/queries"),
-  procrastinate_queries_directory = vim.fn.expand("~/Github/matthewmyrick/dotfiles/pgadmin-4/queries/procrastinate"),
+  queries_directory = vim.fn.expand("~/.config/nvim-postgres/queries"),
+  procrastinate_queries_directory = vim.fn.expand("~/.config/nvim-postgres/queries/procrastinate"),
 }
 
 function M.setup(opts)

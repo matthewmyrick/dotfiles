@@ -441,16 +441,63 @@ local function python_interpreter_picker()
     return "Unknown"
   end
 
-  -- Function to find Python interpreters (focused scope)
+  -- Function to find Python interpreters (searches repos and workspace)
   local function find_python_interpreters()
     local interpreters = {}
-    local cwd = vim.fn.getcwd()
-    
+    local cwd = vim.fn.resolve(vim.fn.getcwd())
+
+    -- Find git root from cwd (resolve to canonical path)
+    local git_root_cwd = vim.fn.systemlist("git rev-parse --show-toplevel 2>/dev/null")[1]
+    if git_root_cwd and git_root_cwd ~= "" then
+      git_root_cwd = vim.fn.resolve(git_root_cwd)
+    end
+
+    -- Also check git root from current buffer's directory (in case file is from different repo)
+    local buf_dir = vim.fn.expand("%:p:h")
+    local git_root_buf = vim.fn.systemlist("git -C " .. vim.fn.shellescape(buf_dir) .. " rev-parse --show-toplevel 2>/dev/null")[1]
+    if git_root_buf and git_root_buf ~= "" then
+      git_root_buf = vim.fn.resolve(git_root_buf)
+    end
+
+    -- Collect unique search roots (use resolved paths for consistency)
+    local search_roots = {}
+    if git_root_cwd and git_root_cwd ~= "" then
+      search_roots[git_root_cwd] = true
+    end
+    if git_root_buf and git_root_buf ~= "" and git_root_buf ~= git_root_cwd then
+      search_roots[git_root_buf] = true
+    end
+
+    -- Also add cwd itself in case git root detection failed
+    if not next(search_roots) then
+      search_roots[cwd] = true
+    end
+
+    -- Debug: show detected paths
+    vim.notify("CWD: " .. cwd, vim.log.levels.INFO)
+    vim.notify("Git root (cwd): " .. (git_root_cwd or "none"), vim.log.levels.INFO)
+    vim.notify("Git root (buf): " .. (git_root_buf or "none"), vim.log.levels.INFO)
+
+    -- 0. Check VIRTUAL_ENV environment variable (currently activated venv)
+    local virtual_env = vim.env.VIRTUAL_ENV
+    if virtual_env and vim.fn.isdirectory(virtual_env .. "/bin") == 1 then
+      local python_path = virtual_env .. "/bin/python"
+      if vim.fn.executable(python_path) == 1 then
+        local version = get_python_version(python_path)
+        local env_name = vim.fn.fnamemodify(virtual_env, ":t")
+        table.insert(interpreters, {
+          path = python_path,
+          version = version,
+          env_name = "ACTIVE: " .. env_name,
+          display = string.format("🟢 ACTIVE: %s (Python %s) - %s", env_name, version, python_path),
+        })
+      end
+    end
+
     -- 1. Homebrew Python installations (python@3.x versions)
     local homebrew_pattern = "/opt/homebrew/Cellar/python@*/*/bin/python3.*"
     local homebrew_matches = vim.fn.glob(homebrew_pattern, false, true)
     for _, path in ipairs(homebrew_matches) do
-      -- Skip config files, only actual python executables
       if vim.fn.executable(path) == 1 and not path:match("config$") then
         local version = get_python_version(path)
         local python_version = path:match("python@([^/]+)")
@@ -462,71 +509,93 @@ local function python_interpreter_picker()
         })
       end
     end
-    
-    -- 2. Virtual environments in current working directory (prefer specific python3.x version)
-    local venv_dirs = { "venv", ".venv", "env", ".env" }
-    
-    for _, venv_dir in ipairs(venv_dirs) do
-      local venv_path = cwd .. "/" .. venv_dir
-      if vim.fn.isdirectory(venv_path .. "/bin") == 1 then
-        -- Look for specific python3.x versions first
-        local python_pattern = venv_path .. "/bin/python3.*"
-        local python_matches = vim.fn.glob(python_pattern, false, true)
-        
-        local best_python = nil
-        -- Find the most specific python version (e.g., python3.13 over python3)
-        for _, path in ipairs(python_matches) do
-          if vim.fn.executable(path) == 1 and not path:match("config$") then
-            if not best_python or #path > #best_python then
-              best_python = path
+
+    -- 2. Find ALL venv/.venv directories recursively within each search root
+    for search_root, _ in pairs(search_roots) do
+      -- No maxdepth limit - search everything in the repo
+      local find_cmd = string.format(
+        'find %s -type d \\( -name "venv" -o -name ".venv" \\) 2>/dev/null | head -50',
+        vim.fn.shellescape(search_root)
+      )
+
+      local venv_dirs = vim.fn.systemlist(find_cmd)
+
+      -- Debug: show what's being searched and found
+      vim.notify("Searching: " .. search_root .. " | Found: " .. #venv_dirs .. " venvs", vim.log.levels.INFO)
+      for _, vd in ipairs(venv_dirs) do
+        vim.notify("  -> " .. vd, vim.log.levels.INFO)
+      end
+
+      for _, venv_path in ipairs(venv_dirs) do
+        if vim.fn.isdirectory(venv_path .. "/bin") == 1 then
+          -- Look for python executable
+          local python_path = venv_path .. "/bin/python"
+          if vim.fn.executable(python_path) == 1 then
+            local version = get_python_version(python_path)
+            -- Create relative path from search root for display
+            local rel_path = venv_path:sub(#search_root + 2) -- Remove search_root and leading /
+            if rel_path == "" then
+              rel_path = vim.fn.fnamemodify(venv_path, ":t")
             end
+            -- Add repo name prefix if multiple roots
+            local repo_name = vim.fn.fnamemodify(search_root, ":t")
+            local display_name = rel_path
+            if vim.tbl_count(search_roots) > 1 then
+              display_name = "[" .. repo_name .. "] " .. rel_path
+            end
+            table.insert(interpreters, {
+              path = python_path,
+              version = version,
+              env_name = display_name,
+              display = string.format("%s (Python %s) - %s", display_name, version, python_path),
+            })
           end
         end
-        
-        -- Fallback to generic python if no specific version found
-        if not best_python then
-          local generic_python = venv_path .. "/bin/python"
-          if vim.fn.executable(generic_python) == 1 then
-            best_python = generic_python
-          end
-        end
-        
-        if best_python then
-          local version = get_python_version(best_python)
+      end
+    end
+
+    -- 3. Check for poetry virtualenvs
+    local poetry_cache = vim.fn.expand("~/Library/Caches/pypoetry/virtualenvs")
+    if vim.fn.isdirectory(poetry_cache) == 1 then
+      local poetry_envs = vim.fn.glob(poetry_cache .. "/*/bin/python", false, true)
+      for _, path in ipairs(poetry_envs) do
+        if vim.fn.executable(path) == 1 then
+          local version = get_python_version(path)
+          local env_name = path:match("virtualenvs/([^/]+)/")
           table.insert(interpreters, {
-            path = best_python,
+            path = path,
             version = version,
-            env_name = venv_dir,
-            display = string.format("%s (Python %s) - %s", venv_dir, version, best_python),
+            env_name = "poetry: " .. (env_name or "unknown"),
+            display = string.format("Poetry: %s (Python %s)", env_name or "unknown", version),
           })
         end
       end
     end
-    
+
     -- Remove duplicates based on resolved path and sort
     local seen = {}
     local unique_interpreters = {}
     for _, interp in ipairs(interpreters) do
-      -- Get the resolved path to avoid duplicates from symlinks
       local resolved_path = vim.fn.resolve(interp.path)
-      local key = resolved_path .. "|" .. interp.env_name
+      local key = resolved_path
       if not seen[key] then
         seen[key] = true
         table.insert(unique_interpreters, interp)
       end
     end
-    
+
     table.sort(unique_interpreters, function(a, b)
-      -- Homebrew versions first, then virtual environments
-      if a.env_name:match("^homebrew") and not b.env_name:match("^homebrew") then
-        return true
-      elseif not a.env_name:match("^homebrew") and b.env_name:match("^homebrew") then
-        return false
-      else
-        return a.env_name < b.env_name
-      end
+      -- Active venv first
+      if a.env_name:match("^ACTIVE") then return true end
+      if b.env_name:match("^ACTIVE") then return false end
+      -- Then local venvs (not homebrew/poetry)
+      local a_is_local = not a.env_name:match("homebrew") and not a.env_name:match("poetry")
+      local b_is_local = not b.env_name:match("homebrew") and not b.env_name:match("poetry")
+      if a_is_local and not b_is_local then return true end
+      if not a_is_local and b_is_local then return false end
+      return a.env_name < b.env_name
     end)
-    
+
     return unique_interpreters
   end
 
