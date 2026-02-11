@@ -473,11 +473,6 @@ local function python_interpreter_picker()
       search_roots[cwd] = true
     end
 
-    -- Debug: show detected paths
-    vim.notify("CWD: " .. cwd, vim.log.levels.INFO)
-    vim.notify("Git root (cwd): " .. (git_root_cwd or "none"), vim.log.levels.INFO)
-    vim.notify("Git root (buf): " .. (git_root_buf or "none"), vim.log.levels.INFO)
-
     -- 0. Check VIRTUAL_ENV environment variable (currently activated venv)
     local virtual_env = vim.env.VIRTUAL_ENV
     if virtual_env and vim.fn.isdirectory(virtual_env .. "/bin") == 1 then
@@ -520,36 +515,31 @@ local function python_interpreter_picker()
 
       local venv_dirs = vim.fn.systemlist(find_cmd)
 
-      -- Debug: show what's being searched and found
-      vim.notify("Searching: " .. search_root .. " | Found: " .. #venv_dirs .. " venvs", vim.log.levels.INFO)
-      for _, vd in ipairs(venv_dirs) do
-        vim.notify("  -> " .. vd, vim.log.levels.INFO)
-      end
-
       for _, venv_path in ipairs(venv_dirs) do
-        if vim.fn.isdirectory(venv_path .. "/bin") == 1 then
-          -- Look for python executable
-          local python_path = venv_path .. "/bin/python"
-          if vim.fn.executable(python_path) == 1 then
-            local version = get_python_version(python_path)
-            -- Create relative path from search root for display
-            local rel_path = venv_path:sub(#search_root + 2) -- Remove search_root and leading /
-            if rel_path == "" then
-              rel_path = vim.fn.fnamemodify(venv_path, ":t")
-            end
-            -- Add repo name prefix if multiple roots
-            local repo_name = vim.fn.fnamemodify(search_root, ":t")
-            local display_name = rel_path
-            if vim.tbl_count(search_roots) > 1 then
-              display_name = "[" .. repo_name .. "] " .. rel_path
-            end
-            table.insert(interpreters, {
-              path = python_path,
-              version = version,
-              env_name = display_name,
-              display = string.format("%s (Python %s) - %s", display_name, version, python_path),
-            })
+        local bin_dir = venv_path .. "/bin"
+        local python_path = bin_dir .. "/python"
+        local has_bin = vim.fn.isdirectory(bin_dir) == 1
+        local has_python = vim.fn.executable(python_path) == 1
+
+        if has_bin and has_python then
+          local version = get_python_version(python_path)
+          -- Create relative path from search root for display
+          local rel_path = venv_path:sub(#search_root + 2) -- Remove search_root and leading /
+          if rel_path == "" then
+            rel_path = vim.fn.fnamemodify(venv_path, ":t")
           end
+          -- Add repo name prefix if multiple roots
+          local repo_name = vim.fn.fnamemodify(search_root, ":t")
+          local display_name = rel_path
+          if vim.tbl_count(search_roots) > 1 then
+            display_name = "[" .. repo_name .. "] " .. rel_path
+          end
+          table.insert(interpreters, {
+            path = python_path,
+            version = version,
+            env_name = display_name,
+            display = string.format("%s (Python %s) - %s", display_name, version, python_path),
+          })
         end
       end
     end
@@ -572,12 +562,12 @@ local function python_interpreter_picker()
       end
     end
 
-    -- Remove duplicates based on resolved path and sort
+    -- Remove duplicates based on original path (NOT resolved - venvs symlink to homebrew but are distinct)
     local seen = {}
     local unique_interpreters = {}
     for _, interp in ipairs(interpreters) do
-      local resolved_path = vim.fn.resolve(interp.path)
-      local key = resolved_path
+      -- Use the original path as key, not resolved (keeps venvs separate from their underlying python)
+      local key = interp.path
       if not seen[key] then
         seen[key] = true
         table.insert(unique_interpreters, interp)
