@@ -407,6 +407,63 @@ vim.keymap.set("n", "[h", function()
   end
 end, { desc = "Prev Git Hunk" })
 
+-- Git diffs floating pane (git-diffs CLI)
+vim.keymap.set("n", "<leader>gd", function()
+  -- Calculate 90% of screen dimensions
+  local width = math.floor(vim.o.columns * 0.9)
+  local height = math.floor(vim.o.lines * 0.9)
+  local row = math.floor((vim.o.lines - height) / 2)
+  local col = math.floor((vim.o.columns - width) / 2)
+
+  -- Create a new buffer for the terminal
+  local buf = vim.api.nvim_create_buf(false, true)
+
+  -- Create the floating window
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = "minimal",
+    border = "rounded",
+    title = " Git Diffs ",
+    title_pos = "center",
+  })
+
+  -- Set window options for solid background
+  vim.api.nvim_set_option_value("winblend", 0, { win = win })
+  vim.api.nvim_set_option_value("winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = win })
+
+  -- Open terminal with git-diffs command
+  vim.fn.termopen("git-diffs", {
+    on_exit = function(_, exit_code, _)
+      -- Close the window when git-diffs exits (if window still exists)
+      vim.schedule(function()
+        if vim.api.nvim_win_is_valid(win) then
+          vim.api.nvim_win_close(win, true)
+        end
+      end)
+    end,
+  })
+
+  -- Enter insert mode to interact with the terminal
+  vim.cmd("startinsert")
+
+  -- Set up keymap to close the floating window with 'q' or <Esc> in normal mode
+  vim.keymap.set("n", "q", function()
+    if vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_win_close(win, true)
+    end
+  end, { buffer = buf, silent = true })
+
+  vim.keymap.set("n", "<Esc>", function()
+    if vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_win_close(win, true)
+    end
+  end, { buffer = buf, silent = true })
+end, { desc = "Git Diffs (floating pane)" })
+
 -- Go specific keymaps
 vim.api.nvim_create_autocmd("FileType", {
     pattern = "go",

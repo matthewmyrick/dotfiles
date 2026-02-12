@@ -247,16 +247,61 @@ function M.setup()
     end, { nargs = 0, desc = "Open Claude in 33% Vertical Split" })
 
 
+    -- Helper function to find venv in current repo
+    local function find_repo_venv()
+        -- Get git root
+        local git_root = vim.fn.systemlist("git rev-parse --show-toplevel 2>/dev/null")[1]
+        if not git_root or git_root == "" then
+            return nil
+        end
+        git_root = vim.fn.resolve(git_root)
+
+        -- Find venv or .venv directories
+        local find_cmd = string.format(
+            'find %s -maxdepth 5 -type d \\( -name "venv" -o -name ".venv" \\) 2>/dev/null | head -1',
+            vim.fn.shellescape(git_root)
+        )
+        local venv_dirs = vim.fn.systemlist(find_cmd)
+
+        if #venv_dirs > 0 and venv_dirs[1] ~= "" then
+            local venv_path = venv_dirs[1]
+            local activate_script = venv_path .. "/bin/activate"
+            if vim.fn.filereadable(activate_script) == 1 then
+                return activate_script
+            end
+        end
+        return nil
+    end
+
     -- Enhanced Buffer Terminal (replaces BufferTerm for <leader>tt)
     vim.api.nvim_create_user_command("EnhancedBufferTerm", function()
+        -- Check for venv before creating terminal
+        local venv_activate = find_repo_venv()
+
         -- Create new buffer first to avoid "requires unmodified buffer" error
         vim.cmd("enew")
         -- Simple terminal buffer
         vim.cmd("terminal")
+
+        local term_buf = vim.api.nvim_get_current_buf()
+
         vim.schedule(function()
             set_terminal_name("terminal")
+
+            -- If venv found, activate it after shell is ready
+            if venv_activate then
+                vim.defer_fn(function()
+                    if vim.api.nvim_buf_is_valid(term_buf) then
+                        local chan = vim.bo[term_buf].channel
+                        if chan then
+                            vim.api.nvim_chan_send(chan, "source " .. vim.fn.shellescape(venv_activate) .. "\n")
+                            vim.notify("Activated venv: " .. venv_activate:gsub("/bin/activate$", ""), vim.log.levels.INFO)
+                        end
+                    end
+                end, 500) -- Wait 500ms for shell to be ready
+            end
         end)
-    end, { nargs = 0, desc = "Open simple terminal buffer" })
+    end, { nargs = 0, desc = "Open simple terminal buffer (auto-activates venv if found)" })
 
     -- Terminal in current file's directory
     vim.api.nvim_create_user_command("TerminalInFileDir", function()
