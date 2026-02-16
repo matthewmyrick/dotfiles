@@ -121,14 +121,59 @@ function M.test_connection(connection)
   return true, nil
 end
 
+-- Parse a CSV line properly handling quoted fields
+local function parse_csv_line(line)
+  local fields = {}
+  local field = ""
+  local in_quotes = false
+  local i = 1
+
+  while i <= #line do
+    local c = line:sub(i, i)
+
+    if in_quotes then
+      if c == '"' then
+        -- Check for escaped quote (doubled)
+        if line:sub(i + 1, i + 1) == '"' then
+          field = field .. '"'
+          i = i + 2
+        else
+          -- End of quoted field
+          in_quotes = false
+          i = i + 1
+        end
+      else
+        field = field .. c
+        i = i + 1
+      end
+    else
+      if c == '"' then
+        in_quotes = true
+        i = i + 1
+      elseif c == ',' then
+        table.insert(fields, field)
+        field = ""
+        i = i + 1
+      else
+        field = field .. c
+        i = i + 1
+      end
+    end
+  end
+
+  -- Add last field
+  table.insert(fields, field)
+
+  return fields
+end
+
 -- Execute a query with column headers (for results display)
 function M.execute_with_headers(connection, sql)
   local url = connections.get_url(connection)
 
-  -- First get column names using \d style query or by parsing
-  -- Use psql with headers but in aligned format for parsing
+  -- Use CSV format which properly handles escaping of special characters in data
   local cmd = string.format(
-    'psql "%s" -F "	" -c %s 2>&1',
+    'psql "%s" --csv -c %s 2>&1',
     url,
     vim.fn.shellescape(sql)
   )
@@ -140,11 +185,10 @@ function M.execute_with_headers(connection, sql)
     return nil, output
   end
 
-  -- Parse output - first line is headers, then separator, then data
+  -- Parse CSV output - first line is headers, rest is data
   local lines = {}
   for line in output:gmatch("[^\r\n]+") do
-    -- Skip empty lines, row count line, and separator lines (---+---)
-    if line ~= "" and not line:match("^%(%d+ rows?%)$") and not line:match("^%-+$") and not line:match("^[%-+]+$") then
+    if line ~= "" then
       table.insert(lines, line)
     end
   end
@@ -154,38 +198,18 @@ function M.execute_with_headers(connection, sql)
   end
 
   -- First line contains column headers
-  local columns = {}
-  local header_line = lines[1]
-  -- Parse columns (they're separated by | in default psql output)
-  for col in header_line:gmatch("[^|]+") do
-    local trimmed = col:match("^%s*(.-)%s*$")
-    if trimmed and trimmed ~= "" then
-      table.insert(columns, trimmed)
-    end
-  end
+  local columns = parse_csv_line(lines[1])
 
-  -- Rest are data rows (skip lines that look like separators)
+  -- Rest are data rows
   local rows = {}
   for i = 2, #lines do
-    local line = lines[i]
-    -- Skip separator lines that might have slipped through (all dashes and plus signs)
-    if not line:match("^[%s%-+|]+$") or line:match("[%w]") then
-      local row = {}
-      local col_idx = 1
-      for val in line:gmatch("[^|]+") do
-        local trimmed = val:match("^%s*(.-)%s*$")
-        if col_idx <= #columns then
-          table.insert(row, trimmed)
-          col_idx = col_idx + 1
-        end
-      end
-      -- Fill remaining columns with empty strings
-      while #row < #columns do
-        table.insert(row, "")
-      end
-      if #row > 0 then
-        table.insert(rows, row)
-      end
+    local row = parse_csv_line(lines[i])
+    -- Ensure row has same number of columns
+    while #row < #columns do
+      table.insert(row, "")
+    end
+    if #row > 0 then
+      table.insert(rows, row)
     end
   end
 

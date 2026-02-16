@@ -11,6 +11,7 @@ local state = {
   last_query = nil,
   last_results = nil,
   visible = false,
+  data_start_line = nil, -- Line number where data rows start (after header + separator)
 }
 
 -- Setup highlights
@@ -128,6 +129,8 @@ local function render(results, error_msg, query_info)
     end
   elseif results then
     local formatted = format_results(results.columns, results.rows)
+    -- Track where data rows start (after header + separator, which are first 2 lines of formatted)
+    state.data_start_line = #lines + 3  -- Current lines + header + separator + 1 for next row
     for i, line in ipairs(formatted) do
       table.insert(lines, line)
       if i == 1 then
@@ -142,7 +145,7 @@ local function render(results, error_msg, query_info)
 
     table.insert(lines, "")
     local row_count = results.rows and #results.rows or 0
-    table.insert(lines, string.format(" %d row(s) returned", row_count))
+    table.insert(lines, string.format(" %d row(s) returned  │  Press Enter or i on a row to view full details", row_count))
     table.insert(highlights, { line = #lines, hl = "PgResultsInfo" })
   else
     table.insert(lines, " No results to display")
@@ -151,7 +154,7 @@ local function render(results, error_msg, query_info)
 
   -- Footer with keymaps
   table.insert(lines, "")
-  table.insert(lines, " Press q to close, <leader>rt to toggle")
+  table.insert(lines, " q close │ Enter/i inspect row │ <leader>rt toggle")
 
   vim.api.nvim_buf_set_lines(state.bufnr, 0, -1, false, lines)
 
@@ -163,6 +166,274 @@ local function render(results, error_msg, query_info)
   vim.api.nvim_buf_set_option(state.bufnr, "modifiable", false)
 end
 
+-- Try to detect and pretty-print JSON
+local function try_format_json(str)
+  -- Quick check if it looks like JSON
+  local trimmed = str:match("^%s*(.-)%s*$")
+  if not (trimmed:match("^%{") or trimmed:match("^%[")) then
+    return nil, false
+  end
+
+  -- Try to decode and re-encode with indentation
+  local ok, decoded = pcall(vim.json.decode, trimmed)
+  if not ok then
+    return nil, false
+  end
+
+  -- Re-encode with indentation
+  local function indent_json(obj, level)
+    level = level or 0
+    local indent = string.rep("  ", level)
+    local next_indent = string.rep("  ", level + 1)
+
+    if type(obj) == "table" then
+      local is_array = vim.tbl_islist(obj)
+      local parts = {}
+
+      if is_array then
+        if #obj == 0 then
+          return "[]"
+        end
+        for _, v in ipairs(obj) do
+          table.insert(parts, next_indent .. indent_json(v, level + 1))
+        end
+        return "[\n" .. table.concat(parts, ",\n") .. "\n" .. indent .. "]"
+      else
+        if vim.tbl_isempty(obj) then
+          return "{}"
+        end
+        local keys = vim.tbl_keys(obj)
+        table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+        for _, k in ipairs(keys) do
+          local v = obj[k]
+          table.insert(parts, next_indent .. '"' .. tostring(k) .. '": ' .. indent_json(v, level + 1))
+        end
+        return "{\n" .. table.concat(parts, ",\n") .. "\n" .. indent .. "}"
+      end
+    elseif type(obj) == "string" then
+      local escaped = obj:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('\n', '\\n'):gsub('\r', '\\r'):gsub('\t', '\\t')
+      return '"' .. escaped .. '"'
+    elseif type(obj) == "number" or type(obj) == "boolean" then
+      return tostring(obj)
+    elseif obj == vim.NIL or obj == nil then
+      return "null"
+    else
+      return '"' .. tostring(obj) .. '"'
+    end
+  end
+
+  local formatted = indent_json(decoded, 0)
+  return formatted, true
+end
+
+-- Show full row details in a floating window
+local function show_row_details()
+  if not state.last_results or not state.last_results.rows or not state.last_results.columns then
+    vim.notify("No results to inspect", vim.log.levels.WARN)
+    return
+  end
+
+  if not state.data_start_line then
+    vim.notify("No data rows available", vim.log.levels.WARN)
+    return
+  end
+
+  local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
+  local row_index = cursor_line - state.data_start_line + 1
+
+  if row_index < 1 or row_index > #state.last_results.rows then
+    vim.notify("Move cursor to a data row and press Enter", vim.log.levels.INFO)
+    return
+  end
+
+  local row = state.last_results.rows[row_index]
+  local columns = state.last_results.columns
+
+  -- Build content - simple clean format
+  local lines = {}
+  local json_regions = {}
+
+  table.insert(lines, string.format(" Row %d of %d", row_index, #state.last_results.rows))
+  table.insert(lines, " " .. string.rep("═", 90))
+  table.insert(lines, "")
+
+  for i, col in ipairs(columns) do
+    local val = row[i]
+    local str_val = val == nil and "NULL" or tostring(val)
+    local is_null = val == nil
+
+    -- Column name as header
+    table.insert(lines, " " .. col .. ":")
+
+    if is_null then
+      table.insert(lines, "   (null)")
+    else
+      -- Try JSON formatting
+      local json_formatted, was_json = try_format_json(str_val)
+
+      if was_json then
+        local value_start = #lines + 1
+        for json_line in json_formatted:gmatch("[^\n]+") do
+          table.insert(lines, "   " .. json_line)
+        end
+        table.insert(json_regions, { start = value_start, stop = #lines })
+      else
+        -- Regular value - just show it, let it scroll horizontally
+        table.insert(lines, "   " .. str_val)
+      end
+    end
+
+    table.insert(lines, "")
+  end
+
+  table.insert(lines, " " .. string.rep("─", 50))
+  table.insert(lines, " q close │ j/k scroll │ h/l horizontal scroll")
+
+  -- Window size
+  local width = math.floor(vim.o.columns * 0.9)
+  local height = math.min(#lines + 2, math.floor(vim.o.lines * 0.85))
+  local row_pos = math.floor((vim.o.lines - height) / 2)
+  local col_pos = math.floor((vim.o.columns - width) / 2)
+
+  -- Create buffer with JSON filetype for syntax highlighting
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+
+  -- Create floating window
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = row_pos,
+    col = col_pos,
+    style = "minimal",
+    border = "rounded",
+    title = " Row Details ",
+    title_pos = "center",
+  })
+
+  -- Window options - allow horizontal scrolling
+  vim.api.nvim_set_option_value("winblend", 0, { win = win })
+  vim.api.nvim_set_option_value("winhighlight", "Normal:Normal,FloatBorder:FloatBorder", { win = win })
+  vim.api.nvim_set_option_value("wrap", false, { win = win })
+  vim.api.nvim_set_option_value("cursorline", true, { win = win })
+  vim.api.nvim_set_option_value("sidescrolloff", 5, { win = win })
+
+  -- Highlights
+  vim.api.nvim_set_hl(0, "PgColumnName", { fg = "#89b4fa", bold = true })
+  vim.api.nvim_set_hl(0, "PgNullValue", { fg = "#6c7086", italic = true })
+  vim.api.nvim_set_hl(0, "PgJsonKey", { fg = "#f9e2af" })
+  vim.api.nvim_set_hl(0, "PgJsonString", { fg = "#a6e3a1" })
+  vim.api.nvim_set_hl(0, "PgJsonNumber", { fg = "#fab387" })
+  vim.api.nvim_set_hl(0, "PgJsonBool", { fg = "#cba6f7" })
+  vim.api.nvim_set_hl(0, "PgJsonNull", { fg = "#6c7086", italic = true })
+  vim.api.nvim_set_hl(0, "PgJsonBracket", { fg = "#89dceb" })
+
+  local ns = vim.api.nvim_create_namespace("pg_row_details")
+
+  -- Apply highlights
+  for i, line in ipairs(lines) do
+    local line_idx = i - 1
+
+    if line:match("^ Row %d+") then
+      vim.api.nvim_buf_add_highlight(buf, ns, "PgResultsInfo", line_idx, 0, -1)
+    elseif line:match("^═") or line:match("^ ═") or line:match("^ ─") then
+      vim.api.nvim_buf_add_highlight(buf, ns, "PgResultsBorder", line_idx, 0, -1)
+    elseif line:match("^%s+%(null%)") then
+      vim.api.nvim_buf_add_highlight(buf, ns, "PgNullValue", line_idx, 0, -1)
+    elseif line:match("^%s[%w_]+:$") then
+      vim.api.nvim_buf_add_highlight(buf, ns, "PgColumnName", line_idx, 0, -1)
+    end
+  end
+
+  -- Apply JSON highlighting to JSON regions
+  for _, region in ipairs(json_regions) do
+    for line_num = region.start, region.stop do
+      local line = lines[line_num]
+      if line then
+        local line_idx = line_num - 1
+
+        -- Find all patterns and highlight them
+        -- Keys: "something":
+        local pos = 1
+        while pos <= #line do
+          -- Look for "key":
+          local key_start, key_end = line:find('"[^"]+"%s*:', pos)
+          if key_start then
+            vim.api.nvim_buf_add_highlight(buf, ns, "PgJsonKey", line_idx, key_start - 1, key_end)
+            pos = key_end + 1
+          else
+            break
+          end
+        end
+
+        -- Strings (not keys) - values after :
+        pos = 1
+        while pos <= #line do
+          local val_start, val_end = line:find(':%s*"[^"]*"', pos)
+          if val_start then
+            local str_start = line:find('"', val_start + 1)
+            if str_start then
+              vim.api.nvim_buf_add_highlight(buf, ns, "PgJsonString", line_idx, str_start - 1, val_end)
+            end
+            pos = val_end + 1
+          else
+            break
+          end
+        end
+
+        -- Numbers
+        for num in line:gmatch(':%s*(%-?%d+%.?%d*)') do
+          local s, e = line:find(num, 1, true)
+          if s then
+            vim.api.nvim_buf_add_highlight(buf, ns, "PgJsonNumber", line_idx, s - 1, e)
+          end
+        end
+
+        -- true/false/null
+        for s, e in line:gmatch('()true()') do
+          if type(s) == "number" then
+            vim.api.nvim_buf_add_highlight(buf, ns, "PgJsonBool", line_idx, s - 1, e - 1)
+          end
+        end
+        for s, e in line:gmatch('()false()') do
+          if type(s) == "number" then
+            vim.api.nvim_buf_add_highlight(buf, ns, "PgJsonBool", line_idx, s - 1, e - 1)
+          end
+        end
+        for s, e in line:gmatch('()null()') do
+          if type(s) == "number" then
+            vim.api.nvim_buf_add_highlight(buf, ns, "PgJsonNull", line_idx, s - 1, e - 1)
+          end
+        end
+
+        -- Brackets
+        for bracket_pos in line:gmatch('()[%[%]{}]') do
+          if type(bracket_pos) == "number" then
+            vim.api.nvim_buf_add_highlight(buf, ns, "PgJsonBracket", line_idx, bracket_pos - 1, bracket_pos)
+          end
+        end
+      end
+    end
+  end
+
+  vim.api.nvim_buf_set_option(buf, "modifiable", false)
+  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+
+  -- Keymaps
+  local opts = { buffer = buf, noremap = true, silent = true }
+  vim.keymap.set("n", "q", function()
+    if vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_win_close(win, true)
+    end
+  end, opts)
+  vim.keymap.set("n", "<Esc>", function()
+    if vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_win_close(win, true)
+    end
+  end, close_opts)
+end
+
 -- Setup keymaps for results buffer
 local function setup_keymaps(bufnr)
   local opts = { buffer = bufnr, noremap = true, silent = true, nowait = true }
@@ -171,6 +442,10 @@ local function setup_keymaps(bufnr)
   vim.keymap.set("n", "q", function()
     M.hide()
   end, opts)
+
+  -- Inspect row (show full details)
+  vim.keymap.set("n", "<CR>", show_row_details, opts)
+  vim.keymap.set("n", "i", show_row_details, opts)
 
   -- Scroll
   vim.keymap.set("n", "<C-d>", "<C-d>", opts)
