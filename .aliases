@@ -44,6 +44,9 @@ alias pg='NVIM_APPNAME=nvim-postgres nvim'
 # aws s3 browser
 alias s3='NVIM_APPNAME=nvim-aws-s3 nvim'
 
+# aws secrets manager viewer
+alias aws-secrets='NVIM_APPNAME=nvim-aws-secrets nvim'
+
 # sre agent
 alias sre='~/.config/sre-agent/sre'
 

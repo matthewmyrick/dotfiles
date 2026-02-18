@@ -30,6 +30,7 @@ while [[ $# -gt 0 ]]; do
       echo "                            nvim-dbee   - Database client (nvim-dbee)"
       echo "                            nvim-postgres - PostgreSQL client (nvim-postgres)"
       echo "                            nvim-aws-s3   - AWS S3 browser (nvim-aws-s3)"
+      echo "                            nvim-aws-secrets - AWS Secrets Manager viewer"
       echo "                            sketchybar  - SketchyBar configuration"
       echo "                            ghostty     - Ghostty terminal configuration"
       echo "                            scripts     - Shell scripts and modules"
@@ -58,12 +59,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm)
+    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|nvim-aws-secrets|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm"
+      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, nvim-aws-secrets, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -217,6 +218,39 @@ function installNvimAwsS3Only() {
   echo "  - Press Enter on a bucket to expand, Enter on a file to preview"
   echo "  - Press / to fuzzy search files, ? for help"
   echo "  - Configuration at ~/.config/nvim-aws-s3"
+  echo ""
+}
+
+function installNvimAwsSecretsOnly() {
+  echo "🚀 Starting nvim-aws-secrets (AWS Secrets Manager Viewer) installation..."
+  echo ""
+
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🔄 Installing nvim-aws-secrets configuration..."
+  echo "═══════════════════════════════════════════════════════════════"
+
+  # Install nvim-aws-secrets config
+  rm -rf ~/.config/nvim-aws-secrets
+  cp -R "$INSTALL_DIR/nvim-aws-secrets" ~/.config/
+
+  echo "✅ nvim-aws-secrets configuration installed successfully!"
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 nvim-aws-secrets installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Prerequisites:"
+  echo "  - AWS CLI must be configured (run 'aws configure')"
+  echo "  - Valid AWS credentials with Secrets Manager read access"
+  echo ""
+  echo "📋 Usage:"
+  echo "  - Run 'aws-secrets' to open (alias for NVIM_APPNAME=nvim-aws-secrets nvim)"
+  echo "  - On startup, enter your AWS region (e.g., us-east-1)"
+  echo "  - Press Enter on a secret to view its value"
+  echo "  - Press / to fuzzy search secrets, ? for help"
+  echo "  - Press y to copy secret value to clipboard"
+  echo "  - Configuration at ~/.config/nvim-aws-secrets"
   echo ""
 }
 
@@ -885,6 +919,22 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
+  nvim-aws-secrets)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║              NVIM-AWS-SECRETS INSTALLER                      ║"
+    echo "║                                                               ║"
+    echo "║  This will install the AWS Secrets Manager viewer            ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installNvimAwsSecretsOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
   brew)
     echo "╔═══════════════════════════════════════════════════════════════╗"
     echo "║                   HOMEBREW INSTALLER                         ║"
@@ -1034,4 +1084,4 @@ case "$INSTALL_TARGET" in
 esac
 
 # Cleanup
-unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly
+unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installNvimAwsSecretsOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly

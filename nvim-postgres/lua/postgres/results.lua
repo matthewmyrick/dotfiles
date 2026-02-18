@@ -145,7 +145,7 @@ local function render(results, error_msg, query_info)
 
     table.insert(lines, "")
     local row_count = results.rows and #results.rows or 0
-    table.insert(lines, string.format(" %d row(s) returned  │  Press Enter or i on a row to view full details", row_count))
+    table.insert(lines, string.format(" %d row(s) returned  │  Enter/i view │ e edit", row_count))
     table.insert(highlights, { line = #lines, hl = "PgResultsInfo" })
   else
     table.insert(lines, " No results to display")
@@ -434,6 +434,239 @@ local function show_row_details()
   end, close_opts)
 end
 
+-- Edit a cell value - simple floating pane
+local function edit_cell()
+  if not state.last_results or not state.last_results.rows or not state.last_results.columns then
+    vim.notify("No results to edit", vim.log.levels.WARN)
+    return
+  end
+
+  if not state.data_start_line then
+    vim.notify("No data rows available", vim.log.levels.WARN)
+    return
+  end
+
+  local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
+  local row_index = cursor_line - state.data_start_line + 1
+
+  if row_index < 1 or row_index > #state.last_results.rows then
+    vim.notify("Move cursor to a data row and press e", vim.log.levels.INFO)
+    return
+  end
+
+  local row = state.last_results.rows[row_index]
+  local columns = state.last_results.columns
+
+  -- Try to extract table name from query
+  local table_name = nil
+  if state.last_query and state.last_query.sql then
+    table_name = state.last_query.sql:match("[Ff][Rr][Oo][Mm]%s+([%w_%.\"]+)")
+    if table_name then
+      table_name = table_name:gsub('"', '')
+    end
+  end
+
+  if not table_name then
+    vim.notify("Could not determine table name. Use simple SELECT FROM query.", vim.log.levels.ERROR)
+    return
+  end
+
+  -- Find primary key column (assume 'id' or first column)
+  local pk_col_idx = 1
+  local pk_col_name = columns[1]
+  for idx, col in ipairs(columns) do
+    if col:lower() == "id" then
+      pk_col_idx = idx
+      pk_col_name = col
+      break
+    end
+  end
+
+  local pk_value = row[pk_col_idx]
+  if not pk_value or pk_value == "" then
+    vim.notify("Primary key value is empty. Cannot edit.", vim.log.levels.ERROR)
+    return
+  end
+
+  -- Show column picker
+  vim.ui.select(columns, {
+    prompt = "Select column to edit:",
+    format_item = function(col)
+      local idx = 1
+      for j, c in ipairs(columns) do
+        if c == col then idx = j break end
+      end
+      local val = row[idx] or ""
+      if #val > 40 then val = val:sub(1, 37) .. "..." end
+      return col .. ": " .. val
+    end,
+  }, function(selected_col)
+    if not selected_col then return end
+
+    local col_idx = 1
+    for idx, col in ipairs(columns) do
+      if col == selected_col then col_idx = idx break end
+    end
+
+    local current_value = row[col_idx] or ""
+    local is_json = false
+
+    -- Try to format JSON
+    local display_value = current_value
+    if current_value:match("^%s*[%{%[]") then
+      local ok, decoded = pcall(vim.json.decode, current_value)
+      if ok then
+        is_json = true
+        display_value = vim.fn.json_encode(decoded)
+        -- Pretty print using external or manual
+        local formatted = {}
+        local indent = 0
+        local in_string = false
+        local i = 1
+        local line = ""
+
+        while i <= #display_value do
+          local c = display_value:sub(i, i)
+
+          if c == '"' and display_value:sub(i-1, i-1) ~= '\\' then
+            in_string = not in_string
+            line = line .. c
+          elseif not in_string then
+            if c == '{' or c == '[' then
+              line = line .. c
+              table.insert(formatted, string.rep("  ", indent) .. line)
+              indent = indent + 1
+              line = ""
+            elseif c == '}' or c == ']' then
+              if #line > 0 then
+                table.insert(formatted, string.rep("  ", indent) .. line)
+                line = ""
+              end
+              indent = indent - 1
+              table.insert(formatted, string.rep("  ", indent) .. c)
+            elseif c == ',' then
+              line = line .. c
+              table.insert(formatted, string.rep("  ", indent) .. line)
+              line = ""
+            elseif c == ':' then
+              line = line .. ": "
+            elseif c ~= ' ' and c ~= '\n' and c ~= '\r' and c ~= '\t' then
+              line = line .. c
+            end
+          else
+            line = line .. c
+          end
+          i = i + 1
+        end
+        if #line > 0 then
+          table.insert(formatted, string.rep("  ", indent) .. line)
+        end
+        display_value = table.concat(formatted, "\n")
+      end
+    end
+
+    -- Create buffer with value
+    local edit_buf = vim.api.nvim_create_buf(false, true)
+    local lines = {}
+    for line in display_value:gmatch("([^\n]*)") do
+      table.insert(lines, line)
+    end
+    -- Remove trailing empty lines but keep at least one
+    while #lines > 1 and lines[#lines] == "" do
+      table.remove(lines)
+    end
+    if #lines == 0 then lines = { "" } end
+
+    vim.api.nvim_buf_set_lines(edit_buf, 0, -1, false, lines)
+
+    if is_json then
+      vim.api.nvim_buf_set_option(edit_buf, "filetype", "json")
+    end
+
+    -- Window size - 80% of screen
+    local width = math.floor(vim.o.columns * 0.8)
+    local height = math.min(math.max(#lines + 2, 10), math.floor(vim.o.lines * 0.8))
+    local win_row = math.floor((vim.o.lines - height) / 2)
+    local win_col = math.floor((vim.o.columns - width) / 2)
+
+    local edit_win = vim.api.nvim_open_win(edit_buf, true, {
+      relative = "editor",
+      width = width,
+      height = height,
+      row = win_row,
+      col = win_col,
+      style = "minimal",
+      border = "rounded",
+      title = string.format(" Edit: %s.%s ", table_name, selected_col),
+      title_pos = "center",
+      footer = " i insert │ <leader>w save │ q cancel ",
+      footer_pos = "center",
+    })
+
+    vim.api.nvim_set_option_value("winblend", 0, { win = edit_win })
+    vim.api.nvim_set_option_value("wrap", true, { win = edit_win })
+    vim.api.nvim_set_option_value("number", true, { win = edit_win })
+    vim.api.nvim_set_option_value("cursorline", true, { win = edit_win })
+
+    local opts = { buffer = edit_buf, noremap = true, silent = true }
+
+    -- Close without saving
+    vim.keymap.set("n", "q", function()
+      vim.api.nvim_win_close(edit_win, true)
+    end, opts)
+
+    -- Save changes
+    vim.keymap.set("n", "<leader>w", function()
+      local new_lines = vim.api.nvim_buf_get_lines(edit_buf, 0, -1, false)
+      local new_value = table.concat(new_lines, "\n"):gsub("^%s+", ""):gsub("%s+$", "")
+
+      -- Validate JSON if it was JSON
+      if is_json then
+        local ok, err = pcall(vim.json.decode, new_value)
+        if not ok then
+          vim.notify("Invalid JSON: " .. tostring(err), vim.log.levels.ERROR)
+          return
+        end
+        -- Compact the JSON for storage
+        local decoded = vim.json.decode(new_value)
+        new_value = vim.json.encode(decoded)
+      end
+
+      -- Escape for SQL
+      local escaped = new_value:gsub("'", "''")
+
+      local update_sql = string.format(
+        "UPDATE %s SET %s = '%s' WHERE %s = '%s'",
+        table_name, selected_col, escaped,
+        pk_col_name, tostring(pk_value):gsub("'", "''")
+      )
+
+      -- Execute update
+      local active_conn = connections.get_active()
+      if not active_conn then
+        vim.notify("No active connection", vim.log.levels.ERROR)
+        return
+      end
+
+      local _, err = query.execute(active_conn, update_sql)
+      if err then
+        vim.notify("Update failed: " .. tostring(err), vim.log.levels.ERROR)
+      else
+        vim.notify("Updated " .. table_name .. "." .. selected_col .. " successfully!", vim.log.levels.INFO)
+        vim.api.nvim_win_close(edit_win, true)
+
+        -- Refresh results
+        if state.last_query and state.last_query.sql then
+          local results = query.execute_with_headers(active_conn, state.last_query.sql)
+          if results then
+            M.display(results, nil, state.last_query)
+          end
+        end
+      end
+    end, opts)
+  end)
+end
+
 -- Setup keymaps for results buffer
 local function setup_keymaps(bufnr)
   local opts = { buffer = bufnr, noremap = true, silent = true, nowait = true }
@@ -446,6 +679,9 @@ local function setup_keymaps(bufnr)
   -- Inspect row (show full details)
   vim.keymap.set("n", "<CR>", show_row_details, opts)
   vim.keymap.set("n", "i", show_row_details, opts)
+
+  -- Edit cell
+  vim.keymap.set("n", "e", edit_cell, opts)
 
   -- Scroll
   vim.keymap.set("n", "<C-d>", "<C-d>", opts)
