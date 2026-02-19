@@ -38,6 +38,7 @@ SSH Manager (ssm) - Interactive SSH connection manager
 USAGE:
     ssm                    Interactive fuzzy select and connect
     ssm --add              Add new connection
+    ssm --remove           Remove a connection
     ssm --list             List all connections
     ssm --edit             Edit config file in \$EDITOR
     ssm --keys             List available key files
@@ -68,19 +69,32 @@ ensure_config() {
 #
 # Display format: <name> | <region> | <id> | <cloud_name> | <provider> | <tags>
 #
-# AWS Connection (instance_id is REQUIRED):
+# AWS Connection - Default (single instance, instance_id is REQUIRED):
 #   - name: friendly-name
 #     cloud: aws
-#     instance_id: i-1234567890     # AWS instance ID (REQUIRED)
-#     instance_name: my-server      # AWS Name tag (optional, for display)
-#     aws_profile: default          # AWS profile to use
-#     aws_region: us-east-2         # AWS region
-#     user: ubuntu                  # SSH user
-#     key: my-key.pem               # Key filename (in keys directory)
-#     port: 22                      # SSH port (optional, default 22)
+#     aws_ec2_type: default          # Optional, defaults to "default"
+#     instance_id: i-1234567890      # AWS instance ID (REQUIRED)
+#     instance_name: my-server       # AWS Name tag (optional, for display)
+#     aws_profile: default           # AWS profile to use
+#     aws_region: us-east-2          # AWS region
+#     user: ubuntu                   # SSH user
+#     key: my-key.pem                # Key filename (in keys directory)
+#     port: 22                       # SSH port (optional, default 22)
 #     tags:
 #       env: production
 #       team: platform
+#
+# AWS Connection - ASG (lists instances, pick one with fzf):
+#   - name: my-asg-cluster
+#     cloud: aws
+#     aws_ec2_type: asg              # Required for ASG connections
+#     asg_name: my-auto-scaling-group # ASG name (replaces instance_id)
+#     aws_profile: default
+#     aws_region: us-east-2
+#     user: ubuntu
+#     key: my-key.pem
+#     tags:
+#       env: production
 #
 # Azure Connection (instance_id is REQUIRED):
 #   - name: my-azure-vm
@@ -158,6 +172,77 @@ get_aws_ip_by_name() {
         --region "$region" \
         --query 'Reservations[0].Instances[0].PrivateIpAddress' \
         --output text 2>/dev/null
+}
+
+# Get all running instances in an ASG
+get_asg_instances() {
+    local asg_name="$1"
+    local profile="$2"
+    local region="$3"
+
+    # Get instance IDs from the ASG
+    # Uses JMESPath filter + jq to handle ASG names with special characters (e.g. brackets)
+    local instance_ids=$(aws autoscaling describe-auto-scaling-groups \
+        --profile "$profile" \
+        --region "$region" \
+        --query "AutoScalingGroups[?AutoScalingGroupName==\`${asg_name}\`].Instances[]" \
+        --output json 2>/dev/null \
+        | jq -r '.[] | select(.LifecycleState == "InService") | .InstanceId' 2>/dev/null)
+
+    if [ -z "$instance_ids" ]; then
+        print_error "No InService instances found in ASG: $asg_name" >&2
+        return 1
+    fi
+
+    # Get instance details (ID, private IP, Name tag, state)
+    aws ec2 describe-instances \
+        --instance-ids $instance_ids \
+        --profile "$profile" \
+        --region "$region" \
+        --query 'Reservations[].Instances[].[InstanceId,PrivateIpAddress,Tags[?Key==`Name`].Value|[0],State.Name]' \
+        --output text 2>/dev/null
+}
+
+# Select an instance from an ASG using fzf
+select_asg_instance() {
+    local asg_name="$1"
+    local profile="$2"
+    local region="$3"
+
+    print_info "Fetching instances from ASG: $asg_name..." >&2
+
+    local instances=$(get_asg_instances "$asg_name" "$profile" "$region")
+
+    if [ -z "$instances" ]; then
+        print_error "No running instances found in ASG: $asg_name" >&2
+        return 1
+    fi
+
+    # Build fzf input: <instance-id> | <private-ip> | <name-tag> | <state>
+    local fzf_input=""
+    while IFS=$'\t' read -r id ip name state; do
+        [ "$name" == "None" ] && name="N/A"
+        fzf_input+="${ip}"$'\t'"${id} | ${ip} | ${name} | ${state}"$'\n'
+    done <<< "$instances"
+
+    # Remove trailing newline
+    fzf_input=${fzf_input%$'\n'}
+
+    local selection=$(echo "$fzf_input" | fzf \
+        --delimiter=$'\t' \
+        --with-nth=2 \
+        --prompt="Select instance > " \
+        --header="<instance-id> | <private-ip> | <name> | <state>" \
+        --height=60% \
+        --reverse \
+        --ansi)
+
+    if [ -z "$selection" ]; then
+        return 1
+    fi
+
+    # Extract IP (first field, TAB delimited)
+    echo "$selection" | cut -d$'\t' -f1
 }
 
 # Get IP for a connection
@@ -288,10 +373,10 @@ add_connection() {
     # Cloud provider
     echo ""
     echo "Cloud provider:"
-    echo "  1) aws"
+    echo "  1) aws (default)"
     echo "  2) azure"
     echo "  3) static (manual IP)"
-    read -p "Select [1-3]: " cloud_choice
+    read -p "Select [1-3] (Enter for aws): " cloud_choice
 
     case "$cloud_choice" in
         1) cloud="aws" ;;
@@ -305,24 +390,64 @@ add_connection() {
     local instance_name=""
     local aws_profile=""
     local aws_region=""
+    local aws_ec2_type="default"
+    local asg_name=""
     local azure_subscription=""
     local azure_region=""
     local static_ip=""
 
     if [ "$cloud" == "aws" ]; then
         echo ""
-        # Instance ID is required for AWS
-        while [ -z "$instance_id" ]; do
-            read -p "AWS Instance ID (e.g., i-1234567890) [REQUIRED]: " instance_id
-            if [ -z "$instance_id" ]; then
-                print_error "Instance ID is required for AWS connections"
-            fi
-        done
-        read -p "AWS Instance Name (optional, for display): " instance_name
         read -p "AWS Profile [hadrius-dev]: " aws_profile
         aws_profile=${aws_profile:-hadrius-dev}
         read -p "AWS Region [us-east-2]: " aws_region
         aws_region=${aws_region:-us-east-2}
+
+        echo ""
+        echo "AWS EC2 type:"
+        echo "  1) default (single instance)"
+        echo "  2) asg (Auto Scaling Group)"
+        read -p "Select [1-2] (Enter for default): " ec2_type_choice
+
+        case "$ec2_type_choice" in
+            2) aws_ec2_type="asg" ;;
+            *) aws_ec2_type="default" ;;
+        esac
+
+        if [ "$aws_ec2_type" == "asg" ]; then
+            print_info "Fetching ASGs in $aws_region..."
+            local asg_list=$(aws autoscaling describe-auto-scaling-groups \
+                --profile "$aws_profile" \
+                --region "$aws_region" \
+                --query 'AutoScalingGroups[].AutoScalingGroupName' \
+                --output text 2>/dev/null | tr '\t' '\n' | sort)
+
+            if [ -z "$asg_list" ]; then
+                print_error "No ASGs found in $aws_region (profile: $aws_profile)"
+                exit 1
+            fi
+
+            asg_name=$(echo "$asg_list" | fzf \
+                --prompt="Select ASG > " \
+                --header="Auto Scaling Groups in $aws_region" \
+                --height=60% \
+                --reverse)
+
+            if [ -z "$asg_name" ]; then
+                print_error "No ASG selected"
+                exit 1
+            fi
+            print_success "Selected ASG: $asg_name"
+        else
+            # Instance ID is required for default AWS
+            while [ -z "$instance_id" ]; do
+                read -p "AWS Instance ID (e.g., i-1234567890) [REQUIRED]: " instance_id
+                if [ -z "$instance_id" ]; then
+                    print_error "Instance ID is required for AWS connections"
+                fi
+            done
+            read -p "AWS Instance Name (optional, for display): " instance_name
+        fi
     elif [ "$cloud" == "azure" ]; then
         echo ""
         # Resource ID is required for Azure
@@ -416,8 +541,13 @@ add_connection() {
     local new_index=$((conn_count))
 
     if [ "$cloud" == "aws" ]; then
-        yq -i ".connections[$new_index].instance_id = \"$instance_id\"" "$SSM_CONFIG_FILE"
-        [ -n "$instance_name" ] && yq -i ".connections[$new_index].instance_name = \"$instance_name\"" "$SSM_CONFIG_FILE"
+        yq -i ".connections[$new_index].aws_ec2_type = \"$aws_ec2_type\"" "$SSM_CONFIG_FILE"
+        if [ "$aws_ec2_type" == "asg" ]; then
+            yq -i ".connections[$new_index].asg_name = \"$asg_name\"" "$SSM_CONFIG_FILE"
+        else
+            yq -i ".connections[$new_index].instance_id = \"$instance_id\"" "$SSM_CONFIG_FILE"
+            [ -n "$instance_name" ] && yq -i ".connections[$new_index].instance_name = \"$instance_name\"" "$SSM_CONFIG_FILE"
+        fi
         yq -i ".connections[$new_index].aws_profile = \"$aws_profile\"" "$SSM_CONFIG_FILE"
         yq -i ".connections[$new_index].aws_region = \"$aws_region\"" "$SSM_CONFIG_FILE"
     elif [ "$cloud" == "azure" ]; then
@@ -470,6 +600,8 @@ list_connections() {
         local instance_id=$(yq ".connections[$i].instance_id // \"\"" "$SSM_CONFIG_FILE")
         local instance_name=$(yq ".connections[$i].instance_name // \"\"" "$SSM_CONFIG_FILE")
         local user=$(yq ".connections[$i].user" "$SSM_CONFIG_FILE")
+        local aws_ec2_type=$(yq ".connections[$i].aws_ec2_type // \"default\"" "$SSM_CONFIG_FILE")
+        local asg_name=$(yq ".connections[$i].asg_name // \"\"" "$SSM_CONFIG_FILE")
 
         # Get region based on cloud provider
         local region=""
@@ -493,14 +625,19 @@ list_connections() {
         [ "$instance_name" == "null" ] && instance_name=""
         [ "$region" == "null" ] && region=""
         [ "$tags" == "null" ] && tags=""
+        [ "$asg_name" == "null" ] && asg_name=""
 
         # Build display line
         local display_line="  $name"
         display_line+=" | ${region:-N/A}"
-        display_line+=" | ${instance_id:-N/A}"
 
-        if [ -n "$instance_name" ]; then
-            display_line+=" | $instance_name"
+        if [ "$aws_ec2_type" == "asg" ]; then
+            display_line+=" | [ASG] ${asg_name}"
+        else
+            display_line+=" | ${instance_id:-N/A}"
+            if [ -n "$instance_name" ]; then
+                display_line+=" | $instance_name"
+            fi
         fi
 
         display_line+=" | $cloud"
@@ -534,6 +671,8 @@ interactive_select() {
         local instance_id=$(yq ".connections[$i].instance_id // \"\"" "$SSM_CONFIG_FILE")
         local instance_name=$(yq ".connections[$i].instance_name // \"\"" "$SSM_CONFIG_FILE")
         local user=$(yq ".connections[$i].user" "$SSM_CONFIG_FILE")
+        local aws_ec2_type=$(yq ".connections[$i].aws_ec2_type // \"default\"" "$SSM_CONFIG_FILE")
+        local asg_name=$(yq ".connections[$i].asg_name // \"\"" "$SSM_CONFIG_FILE")
 
         # Get region based on cloud provider
         local region=""
@@ -557,13 +696,18 @@ interactive_select() {
         [ "$instance_id" == "null" ] && instance_id=""
         [ "$instance_name" == "null" ] && instance_name=""
         [ "$region" == "null" ] && region=""
+        [ "$asg_name" == "null" ] && asg_name=""
 
         # Build display line: name | region | id | cloud_name | provider | tags
-        local display_line="$name | ${region:-N/A} | ${instance_id:-N/A}"
+        local display_line="$name | ${region:-N/A}"
 
-        # Only add cloud name if it exists
-        if [ -n "$instance_name" ]; then
-            display_line+=" | $instance_name"
+        if [ "$aws_ec2_type" == "asg" ]; then
+            display_line+=" | [ASG] ${asg_name}"
+        else
+            display_line+=" | ${instance_id:-N/A}"
+            if [ -n "$instance_name" ]; then
+                display_line+=" | $instance_name"
+            fi
         fi
 
         display_line+=" | $cloud"
@@ -642,9 +786,25 @@ connect_by_index() {
     [ -n "$region" ] && title="$name-$region"
     set_terminal_title "$title"
 
-    # Get IP
-    print_info "Fetching IP address..."
-    local ip=$(get_connection_ip "$index")
+    # Get IP - check for ASG type
+    local aws_ec2_type=$(yq ".connections[$index].aws_ec2_type // \"default\"" "$SSM_CONFIG_FILE")
+    local ip=""
+
+    if [ "$cloud" == "aws" ] && [ "$aws_ec2_type" == "asg" ]; then
+        local asg_name=$(yq ".connections[$index].asg_name" "$SSM_CONFIG_FILE")
+        local profile=$(yq ".connections[$index].aws_profile // \"default\"" "$SSM_CONFIG_FILE")
+        local asg_region=$(yq ".connections[$index].aws_region // \"us-east-2\"" "$SSM_CONFIG_FILE")
+
+        ip=$(select_asg_instance "$asg_name" "$profile" "$asg_region")
+
+        if [ -z "$ip" ]; then
+            print_error "No instance selected from ASG: $asg_name"
+            exit 1
+        fi
+    else
+        print_info "Fetching IP address..."
+        ip=$(get_connection_ip "$index")
+    fi
 
     if [ -z "$ip" ] || [ "$ip" == "None" ] || [ "$ip" == "null" ]; then
         print_error "Could not determine IP address for $name"
@@ -681,6 +841,92 @@ connect_by_index() {
     exec $ssh_cmd
 }
 
+# Remove a connection
+remove_connection() {
+    local count=$(yq '.connections | length' "$SSM_CONFIG_FILE")
+
+    if [ "$count" == "0" ]; then
+        print_warning "No connections configured"
+        exit 1
+    fi
+
+    # Build fzf input (same as interactive_select)
+    local fzf_input=""
+
+    for ((i=0; i<count; i++)); do
+        local name=$(yq ".connections[$i].name" "$SSM_CONFIG_FILE")
+        local cloud=$(yq ".connections[$i].cloud" "$SSM_CONFIG_FILE")
+        local instance_id=$(yq ".connections[$i].instance_id // \"\"" "$SSM_CONFIG_FILE")
+        local instance_name=$(yq ".connections[$i].instance_name // \"\"" "$SSM_CONFIG_FILE")
+        local user=$(yq ".connections[$i].user" "$SSM_CONFIG_FILE")
+        local aws_ec2_type=$(yq ".connections[$i].aws_ec2_type // \"default\"" "$SSM_CONFIG_FILE")
+        local asg_name=$(yq ".connections[$i].asg_name // \"\"" "$SSM_CONFIG_FILE")
+
+        local region=""
+        case "$cloud" in
+            aws) region=$(yq ".connections[$i].aws_region // \"\"" "$SSM_CONFIG_FILE") ;;
+            azure) region=$(yq ".connections[$i].azure_region // \"\"" "$SSM_CONFIG_FILE") ;;
+            static) region=$(yq ".connections[$i].ip // \"\"" "$SSM_CONFIG_FILE") ;;
+        esac
+
+        local tags=$(yq ".connections[$i].tags | to_entries | map(.key + \"=\" + .value) | join(\", \")" "$SSM_CONFIG_FILE" 2>/dev/null || echo "")
+        [ "$tags" == "null" ] && tags=""
+        [ "$instance_id" == "null" ] && instance_id=""
+        [ "$instance_name" == "null" ] && instance_name=""
+        [ "$region" == "null" ] && region=""
+        [ "$asg_name" == "null" ] && asg_name=""
+
+        local display_line="$name | ${region:-N/A}"
+        if [ "$aws_ec2_type" == "asg" ]; then
+            display_line+=" | [ASG] ${asg_name}"
+        else
+            display_line+=" | ${instance_id:-N/A}"
+            [ -n "$instance_name" ] && display_line+=" | $instance_name"
+        fi
+        display_line+=" | $cloud"
+        [ -n "$tags" ] && display_line+=" | $tags"
+
+        fzf_input+="${i}"$'\t'"${display_line}"$'\t'"${name}"$'\n'
+    done
+
+    fzf_input=${fzf_input%$'\n'}
+
+    local selection=$(echo "$fzf_input" | fzf \
+        --delimiter=$'\t' \
+        --with-nth=2 \
+        --prompt="Remove > " \
+        --header="Select connection to remove" \
+        --height=60% \
+        --reverse \
+        --ansi)
+
+    if [ -z "$selection" ]; then
+        print_info "No selection made"
+        exit 0
+    fi
+
+    local index=$(echo "$selection" | cut -d$'\t' -f1)
+    local name=$(echo "$selection" | cut -d$'\t' -f3)
+
+    # Show the YAML snippet
+    echo ""
+    print_info "Connection details:"
+    echo ""
+    yq -C ".connections[$index]" "$SSM_CONFIG_FILE"
+    echo ""
+
+    # Confirm deletion
+    read -p "Are you sure you want to remove '$name'? (y/n) " -n 1
+    echo ""
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        yq -i "del(.connections[$index])" "$SSM_CONFIG_FILE"
+        print_success "Connection '$name' removed!"
+    else
+        print_info "Cancelled"
+    fi
+}
+
 # Edit config
 edit_config() {
     local editor="${EDITOR:-vim}"
@@ -698,6 +944,9 @@ main() {
             ;;
         --add)
             add_connection
+            ;;
+        --remove|-r)
+            remove_connection
             ;;
         --list|-l)
             list_connections
