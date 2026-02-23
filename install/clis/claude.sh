@@ -2,6 +2,13 @@
 
 echo "🤖 Setting up Claude CLI..."
 
+# Fix ownership if root owns the claude-code directory (e.g. from a previous sudo install)
+local claude_dir="/opt/homebrew/lib/node_modules/@anthropic-ai"
+if [ -d "$claude_dir" ] && [ "$(stat -f '%Su' "$claude_dir/claude-code" 2>/dev/null)" = "root" ]; then
+  echo "  Fixing permissions on claude-code (owned by root)..."
+  sudo chown -R "$(whoami)" "$claude_dir"
+fi
+
 # Install claude if not installed and look for any updates needed
 if ! command -v claude &>/dev/null; then
   echo "  Installing claude-cli..."
