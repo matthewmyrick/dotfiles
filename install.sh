@@ -38,6 +38,7 @@ while [[ $# -gt 0 ]]; do
       echo "                            claude      - Claude commands"
       echo "                            prompt      - Terminal prompt configuration"
       echo "                            ssm         - SSH Manager (interactive SSH)"
+      echo "                            procrastinate - Procrastinate CLI tool"
       echo ""
       echo "  -h, --help              Show this help message"
       echo ""
@@ -59,12 +60,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|nvim-aws-secrets|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm)
+    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|nvim-aws-secrets|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|procrastinate)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, nvim-aws-secrets, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm"
+      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, nvim-aws-secrets, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, procrastinate"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -523,6 +524,37 @@ function installSsmOnly() {
   echo "📁 Configuration:"
   echo "  • Config: ~/.config/ssh-manager/config.yaml"
   echo "  • Keys:   ~/.config/ssh-manager/keys/"
+  echo ""
+}
+
+function installProcrastinateOnly() {
+  echo "🚀 Starting Procrastinate CLI installation..."
+  echo ""
+
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🔄 Installing Procrastinate CLI..."
+  echo "═══════════════════════════════════════════════════════════════"
+
+  # Requires Go to be installed
+  if ! command -v go &>/dev/null; then
+    echo "❌ Go is not installed. Install Go first: ./install.sh --install brew"
+    return 1
+  fi
+
+  go install github.com/matthewmyrick/procrastinate-cli@latest || {
+    echo "❌ Error installing procrastinate-cli"
+    return 1
+  }
+
+  echo "✅ Procrastinate CLI installed successfully!"
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Procrastinate CLI installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Usage:"
+  echo "  • procrastinate-cli    - Run the CLI tool"
   echo ""
 }
 
@@ -1081,7 +1113,23 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
+  procrastinate)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                PROCRASTINATE CLI INSTALLER                   ║"
+    echo "║                                                               ║"
+    echo "║  This will install procrastinate-cli via go install          ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installProcrastinateOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
 esac
 
 # Cleanup
-unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installNvimAwsSecretsOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly
+unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installNvimAwsSecretsOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installProcrastinateOnly
