@@ -439,14 +439,47 @@ add_connection() {
             fi
             print_success "Selected ASG: $asg_name"
         else
-            # Instance ID is required for default AWS
-            while [ -z "$instance_id" ]; do
-                read -p "AWS Instance ID (e.g., i-1234567890) [REQUIRED]: " instance_id
-                if [ -z "$instance_id" ]; then
-                    print_error "Instance ID is required for AWS connections"
-                fi
-            done
-            read -p "AWS Instance Name (optional, for display): " instance_name
+            # Fetch running instances and let user pick via fzf
+            print_info "Fetching instances in $aws_region..."
+            local instance_list=$(aws ec2 describe-instances \
+                --profile "$aws_profile" \
+                --region "$aws_region" \
+                --filters "Name=instance-state-name,Values=running" \
+                --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`Name`].Value|[0],PrivateIpAddress]' \
+                --output text 2>/dev/null | sort -k2)
+
+            if [ -z "$instance_list" ]; then
+                print_error "No running instances found in $aws_region (profile: $aws_profile)"
+                exit 1
+            fi
+
+            # Build fzf input: id<TAB>display<TAB>name
+            local fzf_input=""
+            while IFS=$'\t' read -r id tag_name ip; do
+                [ "$tag_name" == "None" ] && tag_name="N/A"
+                [ "$ip" == "None" ] && ip="N/A"
+                fzf_input+="${id}"$'\t'"${id} | ${tag_name} | ${ip}"$'\t'"${tag_name}"$'\n'
+            done <<< "$instance_list"
+            fzf_input=${fzf_input%$'\n'}
+
+            local selection=$(echo "$fzf_input" | fzf \
+                --delimiter=$'\t' \
+                --with-nth=2 \
+                --prompt="Select instance > " \
+                --header="<instance-id> | <name> | <private-ip>" \
+                --height=60% \
+                --reverse)
+
+            if [ -z "$selection" ]; then
+                print_error "No instance selected"
+                exit 1
+            fi
+
+            instance_id=$(echo "$selection" | cut -d$'\t' -f1)
+            local selected_name=$(echo "$selection" | cut -d$'\t' -f3)
+            [ "$selected_name" != "N/A" ] && instance_name="$selected_name"
+
+            print_success "Selected: $instance_id ($instance_name)"
         fi
     elif [ "$cloud" == "azure" ]; then
         echo ""
