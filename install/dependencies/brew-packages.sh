@@ -18,7 +18,7 @@ BREW_PACKAGES=(
   grc nmap iproute2mac hyperfine gdu dua-cli
   xplr shpotify wireshark imagemagick otree
   xo/xo/usql chrome-cli terminal-notifier
-  lazysql yq tf-summarize ical-buddy
+  lazysql yq tf-summarize ical-buddy tmux
 )
 
 
