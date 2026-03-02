@@ -58,6 +58,7 @@ return {
       { "<leader>f", group = "file/find" },
       { "<leader>g", group = "git" },
       { "<leader>gh", group = "hunks" },
+      { "<leader>k", group = "kubernetes" },
       { "<leader>l", group = "lsp" },
       { "<leader>lp", group = "python" },
       { "<leader>m", group = "manage config" },

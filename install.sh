@@ -39,6 +39,7 @@ while [[ $# -gt 0 ]]; do
       echo "                            prompt      - Terminal prompt configuration"
       echo "                            ssm         - SSH Manager (interactive SSH)"
       echo "                            procrastinate - Procrastinate CLI tool"
+      echo "                            zshrc       - Zsh configuration (.zshrc, .aliases)"
       echo ""
       echo "  -h, --help              Show this help message"
       echo ""
@@ -60,12 +61,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|nvim-aws-secrets|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|procrastinate)
+    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|nvim-aws-secrets|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|procrastinate|zshrc)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, nvim-aws-secrets, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, procrastinate"
+      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, nvim-aws-secrets, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, procrastinate, zshrc"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -555,6 +556,46 @@ function installProcrastinateOnly() {
   echo ""
   echo "📋 Usage:"
   echo "  • procrastinate-cli    - Run the CLI tool"
+  echo ""
+}
+
+function installZshrcOnly() {
+  local DOTFILES_DIR="$HOME/GitHub/matthewmyrick/dotfiles"
+  echo "🚀 Starting Zsh configuration installation..."
+  echo ""
+
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🔄 Installing .zshrc and .aliases..."
+  echo "═══════════════════════════════════════════════════════════════"
+
+  # Backup existing files
+  if [ -f "$HOME/.zshrc" ]; then
+    local backup="$HOME/.zshrc.backup.$(date +%Y%m%d%H%M%S)"
+    cp "$HOME/.zshrc" "$backup"
+    echo "📦 Backed up existing .zshrc to $backup"
+  fi
+
+  if [ -f "$HOME/.aliases" ]; then
+    local backup="$HOME/.aliases.backup.$(date +%Y%m%d%H%M%S)"
+    cp "$HOME/.aliases" "$backup"
+    echo "📦 Backed up existing .aliases to $backup"
+  fi
+
+  # Copy files
+  cp "$DOTFILES_DIR/.zshrc" "$HOME/.zshrc"
+  echo "✅ Installed .zshrc"
+
+  if [ -f "$DOTFILES_DIR/.aliases" ]; then
+    cp "$DOTFILES_DIR/.aliases" "$HOME/.aliases"
+    echo "✅ Installed .aliases"
+  fi
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Zsh configuration installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Run 'source ~/.zshrc' or open a new terminal to apply changes."
   echo ""
 }
 
@@ -1129,7 +1170,24 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
+  zshrc)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                  ZSHRC INSTALLER                             ║"
+    echo "║                                                               ║"
+    echo "║  This will install .zshrc and .aliases from dotfiles         ║"
+    echo "║  Existing files will be backed up                            ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installZshrcOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
 esac
 
 # Cleanup
-unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installNvimAwsSecretsOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installProcrastinateOnly
+unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installNvimAwsSecretsOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installProcrastinateOnly installZshrcOnly
