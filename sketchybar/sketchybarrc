@@ -430,6 +430,91 @@ else
 fi
 '
 
+# Next Meeting (leftmost right-side item)
+sketchybar --add item meeting right \
+           --set meeting update_freq=60 \
+                        icon=📅 \
+                        icon.font="SF Pro:Regular:14.0" \
+                        label.font="SF Pro:Regular:13.0" \
+                        script='
+# Get next upcoming meeting using icalBuddy
+NEXT_MEETING=$(icalBuddy -nc -nrd -ea -n -npn -li 1 \
+  -iep "datetime" -df "" -tf "%H:%M" -b "" \
+  eventsToday 2>/dev/null | head -1 | sed "s/^[[:space:]]*//" | sed "s/\x1b\[[0-9;]*m//g")
+
+if [[ -z "$NEXT_MEETING" ]]; then
+  sketchybar --set meeting label="None" label.color="0xff000000" icon.color="0xff000000"
+else
+  # Parse the start time (format: HH:MM - HH:MM)
+  START_TIME=$(echo "$NEXT_MEETING" | grep -oE "^[0-9]{2}:[0-9]{2}")
+
+  if [[ -n "$START_TIME" ]]; then
+    # Calculate minutes until meeting
+    NOW_EPOCH=$(date +%s)
+    MEETING_EPOCH=$(date -j -f "%H:%M" "$START_TIME" +%s 2>/dev/null)
+
+    if [[ -n "$MEETING_EPOCH" ]] && [[ $MEETING_EPOCH -gt $NOW_EPOCH ]]; then
+      MINS_LEFT=$(( (MEETING_EPOCH - NOW_EPOCH) / 60 ))
+
+      if [[ $MINS_LEFT -le 10 ]]; then
+        # Red - meeting in 10 min or less
+        COLOR="0xffcc0000"
+        LABEL="${MINS_LEFT}m"
+      elif [[ $MINS_LEFT -le 15 ]]; then
+        # Orange - meeting in 15 min or less
+        COLOR="0xffcc6600"
+        LABEL="${MINS_LEFT}m"
+      elif [[ $MINS_LEFT -le 60 ]]; then
+        LABEL="${MINS_LEFT}m"
+        COLOR="0xff000000"
+      else
+        HOURS=$(( MINS_LEFT / 60 ))
+        REMAINING_MINS=$(( MINS_LEFT % 60 ))
+        LABEL="${HOURS}h${REMAINING_MINS}m"
+        COLOR="0xff000000"
+      fi
+      sketchybar --set meeting label="$LABEL" label.color="$COLOR" icon.color="$COLOR"
+    else
+      # Meeting time has passed, check if there are more today
+      FUTURE=$(icalBuddy -nc -nrd -n -npn -li 1 \
+        -iep "datetime" -df "" -tf "%H:%M" -b "" \
+        -eed eventsToday 2>/dev/null | head -1 | sed "s/^[[:space:]]*//" | sed "s/\x1b\[[0-9;]*m//g")
+      if [[ -z "$FUTURE" ]]; then
+        sketchybar --set meeting label="Done" label.color="0xff000000" icon.color="0xff000000"
+      else
+        FSTART=$(echo "$FUTURE" | grep -oE "^[0-9]{2}:[0-9]{2}")
+        if [[ -n "$FSTART" ]]; then
+          FEPOCH=$(date -j -f "%H:%M" "$FSTART" +%s 2>/dev/null)
+          if [[ -n "$FEPOCH" ]] && [[ $FEPOCH -gt $NOW_EPOCH ]]; then
+            FMINS=$(( (FEPOCH - NOW_EPOCH) / 60 ))
+            if [[ $FMINS -le 10 ]]; then
+              COLOR="0xffcc0000"
+            elif [[ $FMINS -le 15 ]]; then
+              COLOR="0xffcc6600"
+            else
+              COLOR="0xff000000"
+            fi
+            if [[ $FMINS -le 60 ]]; then
+              LABEL="${FMINS}m"
+            else
+              HOURS=$(( FMINS / 60 ))
+              REMAINING_MINS=$(( FMINS % 60 ))
+              LABEL="${HOURS}h${REMAINING_MINS}m"
+            fi
+            sketchybar --set meeting label="$LABEL" label.color="$COLOR" icon.color="$COLOR"
+          else
+            sketchybar --set meeting label="Done" label.color="0xff000000" icon.color="0xff000000"
+          fi
+        else
+          sketchybar --set meeting label="Done" label.color="0xff000000" icon.color="0xff000000"
+        fi
+      fi
+    fi
+  else
+    sketchybar --set meeting label="Today" label.color="0xff000000" icon.color="0xff000000"
+  fi
+fi
+'
 
 # Subscribe to events
 sketchybar --subscribe front_app window_focus windows_on_spaces
