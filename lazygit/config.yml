@@ -1,0 +1,10 @@
+git:
+  autoFetch: true
+  autoFetchInterval: 120
+
+customCommands:
+  - key: "<c-p>"
+    description: "Pull main in main worktree"
+    command: "git -C /Users/matthewmyrick/Github/1Quantbase/hadrius_backend pull origin main"
+    context: "global"
+    loadingText: "Pulling main..."
