@@ -36,6 +36,9 @@ export US_EAST_2_CLIENT_VARS=/Users/matthewmyrick/Github/1Quantbase/hadrius_back
 # Python interactive startup script (used by ptpython)
 export PYTHONSTARTUP="$HOME/.ptpython/startup.py"
 
+# Lazygit config
+export LG_CONFIG_FILE="$HOME/Github/matthewmyrick/dotfiles/lazygit/config.yml"
+
 # Disable virtualenv's default prompt modification (we handle it in our custom prompt)
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 
