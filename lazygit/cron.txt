@@ -1,0 +1,3 @@
+# Auto-fetch git repositories every 15 minutes
+# Managed by dotfiles installer - do not edit manually
+# Repos are added via: install.sh --install git
