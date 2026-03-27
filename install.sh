@@ -39,6 +39,7 @@ while [[ $# -gt 0 ]]; do
       echo "                            prompt      - Terminal prompt configuration"
       echo "                            ssm         - SSH Manager (interactive SSH)"
       echo "                            procrastinate - Procrastinate CLI tool"
+      echo "                            git         - Git tools (gh, git, lazygit, auto-fetch)"
       echo "                            zshrc       - Zsh configuration (.zshrc, .aliases)"
       echo ""
       echo "  -h, --help              Show this help message"
@@ -61,12 +62,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|nvim-aws-secrets|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|procrastinate|zshrc)
+    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|nvim-aws-secrets|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|procrastinate|git|zshrc)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, nvim-aws-secrets, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, procrastinate, zshrc"
+      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, nvim-aws-secrets, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, procrastinate, git, zshrc"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -556,6 +557,31 @@ function installProcrastinateOnly() {
   echo ""
   echo "📋 Usage:"
   echo "  • procrastinate-cli    - Run the CLI tool"
+  echo ""
+}
+
+function installGitOnly() {
+  echo "🚀 Starting Git tools installation..."
+  echo ""
+
+  if [ -f "$INSTALL_DIR/install/dotfiles/git.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing Git tools (gh, git, lazygit, auto-fetch)..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/git.sh" || {
+      echo "❌ Error installing Git tools"
+      return 1
+    }
+    echo "✅ Git tools installed successfully!"
+  else
+    echo "⚠️  Git installation script not found"
+    return 1
+  fi
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Git tools installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
   echo ""
 }
 
@@ -1170,6 +1196,23 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
+  git)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                   GIT TOOLS INSTALLER                        ║"
+    echo "║                                                               ║"
+    echo "║  This will install/upgrade gh, git, lazygit and set up       ║"
+    echo "║  auto-fetch cron jobs for selected repositories              ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installGitOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
   zshrc)
     echo "╔═══════════════════════════════════════════════════════════════╗"
     echo "║                  ZSHRC INSTALLER                             ║"
@@ -1190,4 +1233,4 @@ case "$INSTALL_TARGET" in
 esac
 
 # Cleanup
-unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installNvimAwsSecretsOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installProcrastinateOnly installZshrcOnly
+unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installNvimAwsSecretsOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installProcrastinateOnly installGitOnly installZshrcOnly
