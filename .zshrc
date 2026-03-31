@@ -151,11 +151,6 @@ if ! type shell_loaded &>/dev/null; then
     source "$HOME/GitHub/matthewmyrick/dotfiles/scripts/shell/loader.sh"
 fi
 
-# --- POKEMON ENCOUNTER ---
-# Trigger a Pokemon encounter now that modules are loaded
-if command -v pokemon_encounter &>/dev/null; then
-    pokemon_encounter
-fi
 
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 
