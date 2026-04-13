@@ -8,6 +8,13 @@
 # Removed to ensure functions load properly
 # [[ $- != *i* ]] && return
 
+# --- SSH KEYCHAIN UNLOCK ---
+# Unlock login keychain for SSH sessions so tools like Claude Code
+# can access stored credentials without browser-based re-auth
+if [[ -n "$SSH_CONNECTION" ]]; then
+    security unlock-keychain ~/Library/Keychains/login.keychain-db
+fi
+
 # --- PERFORMANCE PROFILING (Optional) ---
 # Uncomment the following line to profile shell startup time
 zmodload zsh/zprof
@@ -35,9 +42,6 @@ export US_EAST_2_CLIENT_VARS=/Users/matthewmyrick/Github/1Quantbase/hadrius_back
 
 # Python interactive startup script (used by ptpython)
 export PYTHONSTARTUP="$HOME/.ptpython/startup.py"
-
-# Lazygit config
-export LG_CONFIG_FILE="$HOME/Github/matthewmyrick/dotfiles/lazygit/config.yml"
 
 # Disable virtualenv's default prompt modification (we handle it in our custom prompt)
 export VIRTUAL_ENV_DISABLE_PROMPT=1
@@ -160,3 +164,11 @@ eval "$(zoxide init zsh)"
 # --- END OF CONFIGURATION ---
 # Profile results (if enabled)
 zprof
+
+
+
+
+
+# catch-pokemon shell functions (catch, pc, pokemon_encounter, etc.)
+source "/Users/matthewmyrick/Library/Application Support/catch-pokemon/functions.sh"
+alias tt="adhd-tui"

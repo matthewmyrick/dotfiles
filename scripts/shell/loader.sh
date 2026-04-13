@@ -53,6 +53,7 @@ shell_modules() {
     echo "  azure         - Azure tools (azv - Key Vault fuzzy finder)"
     echo "  aws           - AWS tools (apr, aws-auto-prompt, awsh - shell mode with pipes/redirects)"
     echo "  pokemon       - Pokemon catching system (catch, pokemon_status, pokemon_help)"
+    echo "  claude        - Claude agent launcher (fca - fuzzy agent + project picker)"
     echo ""
     echo "All modules are now loaded automatically at shell startup."
     echo "Use 'shell_loaded' to see what's available."
@@ -81,6 +82,7 @@ shell_loaded() {
     command -v azv >/dev/null && echo "  ✓ azure/keyvault (azv - Azure Key Vault fuzzy finder)"
     command -v apr >/dev/null && echo "  ✓ aws (apr, aws-auto-prompt, awsh - shell mode)"
     command -v catch >/dev/null && echo "  ✓ pokemon/functions (catch, pokemon_status, pokemon_help)"
+    command -v fca >/dev/null && echo "  ✓ claude/agents (fca - Claude agent launcher)"
     
     echo ""
     echo "Prompt functions are always available."
