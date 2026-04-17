@@ -4,7 +4,8 @@
       "Bash(source:*)",
       "Bash(apps:*)",
       "Bash(apps chrome)",
-      "Bash(exec zsh)"
+      "Bash(exec zsh)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": [],

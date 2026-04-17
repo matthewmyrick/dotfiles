@@ -63,6 +63,15 @@ return {
         lualine_x = {
           {
             function()
+              return " Claude needs attention"
+            end,
+            cond = function()
+              return _G.claude_needs_attention == true
+            end,
+            color = { fg = "#f38ba8", gui = "bold" },
+          },
+          {
+            function()
               return require("noice").api.status.command.get()
             end,
             cond = function()

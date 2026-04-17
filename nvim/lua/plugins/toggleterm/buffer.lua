@@ -1,6 +1,83 @@
 -- Buffer terminal configurations
 local M = {}
 
+-- Track Claude attention state globally
+_G.claude_needs_attention = false
+
+-- Set of buffers already being monitored (avoid duplicate timers)
+local monitored_claude_bufs = {}
+
+-- Start monitoring a terminal buffer for Claude attention patterns
+local function start_claude_monitor(buf)
+    if monitored_claude_bufs[buf] then
+        return
+    end
+    monitored_claude_bufs[buf] = true
+
+    local timer = vim.loop.new_timer()
+    if not timer then
+        return
+    end
+
+    timer:start(3000, 2000, vim.schedule_wrap(function()
+        if not vim.api.nvim_buf_is_valid(buf) then
+            timer:stop()
+            timer:close()
+            monitored_claude_bufs[buf] = nil
+            return
+        end
+        -- Read last 20 lines of terminal output
+        local line_count = vim.api.nvim_buf_line_count(buf)
+        local start_line = math.max(0, line_count - 20)
+        local lines = vim.api.nvim_buf_get_lines(buf, start_line, line_count, false)
+        local last_text = table.concat(lines, "\n")
+
+        -- Detect patterns that indicate Claude needs user attention
+        local needs_attention = last_text:match("Do you want to proceed")
+            or last_text:match("Allow")
+            or last_text:match("Deny")
+            or last_text:match("Yes.*No")
+            or last_text:match("waiting for")
+            or last_text:match("Press Enter")
+            or last_text:match("approve")
+            or last_text:match("permission")
+            or last_text:match("> $") -- Claude prompt waiting for input
+            or last_text:match("❯ $") -- Alternative prompt
+
+        if needs_attention and not _G.claude_needs_attention then
+            _G.claude_needs_attention = true
+            -- Send macOS notification
+            vim.fn.system(
+                "terminal-notifier -title 'Neovim - Claude Code' -message 'Needs your attention' -sound Ping -activate com.mitchellh.ghostty"
+            )
+            -- Send bell to make Ghostty tab light up
+            vim.fn.system("printf '\\a'")
+            -- Nvim notification
+            vim.notify("Claude needs your attention!", vim.log.levels.WARN)
+            -- Write attention flag file for external tools
+            vim.fn.system("touch /tmp/claude_needs_attention")
+        elseif not needs_attention then
+            _G.claude_needs_attention = false
+            vim.fn.system("rm -f /tmp/claude_needs_attention")
+        end
+    end))
+
+    -- Clean up timer when buffer is deleted
+    vim.api.nvim_create_autocmd("BufDelete", {
+        buffer = buf,
+        once = true,
+        callback = function()
+            _G.claude_needs_attention = false
+            monitored_claude_bufs[buf] = nil
+            vim.fn.system("rm -f /tmp/claude_needs_attention")
+            if timer and not timer:is_closing() then
+                timer:stop()
+                timer:close()
+            end
+        end,
+    })
+end
+
 -- Helper function to set terminal buffer name with icon
 local function set_terminal_name(name)
     -- If name is empty, use default "terminal"
@@ -69,25 +146,104 @@ function M.setup()
     -- Setup autocmds for terminal naming
     setup_terminal_autocmds()
 
+    -- Auto-detect Claude running in ANY terminal buffer
+    -- This catches: <leader>tt → typing "claude", <leader>tc, or any other terminal
+    -- When detected: renames buffer to "$ claude N" and starts the attention monitor
+    local claude_detect_group = vim.api.nvim_create_augroup("ClaudeAutoDetect", { clear = true })
+    vim.api.nvim_create_autocmd("TermOpen", {
+        group = claude_detect_group,
+        pattern = "*",
+        callback = function()
+            local buf = vim.api.nvim_get_current_buf()
+            -- Check if the terminal command contains "claude"
+            local buf_name = vim.api.nvim_buf_get_name(buf)
+            if buf_name:match("claude") then
+                start_claude_monitor(buf)
+                return
+            end
+            -- For terminals where user might type "claude" later, poll briefly to detect it
+            local detect_timer = vim.loop.new_timer()
+            if detect_timer then
+                local checks = 0
+                detect_timer:start(2000, 3000, vim.schedule_wrap(function()
+                    checks = checks + 1
+                    -- Stop checking after 60 seconds (20 checks)
+                    if checks > 20 or not vim.api.nvim_buf_is_valid(buf) then
+                        detect_timer:stop()
+                        detect_timer:close()
+                        return
+                    end
+                    -- Check buffer name (set_terminal_name may have renamed it)
+                    local name = vim.api.nvim_buf_get_name(buf)
+                    if name:match("claude") then
+                        start_claude_monitor(buf)
+                        detect_timer:stop()
+                        detect_timer:close()
+                        return
+                    end
+                    -- Check terminal content for Claude's startup output
+                    local line_count = vim.api.nvim_buf_line_count(buf)
+                    local start_line = math.max(0, line_count - 15)
+                    local lines = vim.api.nvim_buf_get_lines(buf, start_line, line_count, false)
+                    local text = table.concat(lines, "\n")
+                    if text:match("Claude Code") or text:match("claude%-code") or text:match("Anthropic") then
+                        -- Rename the buffer from "$ terminal" to "$ claude"
+                        vim.schedule(function()
+                            if vim.api.nvim_buf_is_valid(buf) then
+                                -- Save current buffer context and rename
+                                local cur_buf = vim.api.nvim_get_current_buf()
+                                vim.api.nvim_set_current_buf(buf)
+                                set_terminal_name("claude")
+                                if cur_buf ~= buf and vim.api.nvim_buf_is_valid(cur_buf) then
+                                    vim.api.nvim_set_current_buf(cur_buf)
+                                end
+                            end
+                        end)
+                        start_claude_monitor(buf)
+                        detect_timer:stop()
+                        detect_timer:close()
+                    end
+                end))
+
+                -- Clean up detect timer if buffer dies
+                vim.api.nvim_create_autocmd("BufDelete", {
+                    buffer = buf,
+                    once = true,
+                    callback = function()
+                        if detect_timer and not detect_timer:is_closing() then
+                            detect_timer:stop()
+                            detect_timer:close()
+                        end
+                    end,
+                })
+            end
+        end,
+    })
+
+    -- Helper to resolve the Claude binary path
+    local function get_claude_bin()
+        local nvm_dir = vim.fn.expand("$HOME/.nvm")
+        local node_version = vim.fn.system("source " .. nvm_dir .. "/nvm.sh && nvm current"):gsub("%s+", "")
+        local claude_path = nvm_dir .. "/versions/node/" .. node_version .. "/bin/claude"
+        if vim.fn.filereadable(claude_path) == 1 then
+            return claude_path
+        end
+        return "claude"
+    end
+
     -- Helper function to check for Claude context files
     local function get_claude_context_info()
-        -- Check for context files in order of priority (Claude reads these automatically)
         local context_sources = {}
         local has_project_context = false
-
-        -- Project-specific CLAUDE.md
         local project_claude = vim.fn.getcwd() .. "/CLAUDE.md"
         if vim.fn.filereadable(project_claude) == 1 then
             table.insert(context_sources, "project")
             has_project_context = true
         end
-
-        -- Global user context
         local global_claude = vim.fn.expand("~/.claude/CLAUDE.md")
         if vim.fn.filereadable(global_claude) == 1 then
             table.insert(context_sources, "global")
         end
-
         return context_sources, has_project_context
     end
 
@@ -105,16 +261,10 @@ function M.setup()
 
     -- Helper function to create Claude terminal
     local function create_claude_terminal(use_continue, is_half_split)
-        -- Get the current Node version from NVM
-        local nvm_dir = vim.fn.expand("$HOME/.nvm")
-        local node_version = vim.fn.system("source " .. nvm_dir .. "/nvm.sh && nvm current"):gsub("%s+", "")
-        local claude_path = nvm_dir .. "/versions/node/" .. node_version .. "/bin/claude"
-
-        -- Check for context files
+        local claude_bin = get_claude_bin()
         local context_sources, has_project_context = get_claude_context_info()
         local should_run_init = not use_continue and not has_project_context
 
-        -- Notify about context
         if not use_continue then
             if #context_sources > 0 then
                 vim.schedule(function()
@@ -127,51 +277,35 @@ function M.setup()
             end
         end
 
-        -- Determine command to run
-        local claude_cmd
-        if vim.fn.filereadable(claude_path) == 1 then
-            claude_cmd = claude_path .. (use_continue and " --continue" or "")
-        else
-            claude_cmd = "claude" .. (use_continue and " --continue" or "")
-        end
-
-        -- Create the terminal
+        local claude_cmd = claude_bin .. (use_continue and " --continue" or "")
         vim.cmd("terminal " .. claude_cmd)
-
-        -- Get the buffer for the new terminal
         local term_buf = vim.api.nvim_get_current_buf()
 
-        -- Set terminal name
         vim.schedule(function()
             set_terminal_name("claude")
         end)
 
-        -- If no project context, run /init after Claude starts
         if should_run_init then
             send_to_terminal(term_buf, "/init\n", 2000)
         end
 
-        -- If using --continue, monitor for "No conversation found" and restart without --continue
+        start_claude_monitor(term_buf)
+
         if use_continue then
             vim.schedule(function()
                 local buf = vim.api.nvim_get_current_buf()
-                -- Set up an autocmd to monitor the terminal output
                 vim.api.nvim_create_autocmd("TermClose", {
                     buffer = buf,
                     once = true,
                     callback = function()
-                        -- Check if the terminal closed immediately (likely due to no conversation)
                         vim.schedule(function()
-                            -- Check if buffer is still valid before reading
                             if not vim.api.nvim_buf_is_valid(buf) then
                                 return
                             end
-                            -- Read the terminal output to check for "No conversation found"
                             local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
                             for _, line in ipairs(lines) do
                                 if line:match("No conversation found") then
-                                    -- Restart Claude without --continue
-                                    vim.cmd("terminal " .. (vim.fn.filereadable(claude_path) == 1 and claude_path or "claude"))
+                                    vim.cmd("terminal " .. claude_bin)
                                     vim.schedule(function()
                                         set_terminal_name("claude")
                                     end)
@@ -186,14 +320,179 @@ function M.setup()
         end
     end
 
-    -- Helper function to find existing Claude buffer
+    -- Open Claude in a 33% vertical split with a given command
+    local function open_claude_split(claude_args)
+        local original_width = vim.api.nvim_win_get_width(0)
+        vim.cmd("vsplit")
+        vim.cmd("wincmd l")
+        local third_width = math.floor(original_width / 3)
+        vim.cmd("vertical resize " .. third_width)
+
+        local claude_bin = get_claude_bin()
+        vim.cmd("terminal " .. claude_bin .. " " .. claude_args)
+        local term_buf = vim.api.nvim_get_current_buf()
+        vim.schedule(function()
+            set_terminal_name("claude")
+        end)
+        start_claude_monitor(term_buf)
+    end
+
+    -- Parse Claude sessions for current project directory
+    local function get_claude_sessions()
+        local cwd = vim.fn.getcwd()
+        -- Claude normalizes project keys: slashes become hyphens, underscores become hyphens
+        local proj_key = cwd:gsub("/", "-"):gsub("_", "-")
+        local proj_dir = vim.fn.expand("~/.claude/projects/" .. proj_key)
+        local sessions_dir = vim.fn.expand("~/.claude/sessions")
+
+        -- Collect session metadata keyed by sessionId
+        local session_meta = {}
+        local meta_files = vim.fn.glob(sessions_dir .. "/*.json", false, true)
+        for _, f in ipairs(meta_files) do
+            local ok, content = pcall(vim.fn.readfile, f)
+            if ok and #content > 0 then
+                local decoded = vim.fn.json_decode(table.concat(content, "\n"))
+                if decoded and decoded.cwd and decoded.cwd:gsub("/$", "") == cwd:gsub("/$", "") then
+                    session_meta[decoded.sessionId] = decoded
+                end
+            end
+        end
+
+        -- Parse conversation JSONL files
+        local sessions = {}
+        local jsonl_files = vim.fn.glob(proj_dir .. "/*.jsonl", false, true)
+        for _, f in ipairs(jsonl_files) do
+            local sid = vim.fn.fnamemodify(f, ":t"):gsub("%.jsonl$", "")
+            local first_msg = ""
+            local last_ts = ""
+            local msg_count = 0
+            -- Collect first few user messages for preview
+            local preview_msgs = {}
+            local lines = vim.fn.readfile(f)
+            for _, line in ipairs(lines) do
+                local ok2, d = pcall(vim.fn.json_decode, line)
+                if ok2 and d then
+                    if d.type == "user" then
+                        msg_count = msg_count + 1
+                        local msg_text = ""
+                        local msg = d.message
+                        if type(msg) == "table" then
+                            local c = msg.content
+                            if type(c) == "string" then
+                                msg_text = c
+                            elseif type(c) == "table" then
+                                for _, part in ipairs(c) do
+                                    if type(part) == "table" and part.type == "text" then
+                                        msg_text = part.text
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                        if first_msg == "" then
+                            first_msg = msg_text:sub(1, 80)
+                        end
+                        if #preview_msgs < 8 then
+                            table.insert(preview_msgs, {
+                                role = "user",
+                                text = msg_text:sub(1, 200),
+                                ts = d.timestamp or "",
+                            })
+                        end
+                        last_ts = d.timestamp or last_ts
+                    elseif d.type == "assistant" and #preview_msgs < 8 then
+                        local msg = d.message
+                        if type(msg) == "table" then
+                            local c = msg.content
+                            local text = ""
+                            if type(c) == "string" then
+                                text = c
+                            elseif type(c) == "table" then
+                                for _, part in ipairs(c) do
+                                    if type(part) == "table" and part.type == "text" then
+                                        text = text .. part.text
+                                    end
+                                end
+                            end
+                            if text ~= "" then
+                                table.insert(preview_msgs, {
+                                    role = "assistant",
+                                    text = text:sub(1, 300),
+                                })
+                            end
+                        end
+                    end
+                end
+            end
+
+            if msg_count > 0 then
+                local meta = session_meta[sid] or {}
+                table.insert(sessions, {
+                    id = sid,
+                    name = meta.name or "",
+                    first_msg = first_msg,
+                    last_ts = last_ts,
+                    msg_count = msg_count,
+                    mtime = vim.fn.getftime(f),
+                    preview_msgs = preview_msgs,
+                })
+            end
+        end
+
+        table.sort(sessions, function(a, b)
+            return a.mtime > b.mtime
+        end)
+        return sessions
+    end
+
+    -- Build preview text for a session
+    local function build_session_preview(s)
+        local lines = {}
+        local sep = string.rep("─", 50)
+
+        -- Header
+        table.insert(lines, "")
+        if s.name ~= "" then
+            table.insert(lines, "  Session: " .. s.name)
+        end
+        table.insert(lines, "  ID:       " .. s.id:sub(1, 12) .. "...")
+        table.insert(lines, "  Messages: " .. s.msg_count)
+        table.insert(lines, "  Last:     " .. s.last_ts:sub(1, 16):gsub("T", " at "))
+        table.insert(lines, "")
+        table.insert(lines, "  " .. sep)
+        table.insert(lines, "  Conversation preview:")
+        table.insert(lines, "  " .. sep)
+        table.insert(lines, "")
+
+        for _, m in ipairs(s.preview_msgs or {}) do
+            if m.role == "user" then
+                table.insert(lines, "  > You:")
+                for _, l in ipairs(vim.split(m.text, "\n")) do
+                    table.insert(lines, "    " .. l)
+                end
+                table.insert(lines, "")
+            else
+                table.insert(lines, "  < Claude:")
+                for _, l in ipairs(vim.split(m.text, "\n")) do
+                    table.insert(lines, "    " .. l)
+                end
+                table.insert(lines, "")
+                table.insert(lines, "  " .. string.rep("- ", 25))
+                table.insert(lines, "")
+            end
+        end
+
+        return lines
+    end
+
+    -- Helper function to find existing Claude buffer (matches "$ claude", "$ claude 2", etc.)
     local function find_claude_buffer()
         for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-            if vim.api.nvim_buf_is_valid(buf) then
+            if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" then
                 local buf_name = vim.api.nvim_buf_get_name(buf)
                 if buf_name ~= "" then
                     local filename = vim.fn.fnamemodify(buf_name, ":t")
-                    if filename == "$ claude" then
+                    if filename:match("^%$ claude") then
                         return buf
                     end
                 end
@@ -205,7 +504,7 @@ function M.setup()
     vim.api.nvim_create_user_command("ClaudeVerticalTerm", function()
         local claude_buf = find_claude_buffer()
 
-        -- If Claude terminal exists, open it in a 33% vertical split
+        -- If Claude terminal exists, focus or reopen it
         if claude_buf then
             local claude_win = nil
             for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -216,17 +515,13 @@ function M.setup()
             end
 
             if claude_win then
-                -- Focus the existing Claude window
                 vim.api.nvim_set_current_win(claude_win)
                 vim.notify("Focused existing Claude terminal", vim.log.levels.INFO)
                 return
             else
-                -- Claude buffer exists but no window is showing it, open it in a 33% vertical split
-                -- Get width BEFORE splitting
                 local original_width = vim.api.nvim_win_get_width(0)
                 vim.cmd("vsplit")
                 vim.cmd("wincmd l")
-                -- Resize to 33% of original window width
                 local third_width = math.floor(original_width / 3)
                 vim.cmd("vertical resize " .. third_width)
                 vim.api.nvim_set_current_buf(claude_buf)
@@ -235,16 +530,88 @@ function M.setup()
             end
         end
 
-        -- No existing Claude terminal, create a new one in 33% vertical split
-        -- Get width BEFORE splitting
-        local original_width = vim.api.nvim_win_get_width(0)
-        vim.cmd("vsplit")
-        vim.cmd("wincmd l")
-        -- Resize to 33% of original window width
-        local third_width = math.floor(original_width / 3)
-        vim.cmd("vertical resize " .. third_width)
-        create_claude_terminal(true, false)
-    end, { nargs = 0, desc = "Open Claude in 33% Vertical Split" })
+        -- No existing Claude terminal — show session picker with preview
+        local sessions = get_claude_sessions()
+
+        -- Build picker items — "New session" first, then past sessions
+        local picker_items = {}
+
+        table.insert(picker_items, {
+            idx = 0,
+            score = 999999,
+            text = "New session",
+            session_id = nil,
+            preview_lines = {
+                "  Start a fresh Claude Code session",
+                "",
+                "  Project: " .. vim.fn.fnamemodify(vim.fn.getcwd(), ":t"),
+                "  Path:    " .. vim.fn.getcwd(),
+                "",
+                "  " .. #sessions .. " previous sessions available",
+            },
+        })
+
+        for i, s in ipairs(sessions) do
+            -- Format the date nicely
+            local date_display = s.last_ts:sub(1, 10)
+            local time_display = s.last_ts:sub(12, 16) or ""
+            if time_display ~= "" then
+                date_display = date_display .. " " .. time_display
+            end
+
+            -- Truncate first message for list display
+            local summary = s.first_msg:gsub("%s+", " "):sub(1, 50)
+            if #s.first_msg > 50 then
+                summary = summary .. "..."
+            end
+
+            -- Session title: use name if available, otherwise first message
+            local title = s.name ~= "" and s.name or summary
+
+            table.insert(picker_items, {
+                idx = i,
+                score = 999999 - i,
+                text = title,
+                date = date_display,
+                msgs = s.msg_count,
+                session_id = s.id,
+                preview_lines = build_session_preview(s),
+            })
+        end
+
+        Snacks.picker({
+            title = "Claude Sessions (" .. vim.fn.fnamemodify(vim.fn.getcwd(), ":t") .. ")",
+            items = picker_items,
+            format = function(item)
+                if item.idx == 0 then
+                    return {
+                        { " + ", "DiagnosticInfo" },
+                        { item.text, "DiagnosticInfo" },
+                    }
+                end
+                return {
+                    { " " .. tostring(item.idx) .. " ", "Comment" },
+                    { " " .. item.text .. "  ", "Normal" },
+                    { tostring(item.msgs or 0) .. " msgs", "Comment" },
+                    { "  " .. (item.date or ""), "DiagnosticHint" },
+                }
+            end,
+            preview = function(ctx)
+                local lines = ctx.item.preview_lines or {}
+                ctx.preview:set_lines(lines)
+            end,
+            confirm = function(picker, item)
+                picker:close()
+                vim.schedule(function()
+                    if item.session_id then
+                        open_claude_split("--resume " .. item.session_id)
+                    else
+                        open_claude_split("")
+                    end
+                end)
+            end,
+        })
+    end, { nargs = 0, desc = "Open Claude in 33% Vertical Split (with session picker)" })
 
 
     -- Helper function to find venv in current repo
