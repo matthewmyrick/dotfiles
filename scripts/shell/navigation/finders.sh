@@ -433,16 +433,79 @@ ffb() {
     # Extract the path and navigate
     if [[ -n "$selected" ]]; then
         local target_dir=$(echo "$selected" | cut -d'|' -f2)
-        
+
         if [[ -n "$target_dir" ]] && [[ -d "$target_dir" ]]; then
             cd "$target_dir" || return 1
-            
+
             # Show where we navigated to
             clear
             echo "📁 Navigated to: $PWD"
             echo ""
             eza --icons=always -la --tree --level=1
         fi
+    fi
+}
+
+# gd (Google Drive) - Copy a file to a fuzzy-selected directory inside the
+# locally synced Google Drive, effectively uploading it to the cloud.
+# Usage: gd <file_path>
+gd() {
+    if [[ $# -eq 0 || -z "$1" ]]; then
+        echo "Usage: gd <file_path>"
+        return 1
+    fi
+
+    local src="$1"
+    if [[ ! -e "$src" ]]; then
+        echo "File not found: $src"
+        return 1
+    fi
+
+    # Root at "My Drive" so fzf only surfaces user-owned folders, not
+    # "Other computers" or "Shared drives".
+    local gdrive_root="$HOME/Library/CloudStorage/GoogleDrive-matt@hadrius.com/My Drive"
+    if [[ ! -d "$gdrive_root" ]]; then
+        echo "Google Drive folder not found: $gdrive_root"
+        return 1
+    fi
+
+    # Export for the fzf preview subshell.
+    export FZF_GD_SEARCH_PATH="$gdrive_root"
+
+    local base_name
+    base_name=$(basename "$src")
+
+    # List directories inside Google Drive and pipe to fzf. Include a
+    # leading "." entry so the drive root itself is selectable.
+    local selected_relative_path
+    selected_relative_path=$( \
+        { echo "."; fd --type d . "$gdrive_root" --hidden --exclude .git \
+            | sed "s|^$gdrive_root/||"; } \
+        | fzf \
+            --preview "eza --tree --color=always --icons=always --level=2 \"$FZF_GD_SEARCH_PATH\"/{}" \
+            --preview-window 'right:50%' \
+            --height '80%' \
+            --border 'rounded' \
+            --header "Google Drive | Copy '$base_name' to selected folder")
+
+    if [[ -z "$selected_relative_path" ]]; then
+        echo "No directory selected."
+        return 1
+    fi
+
+    local dest
+    if [[ "$selected_relative_path" == "." ]]; then
+        dest="$gdrive_root"
+    else
+        dest="$gdrive_root/$selected_relative_path"
+    fi
+
+    echo "📤 Copying '$src' → '$dest/'"
+    if cp -R "$src" "$dest/"; then
+        echo "✓ Sent to Google Drive: ${selected_relative_path%/}/${base_name}"
+    else
+        echo "✗ Copy failed."
+        return 1
     fi
 }
 
