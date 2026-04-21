@@ -446,21 +446,12 @@ ffb() {
     fi
 }
 
-# gd (Google Drive) - Copy a file to a fuzzy-selected directory inside the
-# locally synced Google Drive, effectively uploading it to the cloud.
-# Usage: gd <file_path>
+# gd (Google Drive) - Send files to, or create folders inside, the locally
+# synced Google Drive using fzf to pick the destination.
+# Usage:
+#   gd <file_path>       Copy a file/dir into a fuzzy-selected Drive folder.
+#   gd create [name]     Create a new folder inside a fuzzy-selected parent.
 gd() {
-    if [[ $# -eq 0 || -z "$1" ]]; then
-        echo "Usage: gd <file_path>"
-        return 1
-    fi
-
-    local src="$1"
-    if [[ ! -e "$src" ]]; then
-        echo "File not found: $src"
-        return 1
-    fi
-
     # Root at "My Drive" so fzf only surfaces user-owned folders, not
     # "Other computers" or "Shared drives".
     local gdrive_root="$HOME/Library/CloudStorage/GoogleDrive-matt@hadrius.com/My Drive"
@@ -469,16 +460,18 @@ gd() {
         return 1
     fi
 
-    # Export for the fzf preview subshell.
-    export FZF_GD_SEARCH_PATH="$gdrive_root"
+    if [[ $# -eq 0 || -z "$1" ]]; then
+        echo "Usage:"
+        echo "  gd <file_path>     Send a file/dir to Google Drive"
+        echo "  gd create [name]   Create a new folder in Google Drive"
+        return 1
+    fi
 
-    local base_name
-    base_name=$(basename "$src")
-
-    # List directories inside Google Drive and pipe to fzf. Include a
-    # leading "." entry so the drive root itself is selectable.
-    local selected_relative_path
-    selected_relative_path=$( \
+    # Helper: fuzzy-pick a folder relative to $gdrive_root. Prints the
+    # selected relative path ("." for the root) on stdout; empty on cancel.
+    _gd_pick_folder() {
+        local header="$1"
+        export FZF_GD_SEARCH_PATH="$gdrive_root"
         { echo "."; fd --type d . "$gdrive_root" --hidden --exclude .git \
             | sed "s|^$gdrive_root/||"; } \
         | fzf \
@@ -486,7 +479,76 @@ gd() {
             --preview-window 'right:50%' \
             --height '80%' \
             --border 'rounded' \
-            --header "Google Drive | Copy '$base_name' to selected folder")
+            --header "$header"
+    }
+
+    # Subcommand: fzf-pick a parent, then create a (possibly nested) folder path inside it.
+    if [[ "$1" == "create" ]]; then
+        local parent_rel
+        parent_rel=$(_gd_pick_folder "Google Drive | Pick parent folder, then enter new folder path")
+        if [[ -z "$parent_rel" ]]; then
+            echo "No parent selected."
+            return 1
+        fi
+
+        local parent_abs
+        if [[ "$parent_rel" == "." ]]; then
+            parent_abs="$gdrive_root"
+        else
+            parent_abs="$gdrive_root/$parent_rel"
+        fi
+
+        # Accept the folder path as a second arg or prompt for it. Supports
+        # nested paths like "foo/bar/baz" with optional leading/trailing "/".
+        local raw_path="$2"
+        if [[ -z "$raw_path" ]]; then
+            printf "New folder path (e.g. foo/bar/baz): "
+            read -r raw_path
+        fi
+
+        # Strip leading and trailing slashes; collapse any accidental doubles.
+        local new_path="${raw_path#/}"
+        new_path="${new_path%/}"
+        while [[ "$new_path" == *"//"* ]]; do
+            new_path="${new_path//\/\//\/}"
+        done
+
+        if [[ -z "$new_path" ]]; then
+            echo "No folder path provided."
+            return 1
+        fi
+
+        local target="$parent_abs/$new_path"
+        if [[ -d "$target" ]]; then
+            echo "ℹ Folder already exists: ${parent_rel%/}/${new_path}"
+            return 0
+        fi
+        if [[ -e "$target" ]]; then
+            echo "✗ Path exists and is not a directory: ${parent_rel%/}/${new_path}"
+            return 1
+        fi
+
+        if mkdir -p "$target"; then
+            echo "✓ Created folder in Google Drive: ${parent_rel%/}/${new_path}"
+        else
+            echo "✗ Failed to create folder."
+            return 1
+        fi
+        return 0
+    fi
+
+    # Default behavior: copy the given file/dir into a selected folder.
+    local src="$1"
+    if [[ ! -e "$src" ]]; then
+        echo "File not found: $src"
+        return 1
+    fi
+
+    local base_name
+    base_name=$(basename "$src")
+
+    local selected_relative_path
+    selected_relative_path=$(_gd_pick_folder "Google Drive | Copy '$base_name' to selected folder")
 
     if [[ -z "$selected_relative_path" ]]; then
         echo "No directory selected."
