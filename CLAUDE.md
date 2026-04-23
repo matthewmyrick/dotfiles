@@ -64,6 +64,10 @@ Each has its own install target; they do not share plugin state.
 - `hammerspoon/`, `sketchybar/`, `ghostty/`, `raycast/`, `lazygit/`, `ptpython/` — application configs, installed by the matching `install/dotfiles/*.sh` script
 - `.claude/settings.local.json` — project-local Claude Code settings
 
+### Sketchybar config reloads
+
+`sketchybar/sketchybarrc` is symlinked into `~/.config/sketchybar/sketchybarrc` by `install/dotfiles/sketchybar.sh`, so edits to the source file are immediately visible to sketchybar on disk — but a running sketchybar process will not pick them up until the config is re-sourced. After editing `sketchybarrc`, use `sketchybar --reload` (re-sources the config; picks up new/changed item scripts). `sketchybar --update` only re-fires the already-loaded scripts and will keep running stale logic. `brew services restart felixkratz/formulae/sketchybar` also works but is heavier.
+
 ## Conventions
 
 - Install scripts print `═══` banner headers and `✓` / `⚠️` status markers; match this style when adding new scripts so `install.sh`'s output stays consistent.

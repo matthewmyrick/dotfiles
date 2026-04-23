@@ -247,6 +247,25 @@ else
 fi
 '
 
+# Disk Usage (SSD)
+sketchybar --add item disk left \
+           --set disk update_freq=600 \
+                     icon="SSD" \
+                     icon.font="SF Pro:Regular:13.0" \
+                     script='
+DISK_PERCENT=$(df -h /System/Volumes/Data | awk "NR==2 {print \$5}" | tr -d "%")
+
+if [ $DISK_PERCENT -ge 90 ]; then
+  COLOR="0xffcc0000"  # Red: critical
+elif [ $DISK_PERCENT -ge 75 ]; then
+  COLOR="0xffcc6600"  # Orange: warning
+else
+  COLOR="0xff000000"  # Black: normal
+fi
+
+sketchybar --set disk label="${DISK_PERCENT}%" label.color="$COLOR" icon.color="$COLOR"
+'
+
 sketchybar --add event window_focus \
            --add event windows_on_spaces
 
