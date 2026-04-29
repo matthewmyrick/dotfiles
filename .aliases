@@ -53,11 +53,20 @@ alias sre='~/.config/sre-agent/sre'
 # ssh manager
 alias ssm='~/.config/ssh-manager/ssm'
 
-# kubernets
+# kubernetes — see `kh` for full reference card
+# (kdp/kl/klf/kex/ktree are smart functions in scripts/shell/kubernetes/)
 alias k="kubectl"
 alias ka="kubectl apply -f . -R"
 alias kctx="kubectx"
 alias kns="kubens"
+alias kgp="kubectl get pods"
+alias kga="kubectl get all -A"
+alias kneat="kubectl neat"
+alias kw="kwhere"
+alias kkup="kubectl krew upgrade"
+alias ke="kubectl events"
+alias kew="kubectl events --watch"
+alias kea="kubectl events -A"
 
 # terraform
 alias tf="terraform"

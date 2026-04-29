@@ -16,7 +16,7 @@ Personal macOS dotfiles. `install.sh` is the single orchestrator; all other dire
 ./install.sh --install <target>
 # Targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, nvim-aws-secrets,
 #          sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm,
-#          procrastinate, git, zshrc
+#          procrastinate, git, zshrc, kubernetes
 ./install.sh --help   # authoritative list
 
 # Verify after install

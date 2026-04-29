@@ -52,6 +52,7 @@ shell_modules() {
     echo "  prompt        - Prompt configuration (always loaded)"
     echo "  azure         - Azure tools (azv - Key Vault fuzzy finder)"
     echo "  aws           - AWS tools (apr, aws-auto-prompt, awsh - shell mode with pipes/redirects)"
+    echo "  kubernetes    - kubectl wiring (kubecolor, krew PATH, completion, kwhere)"
     echo "  pokemon       - Pokemon catching system (catch, pokemon_status, pokemon_help)"
     echo "  claude        - Claude agent launcher (fca - fuzzy agent + project picker)"
     echo ""
@@ -81,6 +82,7 @@ shell_loaded() {
     command -v ddsl >/dev/null && echo "  ✓ observability/datadog (ddsl, ddc, ddsl-config)"
     command -v azv >/dev/null && echo "  ✓ azure/keyvault (azv - Azure Key Vault fuzzy finder)"
     command -v apr >/dev/null && echo "  ✓ aws (apr, aws-auto-prompt, awsh - shell mode)"
+    command -v kwhere >/dev/null && echo "  ✓ kubernetes/functions (kubecolor wiring, kubectl completion, kwhere)"
     command -v catch >/dev/null && echo "  ✓ pokemon/functions (catch, pokemon_status, pokemon_help)"
     command -v fca >/dev/null && echo "  ✓ claude/agents (fca - Claude agent launcher)"
     

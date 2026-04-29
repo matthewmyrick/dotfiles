@@ -41,6 +41,7 @@ while [[ $# -gt 0 ]]; do
       echo "                            procrastinate - Procrastinate CLI tool"
       echo "                            git         - Git tools (gh, git, lazygit, auto-fetch)"
       echo "                            zshrc       - Zsh configuration (.zshrc, .aliases)"
+      echo "                            kubernetes  - kubectl, kubecolor, krew + plugins, stern, k9s"
       echo ""
       echo "  -h, --help              Show this help message"
       echo ""
@@ -62,12 +63,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|nvim-aws-secrets|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|procrastinate|git|zshrc)
+    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|nvim-aws-secrets|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|procrastinate|git|zshrc|kubernetes)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, nvim-aws-secrets, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, procrastinate, git, zshrc"
+      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, nvim-aws-secrets, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, procrastinate, git, zshrc, kubernetes"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -582,6 +583,49 @@ function installGitOnly() {
   echo "═══════════════════════════════════════════════════════════════"
   echo "🎉 Git tools installation completed!"
   echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+}
+
+function installKubernetesOnly() {
+  echo "🚀 Starting Kubernetes tools installation..."
+  echo ""
+
+  if [ -f "$INSTALL_DIR/install/clis/kubernetes.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "☸️  Installing kubectl, kubecolor, krew + plugins, stern, k9s..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/clis/kubernetes.sh" || {
+      echo "❌ Error installing Kubernetes tools"
+      return 1
+    }
+    echo "✅ Kubernetes tools installed successfully!"
+  else
+    echo "⚠️  Kubernetes installation script not found at $INSTALL_DIR/install/clis/kubernetes.sh"
+    return 1
+  fi
+
+  # Refresh shell modules so the kubernetes/functions.sh module is on disk
+  if [ -f "$INSTALL_DIR/install/dotfiles/scripts.sh" ]; then
+    echo ""
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "📜 Syncing shell modules (kubernetes wiring)..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/scripts.sh" || {
+      echo "⚠️  Warning: Error syncing shell modules"
+    }
+  fi
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Kubernetes installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Next Steps:"
+  echo "  1. source ~/.zshrc  (picks up kubecolor wrapper, krew PATH, completion)"
+  echo "  2. kubectl config get-contexts          # see available clusters"
+  echo "  3. kubectl config use-context <name>    # pick a cluster (no namespace yet)"
+  echo "  4. kwhere                                # confirm where you're pointed"
+  echo "  5. kubens <ns>                           # set a default ns when ready"
   echo ""
 }
 
@@ -1230,7 +1274,24 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
+  kubernetes)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                 KUBERNETES INSTALLER                         ║"
+    echo "║                                                               ║"
+    echo "║  This will install kubectl, kubecolor, krew + plugins,       ║"
+    echo "║  stern, k9s, and sync shell wiring.                          ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installKubernetesOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
 esac
 
 # Cleanup
-unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installNvimAwsSecretsOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installProcrastinateOnly installGitOnly installZshrcOnly
+unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installNvimAwsSecretsOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installProcrastinateOnly installGitOnly installZshrcOnly installKubernetesOnly

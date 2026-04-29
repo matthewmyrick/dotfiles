@@ -10,7 +10,7 @@ brew tap xo/xo
 BREW_PACKAGES=(
   git eza fd fzf zoxide
   zsh-autosuggestions zsh-syntax-highlighting
-  bat kubectx k9s neovim
+  bat kubectx k9s kubecolor stern neovim
   blueutil xmlstarlet golangci-lint
   jq ripgrep gh lazygit lazydocker
   btop lnav ripgrep nvm libpq
