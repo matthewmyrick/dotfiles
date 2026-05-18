@@ -1,0 +1,254 @@
+"""
+~/.xonshrc — clean xonsh setup
+
+No dotfiles port. Just:
+- A solid Python library bundle pre-imported on demand
+- xontribs for completion, fuzzy finding, prompt, command durations
+- AI helpers backed by the local `claude` CLI
+- A small set of universal aliases (no nvim-launcher / k8s / terraform stuff)
+"""
+
+import os
+import subprocess
+from pathlib import Path
+
+# ----------------------------------------------------------------------------
+# PATHS — Homebrew + common bin locations
+# ----------------------------------------------------------------------------
+HOMEBREW_PREFIX = '/opt/homebrew' if Path('/opt/homebrew/bin/brew').exists() else '/usr/local'
+$HOMEBREW_PREFIX = HOMEBREW_PREFIX
+
+for _p in [
+    f'{HOMEBREW_PREFIX}/bin',
+    f'{HOMEBREW_PREFIX}/sbin',
+    f'{os.path.expanduser("~")}/.cargo/bin',
+    f'{os.path.expanduser("~")}/.local/bin',
+]:
+    if Path(_p).is_dir() and _p not in $PATH:
+        $PATH.insert(0, _p)
+
+# ----------------------------------------------------------------------------
+# QUALITY-OF-LIFE SETTINGS
+# ----------------------------------------------------------------------------
+$TERM = 'xterm-256color'
+$XONSH_SHOW_TRACEBACK = True            # surface python tracebacks
+$XONSH_AUTOPAIR = True                  # auto-close brackets/quotes
+$AUTO_CD = True                         # `mydir` cds into mydir
+$COMPLETIONS_CONFIRM = True             # one enter after completion
+$XONSH_HISTORY_SIZE = (10000, 'commands')
+$UPDATE_OS_ENVIRON = True               # keep os.environ in sync with $
+$MULTILINE_PROMPT = '.'
+$XONSH_AUTOPAIR = True
+
+# ----------------------------------------------------------------------------
+# XONTRIBS — completion, fuzzy finding, prompt, command timing
+# ----------------------------------------------------------------------------
+$fzf_history_binding = "c-r"
+$fzf_ssh_binding = "c-s"
+$fzf_file_binding = "c-t"
+$fzf_dir_binding = "c-g"
+
+def _try_xontrib(name):
+    try:
+        __xonsh__.execer.exec(f'xontrib load {name}', glbs=globals())
+    except Exception as _e:
+        print(f'(skipped xontrib {name}: {_e})')
+
+for _x in ['jedi', 'abbrevs', 'cmd_done', 'readable-traceback',
+           'argcomplete', 'zoxide', 'fzf-widgets']:
+    _try_xontrib(_x)
+
+# ----------------------------------------------------------------------------
+# ALIASES — universal, non-tool-specific
+# ----------------------------------------------------------------------------
+
+# nicer defaults for ls / cat (only if the tools exist)
+if Path(f'{HOMEBREW_PREFIX}/bin/bat').exists():
+    aliases['cat'] = 'bat --paging=never'
+if Path(f'{HOMEBREW_PREFIX}/bin/eza').exists():
+    aliases['ls'] = 'eza --icons --git --group-directories-first'
+    aliases['ll'] = 'eza --icons --git --group-directories-first --long --all'
+    aliases['lst'] = 'eza --icons --git --group-directories-first --tree --level=2 --all'
+
+# directory navigation
+aliases['..'] = 'cd ..'
+aliases['...'] = 'cd ../..'
+aliases['....'] = 'cd ../../..'
+aliases['home'] = 'cd ~'
+
+# git basics
+aliases['g'] = 'git'
+aliases['gs'] = 'git status'
+aliases['ga'] = 'git add'
+aliases['gc'] = 'git commit -m'
+aliases['gd'] = 'git diff'
+aliases['gl'] = 'git log --oneline -20'
+aliases['gco'] = 'git checkout'
+aliases['gb'] = 'git branch'
+aliases['gf'] = 'git fetch'
+
+# python shortcuts
+aliases['py'] = 'python3'
+aliases['py3'] = 'python3'
+aliases['ipy'] = 'ipython'
+
+# ----------------------------------------------------------------------------
+# ABBREVIATIONS — expand inline as you type a space after them
+# (provided by xontrib-abbrevs)
+# ----------------------------------------------------------------------------
+abbrevs['gst'] = 'git status'
+abbrevs['gcb'] = 'git checkout -b'
+abbrevs['gdc'] = 'git diff --cached'
+abbrevs['gpsh'] = 'git push'
+abbrevs['gpll'] = 'git pull'
+abbrevs['glog'] = 'git log --oneline --graph --all -30'
+
+# ----------------------------------------------------------------------------
+# AI HELPERS — wrap the local `claude` CLI for inline AI in the shell
+# ----------------------------------------------------------------------------
+
+def _ai_ask(args):
+    """`ai <prompt>` — ask Claude a question, get a plain answer."""
+    if not args:
+        print("usage: ai <prompt>")
+        return
+    subprocess.run(['claude', '-p', ' '.join(args)])
+aliases['ai'] = _ai_ask
+
+def _ai_cmd(args):
+    """`?? <description>` — Claude suggests a shell command, then offers to run it."""
+    if not args:
+        print("usage: ?? <what you want to do>")
+        return
+    desc = ' '.join(args)
+    sys_prompt = (
+        "You are a shell command generator. Output ONLY a single shell command "
+        "that accomplishes what the user asks. No explanation, no markdown fences, "
+        "no quotes around the whole command. Just the command."
+    )
+    r = subprocess.run(
+        ['claude', '-p', f'{sys_prompt}\n\nUser request: {desc}'],
+        capture_output=True, text=True
+    )
+    cmd = r.stdout.strip().strip('`').strip()
+    if not cmd:
+        print(f"(no command returned)\n{r.stderr}")
+        return
+    print(f"\n  $ {cmd}\n")
+    try:
+        confirm = input("run? [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return
+    if confirm == 'y':
+        subprocess.run(cmd, shell=True)
+aliases['??'] = _ai_cmd
+
+def _ai_explain(args):
+    """`explain <command>` — Claude explains what a shell command does."""
+    if not args:
+        print("usage: explain <command>")
+        return
+    subprocess.run(['claude', '-p', f'Explain concisely what this shell command does: {" ".join(args)}'])
+aliases['explain'] = _ai_explain
+
+# ----------------------------------------------------------------------------
+# PYTHON LIB QUICK-IMPORT — `pyimport` populates the namespace with common libs
+# Saves typing `import pandas as pd; import requests; ...` every time.
+# ----------------------------------------------------------------------------
+
+def _pyimport(args):
+    """Pre-import the common data + web libs into the xonsh Python namespace."""
+    import importlib
+    mapping = {
+        'pd': 'pandas', 'np': 'numpy', 'pl': 'polars', 'duckdb': 'duckdb',
+        'requests': 'requests', 'httpx': 'httpx', 'bs4': 'bs4',
+        'rich': 'rich', 'typer': 'typer',
+        'openpyxl': 'openpyxl', 'yaml': 'yaml', 'json': 'json',
+        'Path': 'pathlib:Path', 're': 're', 'os': 'os', 'sys': 'sys',
+    }
+    loaded, failed = [], []
+    for alias_name, modspec in mapping.items():
+        try:
+            if ':' in modspec:
+                mod_name, attr = modspec.split(':')
+                __xonsh__.ctx[alias_name] = getattr(importlib.import_module(mod_name), attr)
+            else:
+                __xonsh__.ctx[alias_name] = importlib.import_module(modspec)
+            loaded.append(alias_name)
+        except ImportError:
+            failed.append(alias_name)
+    print(f"loaded: {', '.join(loaded)}")
+    if failed:
+        print(f"missing: {', '.join(failed)}")
+aliases['pyimport'] = _pyimport
+
+# ----------------------------------------------------------------------------
+# PROMPT — two-line, with git branch + venv + return-code indicator
+# ----------------------------------------------------------------------------
+$PROMPT = (
+    '\n'
+    '{INTENSE_WHITE}╭─ {BOLD_GREEN}{user}{RESET}'
+    '{INTENSE_BLACK} @ {RESET}{BOLD_INTENSE_YELLOW}{hostname}{RESET}'
+    '{env_name: 🐍 {INTENSE_GREEN}({}){RESET}}'
+    '{curr_branch: {INTENSE_BLACK} • {BOLD_INTENSE_PURPLE}{}{RESET}}'
+    '{INTENSE_BLACK} • {RESET}{BOLD_BLUE}{cwd}{RESET}\n'
+    '{WHITE}╰─{GREEN}❯ {RESET}'
+)
+$RIGHT_PROMPT = '{INTENSE_BLACK}{localtime}{RESET}'
+
+# ----------------------------------------------------------------------------
+# HELP — `xhelp` shows what's customized in this shell
+# ----------------------------------------------------------------------------
+
+def _xhelp(args):
+    print("""
+╭─ xonsh setup ────────────────────────────────────────────────────────────────
+│
+│ AI in the shell (uses local `claude` CLI):
+│   ai <prompt>           Ask Claude anything
+│   ?? <description>      Claude suggests + offers to run a command
+│   explain <cmd>         Claude explains a shell command
+│
+│ Python at your fingertips:
+│   pyimport              Loads pd, np, pl, requests, httpx, bs4, rich, etc.
+│   Then just use them:   pd.read_csv("data.csv"), requests.get(...), etc.
+│
+│ Pre-installed libs (just import them):
+│   pandas, polars, duckdb, openpyxl, xlsxwriter
+│   requests, httpx, beautifulsoup4 (bs4), lxml
+│   rich, typer, ipython, python-dotenv, pyyaml, tqdm
+│
+│ Aliases:
+│   ls, ll, lst           eza variants
+│   cat                   bat
+│   g, gs, ga, gc, gd, gl, gco, gb, gf   git shortcuts
+│   py, ipy               python / ipython
+│   .., ..., ....         up directories
+│
+│ Abbreviations (type + space to expand):
+│   gst → git status      gcb → git checkout -b
+│   gdc → git diff --cached      glog → git log graph
+│   gpsh → git push       gpll → git pull
+│
+│ Fuzzy keybindings (via xontrib-fzf-widgets):
+│   Ctrl-R   fuzzy command history
+│   Ctrl-T   fuzzy file picker
+│   Ctrl-G   fuzzy directory picker
+│   Ctrl-S   fuzzy ssh hosts
+│
+│ Smart cd (via xontrib-zoxide):
+│   z foo                 jump to most-visited dir matching "foo"
+│   zi                    interactive picker
+│
+│ Inline xonsh power:
+│   $VAR = "x"            set env var
+│   $(ls)                 run command, capture as string
+│   !(ls)                 run command, get CompletedCommand object
+│   for f in g`*.py`:     glob in Python
+│
+╰──────────────────────────────────────────────────────────────────────────────
+""")
+aliases['xhelp'] = _xhelp
+
+# Show a tiny startup hint (first time only-ish)
+print("xonsh ready. type `xhelp` for a reference card, or `pyimport` to load data libs.")

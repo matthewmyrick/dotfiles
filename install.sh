@@ -42,6 +42,7 @@ while [[ $# -gt 0 ]]; do
       echo "                            git         - Git tools (gh, git, lazygit, auto-fetch)"
       echo "                            zshrc       - Zsh configuration (.zshrc, .aliases)"
       echo "                            kubernetes  - kubectl, kubecolor, krew + plugins, stern, k9s"
+      echo "                            xonsh       - Xonsh shell + Python libs, xontribs, AI helpers"
       echo ""
       echo "  -h, --help              Show this help message"
       echo ""
@@ -63,12 +64,12 @@ done
 # Validate install target if provided
 if [[ -n "$INSTALL_TARGET" ]]; then
   case "$INSTALL_TARGET" in
-    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|nvim-aws-secrets|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|procrastinate|git|zshrc|kubernetes)
+    brew|nvim|nvim-dbee|nvim-postgres|nvim-aws-s3|nvim-aws-secrets|sketchybar|ghostty|scripts|hammerspoon|claude|prompt|ssm|procrastinate|git|zshrc|kubernetes|xonsh)
       # Valid target
       ;;
     *)
       echo "Error: Invalid install target '$INSTALL_TARGET'"
-      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, nvim-aws-secrets, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, procrastinate, git, zshrc, kubernetes"
+      echo "Valid targets: brew, nvim, nvim-dbee, nvim-postgres, nvim-aws-s3, nvim-aws-secrets, sketchybar, ghostty, scripts, hammerspoon, claude, prompt, ssm, procrastinate, git, zshrc, kubernetes, xonsh"
       echo "Run '$0 --help' for usage information"
       exit 1
       ;;
@@ -345,7 +346,7 @@ function installSketchybarOnly() {
 function installGhosttyOnly() {
   echo "🚀 Starting Ghostty terminal configuration installation..."
   echo ""
-  
+
   if [ -f "$INSTALL_DIR/install/dotfiles/ghostty.sh" ]; then
     echo "═══════════════════════════════════════════════════════════════"
     echo "🔄 Installing Ghostty configuration..."
@@ -359,13 +360,42 @@ function installGhosttyOnly() {
     echo "⚠️  Ghostty installation script not found"
     return 1
   fi
-  
+
   echo ""
   echo "═══════════════════════════════════════════════════════════════"
   echo "🎉 Ghostty installation completed!"
   echo "═══════════════════════════════════════════════════════════════"
   echo ""
   echo "📋 Configuration located at ~/.config/ghostty"
+  echo ""
+}
+
+function installXonshOnly() {
+  echo "🚀 Starting xonsh shell configuration installation..."
+  echo ""
+
+  if [ -f "$INSTALL_DIR/install/dotfiles/xonsh.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🔄 Installing xonsh configuration..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/xonsh.sh" || {
+      echo "❌ Error installing xonsh configuration"
+      return 1
+    }
+    echo "✅ xonsh configuration installed successfully!"
+  else
+    echo "⚠️  xonsh installation script not found"
+    return 1
+  fi
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "🎉 Xonsh installation completed!"
+  echo "═══════════════════════════════════════════════════════════════"
+  echo ""
+  echo "📋 Configuration located at ~/.xonshrc (linked to dotfiles/xonsh/xonshrc)"
+  echo "  - Launch with: xonsh"
+  echo "  - Reference card: type 'xhelp' inside xonsh"
   echo ""
 }
 
@@ -911,6 +941,17 @@ function installDotfiles() {
     echo ""
   fi
 
+  # Xonsh shell (in addition to numbered phases — opt-in alt shell)
+  if [ -f "$INSTALL_DIR/install/dotfiles/xonsh.sh" ]; then
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "🐚 Installing xonsh shell configuration..."
+    echo "═══════════════════════════════════════════════════════════════"
+    bash "$INSTALL_DIR/install/dotfiles/xonsh.sh" || {
+      echo "⚠️  Warning: Error installing xonsh"
+    }
+    echo ""
+  fi
+
   # Step 18: Hammerspoon
   ((current_step++))
   if [ -f "$INSTALL_DIR/install/dotfiles/hammerspoon.sh" ]; then
@@ -1126,6 +1167,23 @@ case "$INSTALL_TARGET" in
       exit 0
     fi
     ;;
+  xonsh)
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║                    XONSH INSTALLER                           ║"
+    echo "║                                                               ║"
+    echo "║  Installs xonsh + Python libs, xontribs, and AI helpers      ║"
+    echo "║  Symlinks ~/.xonshrc to dotfiles/xonsh/xonshrc               ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "Are you sure you want to proceed? (y/n) " -n 1
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      installXonshOnly
+    else
+      echo "Installation cancelled."
+      exit 0
+    fi
+    ;;
   scripts)
     echo "╔═══════════════════════════════════════════════════════════════╗"
     echo "║                   SCRIPTS INSTALLER                          ║"
@@ -1294,4 +1352,4 @@ case "$INSTALL_TARGET" in
 esac
 
 # Cleanup
-unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installNvimAwsSecretsOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installProcrastinateOnly installGitOnly installZshrcOnly installKubernetesOnly
+unset installDotfiles installNvimOnly installNvimDbeeOnly installNvimPostgresOnly installNvimAwsS3Only installNvimAwsSecretsOnly installBrewOnly installSketchybarOnly installGhosttyOnly installScriptsOnly installHammerspoonOnly installClaudeCommandsOnly installPromptOnly installSsmOnly installProcrastinateOnly installGitOnly installZshrcOnly installKubernetesOnly installXonshOnly
