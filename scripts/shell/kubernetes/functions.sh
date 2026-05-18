@@ -236,6 +236,26 @@ khelp() {
     "keerra"  "kubectl events -A --types=Warn." "all namespaces, warnings only"
 
   print
+  print -r -- "${b}networking — overview${r}  ${g}(AWS/EKS aware)${r}"
+  printf "  %-10s ${d}%-32s${r} ${c}%s${r}\n" \
+    "knet"    "summary"                         "context, nodes, svcs, ingress, netpol, warns" \
+    "kaws"    "aws eks describe-cluster"        "VPC, subnets, SGs (current EKS context)" \
+    "knodes"  "kubectl + ec2 describe-instances" "nodes ↔ subnet/AZ/type/IP" \
+    "ksvc"    "kubectl get svc + endpoints"     "services with backing pods" \
+    "kning"   "kubectl get ingress"             "ingresses + classes" \
+    "kep"     "endpoints picker"                "kep ⇒ fzf svc → backing pods"
+
+  print
+  print -r -- "${b}networking — drill-down${r}  ${g}(connectivity detail)${r}"
+  printf "  %-10s ${d}%-32s${r} ${c}%s${r}\n" \
+    "kcidrs"   "every IP range in play"         "pod/svc/VPC/subnet CIDRs" \
+    "kports"   "all svc ports cluster-wide"     "ns/svc/port/protocol/target" \
+    "kconn"    "pod connectivity report"        "kconn ⇒ pick pod (IPs, svcs, policies)" \
+    "ksvcconn" "service connectivity report"    "ksvcconn ⇒ pick svc (ports, endpoints)" \
+    "kpolexp"  "explain a network policy"       "kpolexp ⇒ pick netpol (parsed rules)" \
+    "knetpol"  "kubectl describe netpol"        "knetpol ⇒ fzf pick netpol (raw)"
+
+  print
   print -r -- "${b}apply / change${r}"
   printf "  %-10s ${d}%-32s${r} ${c}%s${r}\n" \
     "ka"      "kubectl apply -f . -R"           "apply every yaml here, recursive"
