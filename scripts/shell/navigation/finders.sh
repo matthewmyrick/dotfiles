@@ -451,6 +451,7 @@ ffb() {
 # Usage:
 #   gd <file_path>       Copy a file/dir into a fuzzy-selected Drive folder.
 #   gd create [name]     Create a new folder inside a fuzzy-selected parent.
+unalias gd 2>/dev/null
 gd() {
     # Root at "My Drive" so fzf only surfaces user-owned folders, not
     # "Other computers" or "Shared drives".
