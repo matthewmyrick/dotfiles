@@ -230,23 +230,6 @@ sketchybar --set network label="${NET_PERCENT}%" label.color="$COLOR" icon.color
 '
 
 
-# Spotify (moved to left side)
-sketchybar --add item spotify left \
-           --set spotify update_freq=2 \
-                        icon=🎵 \
-                        icon.font="SF Pro:Regular:16.0" \
-                        label.font="SF Pro:Regular:13.0" \
-                        label.max_chars=50 \
-                        script='
-TRACK=$(osascript -e "tell application \"Spotify\" to if player state is playing then return name of current track" 2>/dev/null)
-if [[ -n "$TRACK" ]]; then
-  # Show full track name (up to 50 chars max)
-  sketchybar --set spotify label="$TRACK" drawing=on
-else
-  sketchybar --set spotify drawing=off
-fi
-'
-
 # Disk Usage (SSD)
 sketchybar --add item disk left \
            --set disk update_freq=600 \
@@ -264,6 +247,23 @@ else
 fi
 
 sketchybar --set disk label="${DISK_PERCENT}%" label.color="$COLOR" icon.color="$COLOR"
+'
+
+# Spotify (rightmost item on the left side)
+sketchybar --add item spotify left \
+           --set spotify update_freq=2 \
+                        icon=🎵 \
+                        icon.font="SF Pro:Regular:16.0" \
+                        label.font="SF Pro:Regular:13.0" \
+                        label.max_chars=50 \
+                        script='
+TRACK=$(osascript -e "tell application \"Spotify\" to if player state is playing then return name of current track" 2>/dev/null)
+if [[ -n "$TRACK" ]]; then
+  # Show full track name (up to 50 chars max)
+  sketchybar --set spotify label="$TRACK" drawing=on
+else
+  sketchybar --set spotify drawing=off
+fi
 '
 
 sketchybar --add event window_focus \
