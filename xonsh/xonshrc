@@ -38,7 +38,20 @@ $COMPLETIONS_CONFIRM = True             # one enter after completion
 $XONSH_HISTORY_SIZE = (10000, 'commands')
 $UPDATE_OS_ENVIRON = True               # keep os.environ in sync with $
 $MULTILINE_PROMPT = '.'
-$XONSH_AUTOPAIR = True
+
+# --- AUTOCOMPLETE / SUGGESTIONS ---
+# Ghost-text suggestions from history (like zsh-autosuggestions).
+# As you type, the rest of a matching previous command appears in gray.
+# Press Right-Arrow or End to accept, Alt-F to accept one word at a time.
+$XONSH_PROMPT_AUTO_SUGGEST = True        # (renamed from $AUTO_SUGGEST)
+$AUTO_SUGGEST_IN_COMPLETIONS = True      # also surface them in the tab-menu
+
+# Tab-completion behavior
+$COMPLETIONS_MENU_ROWS = 7               # show 7 rows in completion menu
+$COMPLETIONS_BRACKETS = True             # complete matching brackets
+$COMPLETION_IN_THREAD = True             # don't block prompt during completion
+$COMPLETION_QUERY_LIMIT = 100            # ask before showing >100 matches
+$BOTTOM_TOOLBAR = ''                     # keep bottom clean
 
 # ----------------------------------------------------------------------------
 # XONTRIBS — completion, fuzzy finding, prompt, command timing
@@ -150,6 +163,41 @@ def _ai_explain(args):
         return
     subprocess.run(['claude', '-p', f'Explain concisely what this shell command does: {" ".join(args)}'])
 aliases['explain'] = _ai_explain
+aliases['e'] = _ai_explain
+
+# ----------------------------------------------------------------------------
+# AI KEYBINDING — Ctrl-X then A on the prompt line
+# Type a description, press Ctrl-X Ctrl-A, the line is replaced with a
+# Claude-generated shell command. Then review and hit Enter to run.
+# ----------------------------------------------------------------------------
+@events.on_ptk_create
+def _ai_keybindings(prompter, history, completer, bindings, **kw):
+    @bindings.add('c-x', 'c-a')
+    def _expand_to_command(event):
+        buf = event.current_buffer
+        text = buf.text.strip()
+        if not text:
+            return
+        sys_prompt = (
+            "You are a shell command generator. Output ONLY a single shell "
+            "command that accomplishes what the user asks. No explanation, "
+            "no markdown fences, no quotes around the whole command."
+        )
+        try:
+            r = subprocess.run(
+                ['claude', '-p', f'{sys_prompt}\n\nUser request: {text}'],
+                capture_output=True, text=True, timeout=30
+            )
+            cmd = r.stdout.strip().strip('`').strip()
+            # strip a leading "bash"/"sh" wrapper if Claude added one
+            for prefix in ('```bash\n', '```sh\n', '```\n'):
+                if cmd.startswith(prefix):
+                    cmd = cmd[len(prefix):].rstrip('`').strip()
+            if cmd:
+                buf.text = cmd
+                buf.cursor_position = len(cmd)
+        except Exception:
+            pass
 
 # ----------------------------------------------------------------------------
 # PYTHON LIB QUICK-IMPORT — `pyimport` populates the namespace with common libs
@@ -207,7 +255,15 @@ def _xhelp(args):
 │ AI in the shell (uses local `claude` CLI):
 │   ai <prompt>           Ask Claude anything
 │   ?? <description>      Claude suggests + offers to run a command
-│   explain <cmd>         Claude explains a shell command
+│   explain <cmd>         Claude explains a shell command (alias: e)
+│   Ctrl-X Ctrl-A         Type a description on the prompt, hit this to
+│                         replace it with a Claude-generated command
+│
+│ Autocomplete:
+│   <TAB>                 Tab completion (Python-aware via jedi)
+│   →  /  End             Accept the gray "ghost" suggestion from history
+│   Alt-F                 Accept just the next word of the suggestion
+│   Ctrl-Space            Force-show completion menu
 │
 │ Python at your fingertips:
 │   pyimport              Loads pd, np, pl, requests, httpx, bs4, rich, etc.

@@ -1507,8 +1507,8 @@ ghrnew() {
       echo "✅ Repository cloned to $repo_path"
 
       echo
-      read -r "open_repo?Open repository in browser? (y/n) [y]: "
-      open_repo="${open_repo:-y}"
+      read -r "open_repo?Open repository in browser? (y/n) [n]: "
+      open_repo="${open_repo:-n}"
 
       if [[ "$open_repo" == "y" ]]; then
         echo "🌐 Opening repository in browser..."
@@ -1516,20 +1516,27 @@ ghrnew() {
       fi
 
       echo
-      read -r "cd_repo?Navigate to repository directory? (y/n) [y]: "
-      cd_repo="${cd_repo:-y}"
+      read -r "cd_repo?Navigate to repository directory? (y/n) [n]: "
+      cd_repo="${cd_repo:-n}"
 
       if [[ "$cd_repo" == "y" ]]; then
         echo "📂 Navigating to $repo_path"
         cd "$repo_path"
+
+        if command -v ttn &>/dev/null; then
+          ttn "$repo_name"
+        fi
+
+        export NVIM_TUI_ENABLE_TITLE=0
+        nvim --cmd "set notitle" .
       fi
     else
       echo "⚠️  Failed to clone repository to $repo_path"
     fi
   else
     echo
-    read -r "open_repo?Open repository in browser? (y/n) [y]: "
-    open_repo="${open_repo:-y}"
+    read -r "open_repo?Open repository in browser? (y/n) [n]: "
+    open_repo="${open_repo:-n}"
 
     if [[ "$open_repo" == "y" ]]; then
       echo "🌐 Opening repository in browser..."

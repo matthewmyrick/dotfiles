@@ -1,0 +1,37 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "ghostty-tabs",
+  "title": "Ghostty Tabs",
+  "description": "Fuzzy-search and switch between open Ghostty tabs.",
+  "icon": "command-icon.png",
+  "author": "matthew_myrick",
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "switch-tab",
+      "title": "Switch Ghostty Tab",
+      "subtitle": "Ghostty",
+      "description": "List all open Ghostty tabs and jump to one.",
+      "mode": "view"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.83.0",
+    "@raycast/utils": "^1.18.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "20.8.10",
+    "@types/react": "18.3.3",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}
